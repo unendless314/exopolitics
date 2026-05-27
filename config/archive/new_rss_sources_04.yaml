@@ -1,0 +1,13 @@
+sources:
+- title: 宇宙的心弦 - 细推物理须行乐 何用浮名绊此身
+  xml_url: https://www.physixfan.com/feed/
+  html_url: https://www.physixfan.com/
+  category_id: 3
+  enabled: true
+  id: 92
+- title: 卢昌海个人主页
+  xml_url: https://www.changhai.org/feed.xml
+  html_url: https://www.changhai.org/
+  category_id: 3
+  enabled: true
+  id: 100

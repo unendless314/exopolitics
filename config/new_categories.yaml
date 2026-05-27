@@ -1,0 +1,25 @@
+schema_version: 2
+category_policy:
+  purpose: semantic_label_only
+  scheduling_decoupled: true
+  description: category_id expresses topical grouping only. Fetch cadence and parallel
+    shards are defined in source config.
+categories:
+  0:
+    name: Disabled & Unrelated (禁用與無關排除)
+    enabled: false
+  1:
+    name: Government Policy & Official Disclosure (政府決策與官方解密)
+    enabled: true
+  2:
+    name: Civilian Investigation & Databases (民間調查與數據庫)
+    enabled: true
+  3:
+    name: Scientific Verification & Frontier Research (科學驗證與前沿研究)
+    enabled: true
+  4:
+    name: Public Sightings & Community Discussion (大眾目擊與社群輿論)
+    enabled: true
+  5:
+    name: Speculative Hypotheses & Editorial Commentaries (假說探索與專欄評論)
+    enabled: true

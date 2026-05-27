@@ -1,0 +1,13 @@
+sources:
+- title: 果壳网
+  xml_url: https://plink.anyfeeder.com/weixin/Guokr42
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 288
+- title: 利维坦
+  xml_url: https://plink.anyfeeder.com/weixin/liweitan2014
+  html_url: ''
+  category_id: 5
+  enabled: true
+  id: 293

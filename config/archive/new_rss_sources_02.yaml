@@ -1,0 +1,25 @@
+sources:
+- title: Nature
+  xml_url: https://www.nature.com/nature.rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 37
+- title: Phys.org - latest science and technology news stories
+  xml_url: https://phys.org/rss-feed/
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 38
+- title: 'Scientific American Content: Global'
+  xml_url: http://rss.sciam.com/ScientificAmerican-Global
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 46
+- title: 阮一峰的网络日志
+  xml_url: https://feeds.feedburner.com/ruanyifeng
+  html_url: https://www.ruanyifeng.com/blog/
+  category_id: 5
+  enabled: true
+  id: 60

@@ -1,0 +1,704 @@
+schema_version: 2
+schedule_classes:
+  hourly:
+    target_interval_minutes: 60
+    description: High-signal sources that may require near-real-time monitoring.
+  daily:
+    target_interval_minutes: 1440
+    description: Default cadence for the majority of sources.
+  slow:
+    target_interval_minutes: 4320
+    description: Low-frequency or fragile sources that should be crawled less often.
+fetch_groups:
+  strategy: round_robin_by_source_id
+  count: 8
+  description: Execution shards used for parallel fetching. Independent from category_id.
+sources:
+- title: MUFON (Mutual UFO Network)
+  xml_url: https://mufon.com/feed/
+  html_url: https://mufon.com/
+  category_id: 2
+  enabled: true
+  id: 1
+  fetch_group: 1
+  schedule_class: daily
+- title: UFO FOTOCAT BLOG
+  xml_url: https://fotocat.blogspot.com/feeds/posts/default?alt=rss
+  html_url: https://fotocat.blogspot.com/
+  category_id: 2
+  enabled: true
+  id: 2
+  fetch_group: 2
+  schedule_class: daily
+- title: Bad UFOs (Scientific Skepticism)
+  xml_url: https://feeds.feedburner.com/BadUfosSkepticismUfosAndTheUniverse-ByRobertSheaffer
+  html_url: https://badufos.blogspot.com/
+  category_id: 3
+  enabled: true
+  id: 3
+  fetch_group: 3
+  schedule_class: daily
+- title: Unidentified Aerial Phenomena Research
+  xml_url: https://ufos-scientificresearch.blogspot.com/feeds/posts/default?alt=rss
+  html_url: https://ufos-scientificresearch.blogspot.com/
+  category_id: 3
+  enabled: true
+  id: 4
+  fetch_group: 4
+  schedule_class: daily
+- title: theozfiles (Forensic Anomaly)
+  xml_url: https://theozfiles.blogspot.com/feeds/posts/default?alt=rss
+  html_url: https://theozfiles.blogspot.com/
+  category_id: 3
+  enabled: true
+  id: 5
+  fetch_group: 5
+  schedule_class: daily
+- title: NewsNation » UFO
+  xml_url: https://www.newsnationnow.com/space/ufo/feed/
+  html_url: https://www.newsnationnow.com/space/ufo/
+  category_id: 1
+  enabled: true
+  id: 6
+  fetch_group: 6
+  schedule_class: hourly
+- title: The Black Vault Case Files (FOIA)
+  xml_url: https://www.theblackvault.com/casefiles/feed/
+  html_url: https://www.theblackvault.com/
+  category_id: 1
+  enabled: true
+  id: 7
+  fetch_group: 7
+  schedule_class: daily
+- title: Openminds.tv
+  xml_url: https://openminds.tv/feed/
+  html_url: https://openminds.tv/
+  category_id: 1
+  enabled: true
+  id: 8
+  fetch_group: 8
+  schedule_class: daily
+- title: Earthfiles.com (Linda Moulton Howe)
+  xml_url: https://www.earthfiles.com/feed/
+  html_url: https://www.earthfiles.com/
+  category_id: 5
+  enabled: true
+  id: 9
+  fetch_group: 1
+  schedule_class: daily
+- title: New York Post » UFOs
+  xml_url: https://nypost.com/tag/ufos/feed/
+  html_url: https://nypost.com/tag/ufos/
+  category_id: 1
+  enabled: true
+  id: 10
+  fetch_group: 2
+  schedule_class: daily
+- title: Latest-UFO-Sightings
+  xml_url: https://www.latest-ufo-sightings.net/feed/atom
+  html_url: https://www.latest-ufo-sightings.net/
+  category_id: 4
+  enabled: true
+  id: 11
+  fetch_group: 3
+  schedule_class: daily
+- title: The UFO Chronicles
+  xml_url: https://feeds.feedburner.com/TheUFOChronicles
+  html_url: https://www.theufochronicles.com/
+  category_id: 5
+  enabled: true
+  id: 12
+  fetch_group: 4
+  schedule_class: daily
+- title: UFO Sightings Hotspot
+  xml_url: http://ufosightingshotspot.blogspot.com/feeds/posts/default
+  html_url: http://ufosightingshotspot.blogspot.com/
+  category_id: 4
+  enabled: true
+  id: 13
+  fetch_group: 5
+  schedule_class: daily
+- title: A Different Perspective (Kevin Randle)
+  xml_url: http://kevinrandle.blogspot.com/feeds/posts/default
+  html_url: http://kevinrandle.blogspot.com/
+  category_id: 5
+  enabled: true
+  id: 14
+  fetch_group: 6
+  schedule_class: daily
+- title: UFOnutt Blog (Chuck Zukowski)
+  xml_url: https://www.ufonut.com/feed/
+  html_url: https://www.ufonut.com/the-ufonut-blog/
+  category_id: 2
+  enabled: true
+  id: 15
+  fetch_group: 7
+  schedule_class: daily
+- title: UFO Sightings Daily
+  xml_url: https://www.ufosightingsdaily.com/feeds/posts/default
+  html_url: https://www.ufosightingsdaily.com/
+  category_id: 4
+  enabled: true
+  id: 16
+  fetch_group: 8
+  schedule_class: daily
+- title: UFO MatriX
+  xml_url: https://www.ufomatrix.org/feeds/posts/default
+  html_url: https://www.ufomatrix.org/
+  category_id: 5
+  enabled: true
+  id: 17
+  fetch_group: 1
+  schedule_class: daily
+- title: Spectral Vision
+  xml_url: https://spectralvision.wordpress.com/feed/
+  html_url: https://spectralvision.wordpress.com/
+  category_id: 3
+  enabled: true
+  id: 18
+  fetch_group: 2
+  schedule_class: daily
+- title: Reddit r/UFOs Community Feed
+  xml_url: https://www.reddit.com/r/UFOs/.rss
+  html_url: https://www.reddit.com/r/UFOs/
+  category_id: 4
+  enabled: true
+  id: 19
+  fetch_group: 3
+  schedule_class: daily
+- title: '/r/space: news, articles and discussion'
+  xml_url: https://www.reddit.com/r/space/.rss?format=xml
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 20
+  fetch_group: 4
+  schedule_class: daily
+- title: NASA Breaking News
+  xml_url: https://www.nasa.gov/rss/dyn/breaking_news.rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 21
+  fetch_group: 5
+  schedule_class: daily
+- title: New Scientist - Space
+  xml_url: https://www.newscientist.com/subject/space/feed/
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 22
+  fetch_group: 6
+  schedule_class: daily
+- title: Sky & Telescope
+  xml_url: https://www.skyandtelescope.com/feed/
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 23
+  fetch_group: 7
+  schedule_class: daily
+- title: Space | The Guardian
+  xml_url: https://www.theguardian.com/science/space/rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 24
+  fetch_group: 8
+  schedule_class: daily
+- title: Space.com
+  xml_url: https://www.space.com/feeds/all
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 25
+  fetch_group: 1
+  schedule_class: daily
+- title: Nature
+  xml_url: https://www.nature.com/nature.rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 26
+  fetch_group: 2
+  schedule_class: daily
+- title: Phys.org - latest science and technology news stories
+  xml_url: https://phys.org/rss-feed/
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 27
+  fetch_group: 3
+  schedule_class: daily
+- title: 'Scientific American Content: Global'
+  xml_url: http://rss.sciam.com/ScientificAmerican-Global
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 28
+  fetch_group: 4
+  schedule_class: daily
+- title: 阮一峰的网络日志
+  xml_url: https://feeds.feedburner.com/ruanyifeng
+  html_url: https://www.ruanyifeng.com/blog/
+  category_id: 5
+  enabled: true
+  id: 29
+  fetch_group: 5
+  schedule_class: daily
+- title: 宇宙的心弦 - 细推物理须行乐 何用浮名绊此身
+  xml_url: https://www.physixfan.com/feed/
+  html_url: https://www.physixfan.com/
+  category_id: 3
+  enabled: true
+  id: 30
+  fetch_group: 6
+  schedule_class: daily
+- title: 卢昌海个人主页
+  xml_url: https://www.changhai.org/feed.xml
+  html_url: https://www.changhai.org/
+  category_id: 3
+  enabled: true
+  id: 31
+  fetch_group: 7
+  schedule_class: daily
+- title: 奇客Solidot–传递最新科技情报
+  xml_url: https://www.solidot.org/index.rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 32
+  fetch_group: 8
+  schedule_class: daily
+- title: '[http://plink.anyfeeder.com/weixin/almosthuman2014](http://plink.anyfeeder.com/weixin/almosthuman2014)'
+  xml_url: https://www.ifeed.cc/discover?q=plink.anyfeeder.com/weixin/almosthuman2014
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 33
+  fetch_group: 1
+  schedule_class: daily
+- title: '[http://plink.anyfeeder.com/weixin/The-Intellectual](http://plink.anyfeeder.com/weixin/The-Intellectual)'
+  xml_url: https://www.ifeed.cc/discover?q=plink.anyfeeder.com/weixin/The-Intellectual
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 34
+  fetch_group: 2
+  schedule_class: daily
+- title: MIT 科技评论 - 本周热榜
+  xml_url: https://plink.anyfeeder.com/mittrchina/hot
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 35
+  fetch_group: 3
+  schedule_class: daily
+- title: 果壳网
+  xml_url: https://plink.anyfeeder.com/weixin/Guokr42
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 36
+  fetch_group: 4
+  schedule_class: daily
+- title: 利维坦
+  xml_url: https://plink.anyfeeder.com/weixin/liweitan2014
+  html_url: ''
+  category_id: 5
+  enabled: true
+  id: 37
+  fetch_group: 5
+  schedule_class: daily
+- title: 微软研究院AI头条
+  xml_url: https://plink.anyfeeder.com/weixin/MSRAsia
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 38
+  fetch_group: 6
+  schedule_class: daily
+- title: 新智元
+  xml_url: https://plink.anyfeeder.com/weixin/AI_era
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 39
+  fetch_group: 7
+  schedule_class: daily
+- title: 稚晖君 的 bilibili 动态
+  xml_url: https://rsshub.app/bilibili/user/dynamic/20259914
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 40
+  fetch_group: 8
+  schedule_class: daily
+- title: 科学松鼠会
+  xml_url: https://plink.anyfeeder.com/weixin/SquirrelClub
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 41
+  fetch_group: 1
+  schedule_class: daily
+- title: 环球科学
+  xml_url: https://plink.anyfeeder.com/weixin/ScientificAmerican
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 42
+  fetch_group: 2
+  schedule_class: daily
+- title: 地球知识局
+  xml_url: https://plink.anyfeeder.com/weixin/diqiuzhishiju
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 43
+  fetch_group: 3
+  schedule_class: daily
+- title: 中国国家地理
+  xml_url: https://plink.anyfeeder.com/weixin/dili360
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 44
+  fetch_group: 4
+  schedule_class: daily
+- title: caoz的梦呓
+  xml_url: https://plink.anyfeeder.com/weixin/caozsay
+  html_url: ''
+  category_id: 5
+  enabled: true
+  id: 45
+  fetch_group: 5
+  schedule_class: daily
+- title: X博士
+  xml_url: https://plink.anyfeeder.com/weixin/doctorx666
+  html_url: ''
+  category_id: 5
+  enabled: true
+  id: 46
+  fetch_group: 6
+  schedule_class: daily
+- title: cnBeta
+  xml_url: https://plink.anyfeeder.com/cnbeta
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 47
+  fetch_group: 7
+  schedule_class: daily
+- title: 果壳网 科学人
+  xml_url: https://plink.anyfeeder.com/guokr/scientific
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 48
+  fetch_group: 8
+  schedule_class: daily
+- id: 49
+  category_id: 3
+  title: SETI Institute News
+  xml_url: https://www.seti.org/rss.xml
+  html_url: https://www.seti.org/
+  enabled: true
+  fetch_group: 1
+  schedule_class: daily
+- id: 50
+  category_id: 3
+  title: NASA Astrobiology
+  xml_url: https://astrobiology.nasa.gov/news/rss/
+  html_url: https://astrobiology.nasa.gov/
+  enabled: true
+  fetch_group: 2
+  schedule_class: daily
+- id: 51
+  category_id: 3
+  title: The Anomalous Review (SCU)
+  xml_url: https://media.rss.com/anomalousreview/feed.xml
+  html_url: https://www.explorescu.org/
+  enabled: true
+  fetch_group: 3
+  schedule_class: daily
+- id: 52
+  category_id: 3
+  title: Sol Foundation Updates
+  xml_url: https://thesolfoundation.org/feed/
+  html_url: https://thesolfoundation.org/
+  enabled: true
+  fetch_group: 4
+  schedule_class: daily
+- id: 53
+  category_id: 3
+  title: Astrobiology Web
+  xml_url: https://astrobiology.com/feed
+  html_url: https://astrobiology.com/
+  enabled: true
+  fetch_group: 5
+  schedule_class: daily
+- id: 54
+  category_id: 3
+  title: Harvard Galileo Project
+  xml_url: https://projects.iq.harvard.edu/galileo/feed
+  html_url: https://projects.iq.harvard.edu/galileo/
+  enabled: true
+  fetch_group: 6
+  schedule_class: daily
+- id: 55
+  category_id: 1
+  title: AARO Official Releases (DOD)
+  xml_url: https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?max=10&Categories=UAP
+  html_url: https://www.aaro.mil/
+  enabled: true
+  fetch_group: 7
+  schedule_class: hourly
+- id: 56
+  category_id: 1
+  title: GEIPAN (CNES)
+  xml_url: https://www.cnes-geipan.fr/en/rss.xml
+  html_url: https://www.cnes-geipan.fr/
+  enabled: true
+  fetch_group: 8
+  schedule_class: daily
+- id: 57
+  category_id: 1
+  title: FBI The Vault (Unexplained Phenomenon)
+  xml_url: https://vault.fbi.gov/unexplained-phenomenon/rss.xml
+  html_url: https://vault.fbi.gov/
+  enabled: true
+  fetch_group: 1
+  schedule_class: daily
+- id: 58
+  category_id: 1
+  title: UK National Archives (UFO)
+  xml_url: https://discovery.nationalarchives.gov.uk/results/rss?_q=UFO
+  html_url: https://discovery.nationalarchives.gov.uk/
+  enabled: true
+  fetch_group: 2
+  schedule_class: daily
+- id: 59
+  category_id: 1
+  title: US Dept of Energy (DOE) Updates
+  xml_url: https://www.energy.gov/rss.xml
+  html_url: https://www.energy.gov/
+  enabled: true
+  fetch_group: 3
+  schedule_class: daily
+- id: 60
+  category_id: 3
+  title: The Debrief
+  xml_url: https://thedebrief.org/category/science/feed/
+  html_url: https://thedebrief.org/
+  enabled: true
+  fetch_group: 4
+  schedule_class: daily
+- id: 61
+  category_id: 3
+  title: Space.com (Space Exploration)
+  xml_url: https://www.space.com/feeds/tag/space-exploration
+  html_url: https://www.space.com/
+  enabled: true
+  fetch_group: 5
+  schedule_class: daily
+- id: 62
+  category_id: 3
+  title: Scientific American (Space & Physics)
+  xml_url: https://www.scientificamerican.com/platform/syndication/rss/
+  html_url: https://www.scientificamerican.com/
+  enabled: true
+  fetch_group: 6
+  schedule_class: daily
+- id: 63
+  category_id: 3
+  title: Popular Mechanics (Space)
+  xml_url: https://www.popularmechanics.com/rss/all.xml
+  html_url: https://www.popularmechanics.com/
+  enabled: true
+  fetch_group: 7
+  schedule_class: daily
+- id: 64
+  category_id: 3
+  title: Universe Today (Astrobiology)
+  xml_url: https://www.universetoday.com/category/astrobiology/feed/
+  html_url: https://www.universetoday.com/
+  enabled: true
+  fetch_group: 8
+  schedule_class: daily
+- id: 65
+  category_id: 2
+  title: The Black Vault Document Archive
+  xml_url: https://www.theblackvault.com/documentarchive/feed/
+  html_url: https://www.theblackvault.com/
+  enabled: true
+  fetch_group: 1
+  schedule_class: daily
+- id: 66
+  category_id: 4
+  title: WEAPONIZED with Jeremy Corbell & George Knapp
+  xml_url: https://feeds.megaphone.fm/weaponized
+  html_url: https://weaponizedpodcast.com/
+  enabled: true
+  fetch_group: 2
+  schedule_class: daily
+- id: 67
+  category_id: 4
+  title: Need to Know Podcast
+  xml_url: https://feeds.libsyn.com/515038/rss
+  html_url: https://needtoknow.today/
+  enabled: true
+  fetch_group: 3
+  schedule_class: daily
+- id: 68
+  category_id: 5
+  title: Theories of Everything with Curt Jaimungal
+  xml_url: https://feeds.megaphone.fm/1d42db5b-97e2-53b8-8d26-0a11eb4106a6
+  html_url: https://theoriesofeverything.org/
+  enabled: true
+  fetch_group: 4
+  schedule_class: daily
+- id: 69
+  category_id: 5
+  title: The Micah Hanks Program
+  xml_url: https://gralienreport.libsyn.com/rss
+  html_url: https://micahhanks.com/
+  enabled: true
+  fetch_group: 5
+  schedule_class: daily
+- id: 70
+  category_id: 4
+  title: UFO Chronicles Podcast
+  xml_url: https://www.spreaker.com/show/3395068/episodes/feed
+  html_url: https://www.ufochronicles.com/
+  enabled: true
+  fetch_group: 6
+  schedule_class: daily
+- id: 71
+  category_id: 4
+  title: That UFO Podcast
+  xml_url: https://audioboom.com/channels/5024014.rss
+  html_url: https://twitter.com/That_UFO
+  enabled: true
+  fetch_group: 7
+  schedule_class: daily
+- id: 72
+  category_id: 4
+  title: UAP Unidentified Alien Podcast
+  xml_url: https://rss.art19.com/uap-unidentified-alien-podcast
+  html_url: https://art19.com/shows/uap-unidentified-alien-podcast
+  enabled: true
+  fetch_group: 8
+  schedule_class: daily
+- id: 73
+  category_id: 4
+  title: Somewhere in the Skies
+  xml_url: https://feeds.megaphone.fm/somewhereintheskies
+  html_url: https://www.somewhereintheskies.com/
+  enabled: true
+  fetch_group: 1
+  schedule_class: daily
+- id: 74
+  category_id: 5
+  title: The Guardian (Space & Science)
+  xml_url: https://www.theguardian.com/science/space/rss
+  html_url: https://www.theguardian.com/
+  enabled: true
+  fetch_group: 2
+  schedule_class: daily
+- id: 75
+  category_id: 5
+  title: CBS News (Latest/Space)
+  xml_url: https://www.cbsnews.com/latest/rss/main
+  html_url: https://www.cbsnews.com/
+  enabled: true
+  fetch_group: 3
+  schedule_class: daily
+- id: 76
+  category_id: 5
+  title: CNN Science & Space
+  xml_url: http://rss.cnn.com/rss/edition_space.rss
+  html_url: https://www.cnn.com/
+  enabled: true
+  fetch_group: 4
+  schedule_class: daily
+- id: 77
+  category_id: 5
+  title: Reuters (Science News)
+  xml_url: http://feeds.reuters.com/reuters/scienceNews
+  html_url: https://www.reuters.com/
+  enabled: true
+  fetch_group: 5
+  schedule_class: daily
+- id: 78
+  category_id: 5
+  title: HuffPost (Tech & UFOs)
+  xml_url: http://www.huffingtonpost.co.uk/news/tech/feed/
+  html_url: https://www.huffingtonpost.co.uk/
+  enabled: true
+  fetch_group: 6
+  schedule_class: daily
+- id: 79
+  category_id: 5
+  title: JPost (International Defense)
+  xml_url: https://www.jpost.com/rss/rssfeedsinternational
+  html_url: https://www.jpost.com/
+  enabled: true
+  fetch_group: 7
+  schedule_class: daily
+- id: 80
+  category_id: 5
+  title: News4JAX (Military/Local Tracking)
+  xml_url: https://www.news4jax.com/arc/outboundfeeds/rss/
+  html_url: https://www.news4jax.com/
+  enabled: true
+  fetch_group: 8
+  schedule_class: daily
+- id: 81
+  category_id: 4
+  title: 'Google News: UAP & Non-Human Intelligence'
+  xml_url: https://news.google.com/rss/search?q=%22UAP%22+OR+%22UFO%22+OR+%22Non-Human+Intelligence%22&hl=en-US&gl=US&ceid=US:en
+  html_url: https://news.google.com/
+  enabled: true
+  fetch_group: 1
+  schedule_class: hourly
+- id: 82
+  category_id: 1
+  title: 'Google News: Pentagon AARO & Bureaucracy'
+  xml_url: https://news.google.com/rss/search?q=%22Unidentified+Anomalous+Phenomena%22+AARO+OR+Pentagon+OR+Congress&hl=en-US&gl=US&ceid=US:en
+  html_url: https://news.google.com/
+  enabled: true
+  fetch_group: 2
+  schedule_class: hourly
+- id: 83
+  category_id: 3
+  title: 'Google News: Technosignatures & SETI'
+  xml_url: https://news.google.com/rss/search?q=Technosignatures+OR+Exoplanets+OR+SETI+OR+%22Galileo+Project%22&hl=en-US&gl=US&ceid=US:en
+  html_url: https://news.google.com/
+  enabled: true
+  fetch_group: 3
+  schedule_class: daily
+- id: 84
+  category_id: 1
+  title: 'Google News: UAP Legislation & Whistleblowers'
+  xml_url: https://news.google.com/rss/search?q=UAP+whistleblower+OR+Grusch+OR+%22UAP+Disclosure+Act%22&hl=en-US&gl=US&ceid=US:en
+  html_url: https://news.google.com/
+  enabled: true
+  fetch_group: 4
+  schedule_class: hourly
+- id: 85
+  category_id: 4
+  title: 'Google News: Global Aerospace Anomalies'
+  xml_url: https://news.google.com/rss/search?q=%22pilot+sighting%22+OR+%22radar+anomaly%22+UAP+OR+UFO+-balloon&hl=en-US&gl=US&ceid=US:en
+  html_url: https://news.google.com/
+  enabled: true
+  fetch_group: 5
+  schedule_class: daily
+- id: 86
+  category_id: 5
+  title: Breaking News English (Global Summaries)
+  xml_url: https://breakingnewsenglish.com/rss.xml
+  html_url: https://breakingnewsenglish.com/
+  enabled: true
+  fetch_group: 6
+  schedule_class: daily

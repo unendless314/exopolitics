@@ -1,0 +1,13 @@
+sources:
+- title: 科学松鼠会
+  xml_url: https://plink.anyfeeder.com/weixin/SquirrelClub
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 334
+- title: 环球科学
+  xml_url: https://plink.anyfeeder.com/weixin/ScientificAmerican
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 351

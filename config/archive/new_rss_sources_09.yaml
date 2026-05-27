@@ -1,0 +1,7 @@
+sources:
+- title: MIT 科技评论 - 本周热榜
+  xml_url: https://plink.anyfeeder.com/mittrchina/hot
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 246

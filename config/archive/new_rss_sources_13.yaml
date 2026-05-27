@@ -1,0 +1,13 @@
+sources:
+- title: 地球知识局
+  xml_url: https://plink.anyfeeder.com/weixin/diqiuzhishiju
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 368
+- title: 中国国家地理
+  xml_url: https://plink.anyfeeder.com/weixin/dili360
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 383

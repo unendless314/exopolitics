@@ -1,0 +1,289 @@
+sources:
+- title: MUFON (Mutual UFO Network)
+  xml_url: https://mufon.com/feed/
+  html_url: https://mufon.com/
+  category_id: 2
+  enabled: true
+  id: 1
+- title: UFO FOTOCAT BLOG
+  xml_url: https://fotocat.blogspot.com/feeds/posts/default?alt=rss
+  html_url: https://fotocat.blogspot.com/
+  category_id: 2
+  enabled: true
+  id: 2
+- title: Bad UFOs (Scientific Skepticism)
+  xml_url: https://feeds.feedburner.com/BadUfosSkepticismUfosAndTheUniverse-ByRobertSheaffer
+  html_url: https://badufos.blogspot.com/
+  category_id: 3
+  enabled: true
+  id: 3
+- title: Unidentified Aerial Phenomena Research
+  xml_url: https://ufos-scientificresearch.blogspot.com/feeds/posts/default?alt=rss
+  html_url: https://ufos-scientificresearch.blogspot.com/
+  category_id: 3
+  enabled: true
+  id: 4
+- title: theozfiles (Forensic Anomaly)
+  xml_url: https://theozfiles.blogspot.com/feeds/posts/default?alt=rss
+  html_url: https://theozfiles.blogspot.com/
+  category_id: 3
+  enabled: true
+  id: 5
+- title: NewsNation » UFO
+  xml_url: https://www.newsnationnow.com/space/ufo/feed/
+  html_url: https://www.newsnationnow.com/space/ufo/
+  category_id: 1
+  enabled: true
+  id: 6
+- title: The Black Vault Case Files (FOIA)
+  xml_url: https://www.theblackvault.com/casefiles/feed/
+  html_url: https://www.theblackvault.com/
+  category_id: 1
+  enabled: true
+  id: 7
+- title: Openminds.tv
+  xml_url: https://openminds.tv/feed/
+  html_url: https://openminds.tv/
+  category_id: 1
+  enabled: true
+  id: 8
+- title: Earthfiles.com (Linda Moulton Howe)
+  xml_url: https://www.earthfiles.com/feed/
+  html_url: https://www.earthfiles.com/
+  category_id: 5
+  enabled: true
+  id: 9
+- title: New York Post » UFOs
+  xml_url: https://nypost.com/tag/ufos/feed/
+  html_url: https://nypost.com/tag/ufos/
+  category_id: 1
+  enabled: true
+  id: 10
+- title: Latest-UFO-Sightings
+  xml_url: https://www.latest-ufo-sightings.net/feed/atom
+  html_url: https://www.latest-ufo-sightings.net/
+  category_id: 4
+  enabled: true
+  id: 11
+- title: The UFO Chronicles
+  xml_url: https://feeds.feedburner.com/TheUFOChronicles
+  html_url: https://www.theufochronicles.com/
+  category_id: 5
+  enabled: true
+  id: 12
+- title: UFO Sightings Hotspot
+  xml_url: http://ufosightingshotspot.blogspot.com/feeds/posts/default
+  html_url: http://ufosightingshotspot.blogspot.com/
+  category_id: 4
+  enabled: true
+  id: 13
+- title: A Different Perspective (Kevin Randle)
+  xml_url: http://kevinrandle.blogspot.com/feeds/posts/default
+  html_url: http://kevinrandle.blogspot.com/
+  category_id: 5
+  enabled: true
+  id: 14
+- title: UFOnutt Blog (Chuck Zukowski)
+  xml_url: https://www.ufonut.com/feed/
+  html_url: https://www.ufonut.com/the-ufonut-blog/
+  category_id: 2
+  enabled: true
+  id: 15
+- title: UFO Sightings Daily
+  xml_url: https://www.ufosightingsdaily.com/feeds/posts/default
+  html_url: https://www.ufosightingsdaily.com/
+  category_id: 4
+  enabled: true
+  id: 16
+- title: UFO MatriX
+  xml_url: https://www.ufomatrix.org/feeds/posts/default
+  html_url: https://www.ufomatrix.org/
+  category_id: 5
+  enabled: true
+  id: 17
+- title: Spectral Vision
+  xml_url: https://spectralvision.wordpress.com/feed/
+  html_url: https://spectralvision.wordpress.com/
+  category_id: 3
+  enabled: true
+  id: 18
+- title: Reddit r/UFOs Community Feed
+  xml_url: https://www.reddit.com/r/UFOs/.rss
+  html_url: https://www.reddit.com/r/UFOs/
+  category_id: 4
+  enabled: true
+  id: 19
+- title: '/r/space: news, articles and discussion'
+  xml_url: https://www.reddit.com/r/space/.rss?format=xml
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 20
+- title: NASA Breaking News
+  xml_url: https://www.nasa.gov/rss/dyn/breaking_news.rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 21
+- title: New Scientist - Space
+  xml_url: https://www.newscientist.com/subject/space/feed/
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 22
+- title: Sky & Telescope
+  xml_url: https://www.skyandtelescope.com/feed/
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 23
+- title: Space | The Guardian
+  xml_url: https://www.theguardian.com/science/space/rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 24
+- title: Space.com
+  xml_url: https://www.space.com/feeds/all
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 25
+- title: Nature
+  xml_url: https://www.nature.com/nature.rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 37
+- title: Phys.org - latest science and technology news stories
+  xml_url: https://phys.org/rss-feed/
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 38
+- title: 'Scientific American Content: Global'
+  xml_url: http://rss.sciam.com/ScientificAmerican-Global
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 46
+- title: 阮一峰的网络日志
+  xml_url: https://feeds.feedburner.com/ruanyifeng
+  html_url: https://www.ruanyifeng.com/blog/
+  category_id: 5
+  enabled: true
+  id: 60
+- title: 宇宙的心弦 - 细推物理须行乐 何用浮名绊此身
+  xml_url: https://www.physixfan.com/feed/
+  html_url: https://www.physixfan.com/
+  category_id: 3
+  enabled: true
+  id: 92
+- title: 卢昌海个人主页
+  xml_url: https://www.changhai.org/feed.xml
+  html_url: https://www.changhai.org/
+  category_id: 3
+  enabled: true
+  id: 100
+- title: 奇客Solidot–传递最新科技情报
+  xml_url: https://www.solidot.org/index.rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 134
+- title: '[http://plink.anyfeeder.com/weixin/almosthuman2014](http://plink.anyfeeder.com/weixin/almosthuman2014)'
+  xml_url: https://www.ifeed.cc/discover?q=plink.anyfeeder.com/weixin/almosthuman2014
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 207
+- title: '[http://plink.anyfeeder.com/weixin/The-Intellectual](http://plink.anyfeeder.com/weixin/The-Intellectual)'
+  xml_url: https://www.ifeed.cc/discover?q=plink.anyfeeder.com/weixin/The-Intellectual
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 240
+- title: MIT 科技评论 - 本周热榜
+  xml_url: https://plink.anyfeeder.com/mittrchina/hot
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 246
+- title: 果壳网
+  xml_url: https://plink.anyfeeder.com/weixin/Guokr42
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 288
+- title: 利维坦
+  xml_url: https://plink.anyfeeder.com/weixin/liweitan2014
+  html_url: ''
+  category_id: 5
+  enabled: true
+  id: 293
+- title: 微软研究院AI头条
+  xml_url: https://plink.anyfeeder.com/weixin/MSRAsia
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 308
+- title: 新智元
+  xml_url: https://plink.anyfeeder.com/weixin/AI_era
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 310
+- title: 稚晖君 的 bilibili 动态
+  xml_url: https://rsshub.app/bilibili/user/dynamic/20259914
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 314
+- title: 科学松鼠会
+  xml_url: https://plink.anyfeeder.com/weixin/SquirrelClub
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 334
+- title: 环球科学
+  xml_url: https://plink.anyfeeder.com/weixin/ScientificAmerican
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 351
+- title: 地球知识局
+  xml_url: https://plink.anyfeeder.com/weixin/diqiuzhishiju
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 368
+- title: 中国国家地理
+  xml_url: https://plink.anyfeeder.com/weixin/dili360
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 383
+- title: caoz的梦呓
+  xml_url: https://plink.anyfeeder.com/weixin/caozsay
+  html_url: ''
+  category_id: 5
+  enabled: true
+  id: 398
+- title: X博士
+  xml_url: https://plink.anyfeeder.com/weixin/doctorx666
+  html_url: ''
+  category_id: 5
+  enabled: true
+  id: 408
+- title: cnBeta
+  xml_url: https://plink.anyfeeder.com/cnbeta
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 422
+- title: 果壳网 科学人
+  xml_url: https://plink.anyfeeder.com/guokr/scientific
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 427

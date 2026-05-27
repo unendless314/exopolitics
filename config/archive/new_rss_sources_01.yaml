@@ -1,0 +1,151 @@
+sources:
+- title: MUFON (Mutual UFO Network)
+  xml_url: https://mufon.com/feed/
+  html_url: https://mufon.com/
+  category_id: 2
+  enabled: true
+  id: 1
+- title: UFO FOTOCAT BLOG
+  xml_url: https://fotocat.blogspot.com/feeds/posts/default?alt=rss
+  html_url: https://fotocat.blogspot.com/
+  category_id: 2
+  enabled: true
+  id: 2
+- title: Bad UFOs (Scientific Skepticism)
+  xml_url: https://feeds.feedburner.com/BadUfosSkepticismUfosAndTheUniverse-ByRobertSheaffer
+  html_url: https://badufos.blogspot.com/
+  category_id: 3
+  enabled: true
+  id: 3
+- title: Unidentified Aerial Phenomena Research
+  xml_url: https://ufos-scientificresearch.blogspot.com/feeds/posts/default?alt=rss
+  html_url: https://ufos-scientificresearch.blogspot.com/
+  category_id: 3
+  enabled: true
+  id: 4
+- title: theozfiles (Forensic Anomaly)
+  xml_url: https://theozfiles.blogspot.com/feeds/posts/default?alt=rss
+  html_url: https://theozfiles.blogspot.com/
+  category_id: 3
+  enabled: true
+  id: 5
+- title: NewsNation » UFO
+  xml_url: https://www.newsnationnow.com/space/ufo/feed/
+  html_url: https://www.newsnationnow.com/space/ufo/
+  category_id: 1
+  enabled: true
+  id: 6
+- title: The Black Vault Case Files (FOIA)
+  xml_url: https://www.theblackvault.com/casefiles/feed/
+  html_url: https://www.theblackvault.com/
+  category_id: 1
+  enabled: true
+  id: 7
+- title: Openminds.tv
+  xml_url: https://openminds.tv/feed/
+  html_url: https://openminds.tv/
+  category_id: 1
+  enabled: true
+  id: 8
+- title: Earthfiles.com (Linda Moulton Howe)
+  xml_url: https://www.earthfiles.com/feed/
+  html_url: https://www.earthfiles.com/
+  category_id: 5
+  enabled: true
+  id: 9
+- title: New York Post » UFOs
+  xml_url: https://nypost.com/tag/ufos/feed/
+  html_url: https://nypost.com/tag/ufos/
+  category_id: 1
+  enabled: true
+  id: 10
+- title: Latest-UFO-Sightings
+  xml_url: https://www.latest-ufo-sightings.net/feed/atom
+  html_url: https://www.latest-ufo-sightings.net/
+  category_id: 4
+  enabled: true
+  id: 11
+- title: The UFO Chronicles
+  xml_url: https://feeds.feedburner.com/TheUFOChronicles
+  html_url: https://www.theufochronicles.com/
+  category_id: 5
+  enabled: true
+  id: 12
+- title: UFO Sightings Hotspot
+  xml_url: http://ufosightingshotspot.blogspot.com/feeds/posts/default
+  html_url: http://ufosightingshotspot.blogspot.com/
+  category_id: 4
+  enabled: true
+  id: 13
+- title: A Different Perspective (Kevin Randle)
+  xml_url: http://kevinrandle.blogspot.com/feeds/posts/default
+  html_url: http://kevinrandle.blogspot.com/
+  category_id: 5
+  enabled: true
+  id: 14
+- title: UFOnutt Blog (Chuck Zukowski)
+  xml_url: https://www.ufonut.com/feed/
+  html_url: https://www.ufonut.com/the-ufonut-blog/
+  category_id: 2
+  enabled: true
+  id: 15
+- title: UFO Sightings Daily
+  xml_url: https://www.ufosightingsdaily.com/feeds/posts/default
+  html_url: https://www.ufosightingsdaily.com/
+  category_id: 4
+  enabled: true
+  id: 16
+- title: UFO MatriX
+  xml_url: https://www.ufomatrix.org/feeds/posts/default
+  html_url: https://www.ufomatrix.org/
+  category_id: 5
+  enabled: true
+  id: 17
+- title: Spectral Vision
+  xml_url: https://spectralvision.wordpress.com/feed/
+  html_url: https://spectralvision.wordpress.com/
+  category_id: 3
+  enabled: true
+  id: 18
+- title: Reddit r/UFOs Community Feed
+  xml_url: https://www.reddit.com/r/UFOs/.rss
+  html_url: https://www.reddit.com/r/UFOs/
+  category_id: 4
+  enabled: true
+  id: 19
+- title: '/r/space: news, articles and discussion'
+  xml_url: https://www.reddit.com/r/space/.rss?format=xml
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 20
+- title: NASA Breaking News
+  xml_url: https://www.nasa.gov/rss/dyn/breaking_news.rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 21
+- title: New Scientist - Space
+  xml_url: https://www.newscientist.com/subject/space/feed/
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 22
+- title: Sky & Telescope
+  xml_url: https://www.skyandtelescope.com/feed/
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 23
+- title: Space | The Guardian
+  xml_url: https://www.theguardian.com/science/space/rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 24
+- title: Space.com
+  xml_url: https://www.space.com/feeds/all
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 25

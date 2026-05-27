@@ -1,0 +1,13 @@
+sources:
+- title: cnBeta
+  xml_url: https://plink.anyfeeder.com/cnbeta
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 422
+- title: 果壳网 科学人
+  xml_url: https://plink.anyfeeder.com/guokr/scientific
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 427

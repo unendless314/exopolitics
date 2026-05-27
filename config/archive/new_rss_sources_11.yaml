@@ -1,0 +1,19 @@
+sources:
+- title: 微软研究院AI头条
+  xml_url: https://plink.anyfeeder.com/weixin/MSRAsia
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 308
+- title: 新智元
+  xml_url: https://plink.anyfeeder.com/weixin/AI_era
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 310
+- title: 稚晖君 的 bilibili 动态
+  xml_url: https://rsshub.app/bilibili/user/dynamic/20259914
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 314

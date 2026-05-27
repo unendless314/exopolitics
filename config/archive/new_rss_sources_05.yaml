@@ -1,0 +1,7 @@
+sources:
+- title: 奇客Solidot–传递最新科技情报
+  xml_url: https://www.solidot.org/index.rss
+  html_url: ''
+  category_id: 3
+  enabled: true
+  id: 134

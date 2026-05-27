@@ -1,0 +1,229 @@
+sources:
+  - id: 1
+    category_id: 3
+    title: "SETI Institute News"
+    xml_url: "https://www.seti.org/rss.xml"
+    html_url: "https://www.seti.org/"
+    enabled: true
+  - id: 2
+    category_id: 3
+    title: "NASA Astrobiology"
+    xml_url: "https://astrobiology.nasa.gov/news/rss/"
+    html_url: "https://astrobiology.nasa.gov/"
+    enabled: true
+  - id: 3
+    category_id: 3
+    title: "The Anomalous Review (SCU)"
+    xml_url: "https://media.rss.com/anomalousreview/feed.xml"
+    html_url: "https://www.explorescu.org/"
+    enabled: true
+  - id: 4
+    category_id: 3
+    title: "Sol Foundation Updates"
+    xml_url: "https://thesolfoundation.org/feed/"
+    html_url: "https://thesolfoundation.org/"
+    enabled: true
+  - id: 5
+    category_id: 3
+    title: "Astrobiology Web"
+    xml_url: "https://astrobiology.com/feed"
+    html_url: "https://astrobiology.com/"
+    enabled: true
+  - id: 6
+    category_id: 3
+    title: "Harvard Galileo Project"
+    xml_url: "https://projects.iq.harvard.edu/galileo/feed"
+    html_url: "https://projects.iq.harvard.edu/galileo/"
+    enabled: true
+  - id: 7
+    category_id: 1
+    title: "AARO Official Releases (DOD)"
+    xml_url: "https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?max=10&Categories=UAP"
+    html_url: "https://www.aaro.mil/"
+    enabled: true
+  - id: 8
+    category_id: 1
+    title: "GEIPAN (CNES)"
+    xml_url: "https://www.cnes-geipan.fr/en/rss.xml"
+    html_url: "https://www.cnes-geipan.fr/"
+    enabled: true
+  - id: 9
+    category_id: 1
+    title: "FBI The Vault (Unexplained Phenomenon)"
+    xml_url: "https://vault.fbi.gov/unexplained-phenomenon/rss.xml"
+    html_url: "https://vault.fbi.gov/"
+    enabled: true
+  - id: 10
+    category_id: 1
+    title: "UK National Archives (UFO)"
+    xml_url: "https://discovery.nationalarchives.gov.uk/results/rss?_q=UFO"
+    html_url: "https://discovery.nationalarchives.gov.uk/"
+    enabled: true
+  - id: 11
+    category_id: 1
+    title: "US Dept of Energy (DOE) Updates"
+    xml_url: "https://www.energy.gov/rss.xml"
+    html_url: "https://www.energy.gov/"
+    enabled: true
+  - id: 12
+    category_id: 3
+    title: "The Debrief"
+    xml_url: "https://thedebrief.org/category/science/feed/"
+    html_url: "https://thedebrief.org/"
+    enabled: true
+  - id: 13
+    category_id: 3
+    title: "Space.com (Space Exploration)"
+    xml_url: "https://www.space.com/feeds/tag/space-exploration"
+    html_url: "https://www.space.com/"
+    enabled: true
+  - id: 14
+    category_id: 3
+    title: "Scientific American (Space & Physics)"
+    xml_url: "https://www.scientificamerican.com/platform/syndication/rss/"
+    html_url: "https://www.scientificamerican.com/"
+    enabled: true
+  - id: 15
+    category_id: 3
+    title: "Popular Mechanics (Space)"
+    xml_url: "https://www.popularmechanics.com/rss/all.xml"
+    html_url: "https://www.popularmechanics.com/"
+    enabled: true
+  - id: 16
+    category_id: 3
+    title: "Universe Today (Astrobiology)"
+    xml_url: "https://www.universetoday.com/category/astrobiology/feed/"
+    html_url: "https://www.universetoday.com/"
+    enabled: true
+  - id: 17
+    category_id: 2
+    title: "The Black Vault Document Archive"
+    xml_url: "https://www.theblackvault.com/documentarchive/feed/"
+    html_url: "https://www.theblackvault.com/"
+    enabled: true
+  - id: 18
+    category_id: 4
+    title: "WEAPONIZED with Jeremy Corbell & George Knapp"
+    xml_url: "https://feeds.megaphone.fm/weaponized"
+    html_url: "https://weaponizedpodcast.com/"
+    enabled: true
+  - id: 19
+    category_id: 4
+    title: "Need to Know Podcast"
+    xml_url: "https://feeds.libsyn.com/515038/rss"
+    html_url: "https://needtoknow.today/"
+    enabled: true
+  - id: 20
+    category_id: 5
+    title: "Theories of Everything with Curt Jaimungal"
+    xml_url: "https://feeds.megaphone.fm/1d42db5b-97e2-53b8-8d26-0a11eb4106a6"
+    html_url: "https://theoriesofeverything.org/"
+    enabled: true
+  - id: 21
+    category_id: 5
+    title: "The Micah Hanks Program"
+    xml_url: "https://gralienreport.libsyn.com/rss"
+    html_url: "https://micahhanks.com/"
+    enabled: true
+  - id: 22
+    category_id: 4
+    title: "UFO Chronicles Podcast"
+    xml_url: "https://www.spreaker.com/show/3395068/episodes/feed"
+    html_url: "https://www.ufochronicles.com/"
+    enabled: true
+  - id: 23
+    category_id: 4
+    title: "That UFO Podcast"
+    xml_url: "https://audioboom.com/channels/5024014.rss"
+    html_url: "https://twitter.com/That_UFO"
+    enabled: true
+  - id: 24
+    category_id: 4
+    title: "UAP Unidentified Alien Podcast"
+    xml_url: "https://rss.art19.com/uap-unidentified-alien-podcast"
+    html_url: "https://art19.com/shows/uap-unidentified-alien-podcast"
+    enabled: true
+  - id: 25
+    category_id: 4
+    title: "Somewhere in the Skies"
+    xml_url: "https://feeds.megaphone.fm/somewhereintheskies"
+    html_url: "https://www.somewhereintheskies.com/"
+    enabled: true
+  - id: 26
+    category_id: 5
+    title: "The Guardian (Space & Science)"
+    xml_url: "https://www.theguardian.com/science/space/rss"
+    html_url: "https://www.theguardian.com/"
+    enabled: true
+  - id: 27
+    category_id: 5
+    title: "CBS News (Latest/Space)"
+    xml_url: "https://www.cbsnews.com/latest/rss/main"
+    html_url: "https://www.cbsnews.com/"
+    enabled: true
+  - id: 28
+    category_id: 5
+    title: "CNN Science & Space"
+    xml_url: "http://rss.cnn.com/rss/edition_space.rss"
+    html_url: "https://www.cnn.com/"
+    enabled: true
+  - id: 29
+    category_id: 5
+    title: "Reuters (Science News)"
+    xml_url: "http://feeds.reuters.com/reuters/scienceNews"
+    html_url: "https://www.reuters.com/"
+    enabled: true
+  - id: 30
+    category_id: 5
+    title: "HuffPost (Tech & UFOs)"
+    xml_url: "http://www.huffingtonpost.co.uk/news/tech/feed/"
+    html_url: "https://www.huffingtonpost.co.uk/"
+    enabled: true
+  - id: 31
+    category_id: 5
+    title: "JPost (International Defense)"
+    xml_url: "https://www.jpost.com/rss/rssfeedsinternational"
+    html_url: "https://www.jpost.com/"
+    enabled: true
+  - id: 32
+    category_id: 5
+    title: "News4JAX (Military/Local Tracking)"
+    xml_url: "https://www.news4jax.com/arc/outboundfeeds/rss/"
+    html_url: "https://www.news4jax.com/"
+    enabled: true
+  - id: 33
+    category_id: 4
+    title: "Google News: UAP & Non-Human Intelligence"
+    xml_url: "https://news.google.com/rss/search?q=%22UAP%22+OR+%22UFO%22+OR+%22Non-Human+Intelligence%22&hl=en-US&gl=US&ceid=US:en"
+    html_url: "https://news.google.com/"
+    enabled: true
+  - id: 34
+    category_id: 1
+    title: "Google News: Pentagon AARO & Bureaucracy"
+    xml_url: "https://news.google.com/rss/search?q=%22Unidentified+Anomalous+Phenomena%22+AARO+OR+Pentagon+OR+Congress&hl=en-US&gl=US&ceid=US:en"
+    html_url: "https://news.google.com/"
+    enabled: true
+  - id: 35
+    category_id: 3
+    title: "Google News: Technosignatures & SETI"
+    xml_url: "https://news.google.com/rss/search?q=Technosignatures+OR+Exoplanets+OR+SETI+OR+%22Galileo+Project%22&hl=en-US&gl=US&ceid=US:en"
+    html_url: "https://news.google.com/"
+    enabled: true
+  - id: 36
+    category_id: 1
+    title: "Google News: UAP Legislation & Whistleblowers"
+    xml_url: "https://news.google.com/rss/search?q=UAP+whistleblower+OR+Grusch+OR+%22UAP+Disclosure+Act%22&hl=en-US&gl=US&ceid=US:en"
+    html_url: "https://news.google.com/"
+    enabled: true
+  - id: 37
+    category_id: 4
+    title: "Google News: Global Aerospace Anomalies"
+    xml_url: "https://news.google.com/rss/search?q=%22pilot+sighting%22+OR+%22radar+anomaly%22+UAP+OR+UFO+-balloon&hl=en-US&gl=US&ceid=US:en"
+    html_url: "https://news.google.com/"
+    enabled: true
+  - id: 38
+    category_id: 5
+    title: "Breaking News English (Global Summaries)"
+    xml_url: "https://breakingnewsenglish.com/rss.xml"
+    html_url: "https://breakingnewsenglish.com/"
+    enabled: true
