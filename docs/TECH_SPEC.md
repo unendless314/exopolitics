@@ -37,6 +37,8 @@
 - 發布層不是主資料源，資料庫才是 canonical source
 - 前台不直接依賴主資料庫
 - 配置預設由各模塊自行擁有，只有真正共享時才上提為全域配置
+- 原始來源條目與 edit 內容必須分開建模
+- 發布內容必須保留來源追溯、AI 參與標記與人工責任欄位
 
 ---
 
@@ -48,6 +50,7 @@ RSS / Feed Sources
   -> canonical database
   -> classify
   -> review
+  -> edit (when needed)
   -> publish
   -> site
 ```
@@ -77,6 +80,7 @@ RSS / Feed Sources
 - 讀取待分類條目
 - 呼叫 LLM
 - 回寫 `topic_class`、理由、信心與初始審核狀態
+- 視需要標記 `rewrite_candidate`
 
 不負責：
 
@@ -98,20 +102,42 @@ RSS / Feed Sources
 - 呼叫 LLM
 - 輸出靜態站檔案
 
-### 3.4 `publish`
+### 3.4 `edit`
+
+責任：
+
+- 基於一個或多個 `source_item` 建立站內 edit 草稿
+- 支援摘要、引述整理、改寫或脈絡補充
+- 保留來源追溯關係
+- 將 edit 內容交由人工審核與責任確認
+
+不負責：
+
+- RSS 抓取
+- 直接跳過人工審核發布
+- 取代 `publish` 的輸出責任
+
+補充：
+
+- `edit` 是架構上的正式能力，不等於一開始就要做成獨立可執行模塊
+- 在早期階段，少量 edit flow 可先由 `review` 承接
+- 只有在 edit 工作流穩定後，才建議拆出獨立 `edit` 模塊
+
+### 3.5 `publish`
 
 責任：
 
 - 讀取已核准內容
 - 匯出發布層資料
 - 控制哪些內容進入前台 build
+- 將 disclosure label 與 source attribution 一併輸出
 
 不負責：
 
 - 改寫原始抓取資料
 - 重新判斷內容主題
 
-### 3.5 `site`
+### 3.6 `site`
 
 責任：
 
@@ -128,6 +154,19 @@ RSS / Feed Sources
 
 ## 4. 儲存分層
 
+### 4.0 Canonical Content Objects
+
+canonical database 至少應能區分三種內容物件：
+
+- `source_item`
+  - 由 RSS / feed 抓取而來的原始條目
+- `edit_draft`
+  - 基於一個或多個 `source_item` 生成的站內 edit 草稿
+- `published_piece`
+  - 最終對外發布的內容單位，可是聚合條目，也可是 edit 內容
+
+這三者不能混成同一筆語義不清的資料。
+
 ### 4.1 Canonical Storage
 
 主資料庫保存：
@@ -137,6 +176,9 @@ RSS / Feed Sources
 - LLM 判定結果
 - 人工審核狀態
 - 發布記錄
+- 來源追溯關係
+- AI 參與程度
+- 人工責任與 edit 資訊
 
 推薦：
 
@@ -149,6 +191,7 @@ RSS / Feed Sources
 
 - 已批准或已發布內容
 - 供 `site` 直接讀取的資料格式
+- 對外顯示用的來源列表與 disclosure label
 
 可選格式：
 
@@ -160,6 +203,37 @@ RSS / Feed Sources
 
 - 可以重建
 - 不作為唯一歷史來源
+
+### 4.3 Provenance And Disclosure Contract
+
+對於可能公開展示的內容，canonical storage 至少應保留以下欄位：
+
+- `content_origin_type`
+  - `aggregated` / `edit`
+- `ai_assistance_level`
+  - `human_only` / `ai_assisted` / `ai_generated`
+- `human_reviewed`
+  - 是否已有人類完成審核
+- `edit_owner`
+  - 最終負責的自然人或法人
+- `source_item_ids`
+  - 內容引用或依據的來源條目列表
+- `public_disclosure_label`
+  - 前台對讀者顯示的揭露文字
+- `rights_notes`
+  - 內部版權、引用與改寫備註
+
+補充：
+
+- `rewrite` 應視為 `edit` 的一種處理方法，而不是與 `aggregated`、`edit` 並列的內容大類
+- 若未來需要細分摘要、改寫、多來源綜述等差異，應新增獨立欄位表達，而不是擴張 `content_origin_type`
+
+Roadmap note:
+
+- MVP 階段可先只保留 `content_origin_type = aggregated / edit`
+- 未來若 edit 工作流穩定，可再引入獨立的 derivation 或 method 維度
+- 例如以額外欄位表達 `summary`、`rewrite`、`synthesis`、`commentary`
+- 這些細分暫不屬於 MVP 必備 contract
 
 ---
 
@@ -184,9 +258,38 @@ rejected
 說明：
 
 - `ingest` 只負責產生 `ingested`
-- `classify` 負責把條目推到 `classified` / `draft`
+- `classify` 負責把來源條目推到 `classified` / `draft`
 - `review` 負責 `draft`、`approved`、`rejected`、`deleted`
 - `publish` 負責輸出 `approved` / `published`
+
+### 5.1 Aggregation Flow
+
+```text
+source_item
+  -> ingested
+  -> classified
+  -> draft
+  -> approved
+  -> published
+```
+
+### 5.2 Edit Flow
+
+```text
+source_item(s)
+  -> rewrite_candidate (optional)
+  -> edit_draft
+  -> human review
+  -> approved
+  -> published_piece
+```
+
+補充：
+
+- `edit_draft` 可以由 LLM 起稿，也可以由人工直接撰寫
+- 沒有人工責任確認的 edit 內容，不應進入公開發布層
+- `published_piece` 對外必須能區分為聚合條目或站內 edit 內容
+- 早期若 edit 數量很少，可先由 `review` 流程承接，而不急於獨立模塊化
 
 ---
 
@@ -210,6 +313,10 @@ project-root/
     │   ├── docs/
     │   └── ...
     ├── review/
+    │   ├── config/
+    │   ├── docs/
+    │   └── ...
+    ├── edit/
     │   ├── config/
     │   ├── docs/
     │   └── ...
@@ -247,6 +354,9 @@ project-root/
 - `review/config/`
   - queue policy
   - reviewer defaults
+- `edit/config/`
+  - edit policy
+  - attribution defaults
 - `publish/config/`
   - export rules
   - output policy
@@ -312,6 +422,7 @@ enabled: true
 - LLM prompt 與模型設定
 - 分類結果回寫
 - 批次處理
+- 改寫候選標記
 
 ### Stage 3: `review`
 
@@ -320,16 +431,29 @@ enabled: true
 - 草稿檢視
 - 狀態轉換
 - 拒絕與刪除規則
+- edit 內容人工責任確認
 
-### Stage 4: `publish`
+### Stage 4: `edit`
+
+僅在站內編修需求穩定後建立：
+
+- edit draft 建立流程
+- 多來源引用關係
+- 摘要 / 改寫 / 脈絡補充工作流
+- edit metadata
+
+在此之前，少量 edit flow 可先作為 `review` 的延伸流程處理。
+
+### Stage 5: `publish`
 
 再建立：
 
 - 已批准內容匯出
 - 輸出格式
 - 發布範圍控制
+- 揭露標籤與來源資訊輸出
 
-### Stage 5: `site`
+### Stage 6: `site`
 
 最後建立：
 
@@ -344,7 +468,7 @@ enabled: true
 
 | 項目 | 建議 |
 |------|------|
-| Ingest / Classify / Review / Publish | Python 3.11+ |
+| Ingest / Classify / Review / Edit / Publish | Python 3.11+ |
 | Feed fetching | `aiohttp` + `feedparser` |
 | Canonical DB | SQLite 起步，預留 Postgres 遷移 |
 | Site | Astro |
@@ -358,5 +482,6 @@ enabled: true
 - `ingest` 的 schema 與 fetch 邏輯
 - `classify` 的 prompt contract 與回寫策略
 - `review` 的操作流程與審核工具
+- `edit` 的草稿契約、引用模型與責任欄位
 - `publish` 的輸出格式與 rebuild 規則
 - `site` 的頁面 IA 與 SEO 規則

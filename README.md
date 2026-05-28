@@ -1,15 +1,83 @@
-# UAP / UFO Aggregation Project Planning Workspace
+# UAP / UFO Aggregation Planning Workspace
 
-This repository currently serves as the **planning workspace** for a modular UAP / UFO aggregation system.
+This repository is currently the planning workspace for a modular UAP / UFO aggregation system.
 
-At this stage, the root-level documentation is intentionally focused on **overview-level design** rather than module implementation details.
+The top-level documents focus on system architecture, content flow, and module boundaries. They do not try to lock implementation details too early.
 
-## Current Role Of This Repository
+## Current Scope
 
-- Hold the top-level product and architecture documents
-- Preserve the current RSS source research and category definitions
-- Define module boundaries before implementation begins
-- Provide the planning base for the future `ingest`, `classify`, `review`, `publish`, and `site` modules
+- define the top-level product and architecture direction
+- preserve RSS source research and category definitions
+- establish module boundaries before implementation expands
+- document the development order for `ingest`, `classify`, `review`, optional `edit`, `publish`, and `site`
+- reserve a compliant path for future edit content with source attribution and AI disclosure
+
+## Architecture Summary
+
+The current system direction is:
+
+- `ingest`
+  - fetch RSS/feed sources, deduplicate, persist canonical records
+- `classify`
+  - run initial topic classification and candidate tagging
+- `review`
+  - perform human review and state transitions
+- `edit`
+  - reserved for future site-native drafts, summaries, rewrites, and synthesis
+  - in early stages, low-volume edit flow can remain inside `review`
+- `publish`
+  - export approved content into a publish layer
+- `site`
+  - build the public static site from publish-layer data
+
+## Development Priority
+
+1. `ingest`
+2. `classify`
+3. `review`
+4. `edit` (only when the workflow becomes stable)
+5. `publish`
+6. `site`
+
+This order is intentional. The project should first stabilize data ingestion and review before introducing a dedicated edit workflow.
+
+## Content Model Direction
+
+At the current architecture level, public content is treated as two high-level origin types:
+
+- `aggregated`
+- `edit`
+
+The current recommendation is to keep this model simple in MVP.
+
+If future edit workflows become stable, a separate derivation or method dimension can be added later for cases such as:
+
+- `summary`
+- `rewrite`
+- `synthesis`
+- `commentary`
+
+## Repository Layout
+
+```text
+project-root/
+├── docs/
+├── config/
+└── modules/
+    ├── ingest/
+    ├── classify/
+    ├── review/
+    ├── edit/
+    ├── publish/
+    └── site/
+```
+
+Notes:
+
+- `docs/` contains top-level system documents
+- `config/` currently holds transitional planning assets, mainly for future `ingest`
+- module-level `config/` should remain the default ownership model
+- root-level shared config should only appear later if a setting is truly cross-module
 
 ## Documentation Layout
 
@@ -22,57 +90,29 @@ docs/
 └── comment.md
 ```
 
-### Root `docs/`
-
-These files are overview documents. They describe:
+These documents cover:
 
 - product goals
 - architecture direction
-- storage model
-- module boundaries
-- content state flow
+- content lifecycle
+- storage and publication boundaries
+- module ownership and implementation order
 
-They do **not** attempt to fully specify any single module's internal implementation.
+## Current Module Workspace
 
-## Planned Repository Shape
+The first module workspace has already been established:
 
 ```text
-project-root/
-├── docs/
-└── modules/
-    ├── ingest/
-    ├── classify/
-    ├── review/
-    ├── publish/
-    └── site/
+modules/
+└── ingest/
+    ├── config/
+    ├── docs/
+    ├── src/
+    └── tests/
 ```
 
-Each module is expected to have its own:
-
-- source code
-- `config/`
-- `docs/`
-- tests
-
-## Config Strategy
-
-There is currently **no committed global `config/` strategy**.
-
-The working assumption is:
-
-- configuration belongs to the owning module first
-- root-level `config/` should only be created later if truly shared settings emerge
-
-For example, the existing RSS source definitions are better understood as future `ingest/config/` assets, not as system-wide configuration.
-
-## Immediate Build Order
-
-1. `ingest`
-2. `classify`
-3. `review`
-4. `publish`
-5. `site`
+At this stage, `modules/ingest/` is still documentation-first. The goal is to refine system direction before committing to detailed implementation.
 
 ## Source Research
 
-The current RSS source list was compiled from external source research and is intended to seed the future `ingest` module.
+The current RSS source list and category definitions are intended to seed the future `ingest` module.

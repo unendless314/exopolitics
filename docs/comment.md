@@ -14,6 +14,7 @@
 - 從「Markdown 可能兼任主存儲」改為「DB 為 canonical source，發布層可重建」
 - 從預留全域 `config/` 改為「配置先歸模塊所有，必要時再上提」
 - 從「以分類決定抓取」改為「內容語義、抓取分片、抓取頻率三者分離」
+- 從「只有聚合條目」改為「聚合流與編輯流並存，但必須保留來源追溯與 AI 揭露」
 
 ---
 
@@ -67,5 +68,6 @@
 - 把現在的 feed config 視為 `ingest` 資產
 - 讓 `category_id` 只負責語義歸檔
 - 讓 `fetch_group` 與 `schedule_class` 成為獨立配置欄位
+- 若未來引入改寫內容，應以 `edit_draft` 與 `published_piece` 分開建模
 - `classify`、`review`、`publish`、`site` 先保留為規劃目標
 - 等兩個以上模塊真的共享同一設定時，再考慮建立根層 `config/`

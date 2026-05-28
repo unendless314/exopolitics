@@ -46,12 +46,14 @@
 - prompt templates
 - batch policy
 - classification result contract
+- rewrite candidate tagging
 
 不擁有：
 
 - RSS source ownership
 - manual review decision
 - front-end output
+- final edit authorship
 
 ### 2.3 `review`
 
@@ -60,6 +62,8 @@
 - review queue logic
 - approval / rejection rules
 - deletion policy execution
+- edit responsibility confirmation
+- AI participation disclosure confirmation
 
 不擁有：
 
@@ -67,13 +71,35 @@
 - prompt design
 - site page generation
 
-### 2.4 `publish`
+### 2.4 `edit`
+
+擁有：
+
+- edit draft contract
+- source linking for edit content
+- summary / rewrite / context-note workflow
+- edit metadata
+
+不擁有：
+
+- RSS source ownership
+- final public output structure
+- site rendering
+
+補充：
+
+- `edit` 是架構上的能力，不代表早期一定要拆成獨立可執行模塊
+- 若 edit 需求仍屬低頻，應先由 `review` 承接，避免過早抽象
+
+### 2.5 `publish`
 
 擁有：
 
 - export rules
 - publish-layer file structure
 - selection of approved records for output
+- disclosure label emission
+- source attribution emission
 
 不擁有：
 
@@ -81,7 +107,7 @@
 - classification logic
 - manual review judgment
 
-### 2.5 `site`
+### 2.6 `site`
 
 擁有：
 
@@ -133,8 +159,10 @@
 - `ingest` 只能建立新條目與更新抓取元資料
 - `ingest` 可更新來源層的排程欄位，但不應以 `category_id` 直接決定抓取節奏
 - `classify` 只能更新分類相關欄位與初始分類狀態
-- `review` 只能更新人工審核相關狀態
-- `publish` 只能更新輸出與發布記錄
+- `classify` 可標記改寫候選，但不應直接產出可發布終稿
+- `review` 只能更新人工審核相關狀態與 edit 責任確認
+- `edit` 只能更新站內 edit 草稿、引用關係與責任欄位
+- `publish` 只能更新輸出、發布記錄與對外揭露資料
 - `site` 不應回寫 canonical database
 
 ---
@@ -144,7 +172,8 @@
 1. `ingest`
 2. `classify`
 3. `review`
-4. `publish`
-5. `site`
+4. `edit`（僅在需求穩定後）
+5. `publish`
+6. `site`
 
-這個順序可讓每一步都建立在前一步可驗證的輸出上。
+這個順序可讓每一步都建立在前一步可驗證的輸出上，也避免在早期為低頻 edit 需求過度抽象。

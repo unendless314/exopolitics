@@ -9,7 +9,7 @@
 ## 1. 文檔定位
 
 本文件描述的是 **跨模塊的內容生命週期**。  
-它定義內容如何在 `ingest -> classify -> review -> publish -> site` 之間流動。
+它定義內容如何在 `ingest -> classify -> review -> edit -> publish -> site` 之間流動。
 
 這不是模塊內部設計文件，因此不展開各模塊的程式實作。
 
@@ -22,6 +22,8 @@
 - 人工審核是正式流程的一部分
 - 發布層只承載已核准內容
 - 公開網站永遠落後於 canonical database 一個處理階段
+- 來源條目與 edit 內容屬於不同內容類型
+- 對外內容必須可追溯來源、AI 參與程度與人工責任
 
 ---
 
@@ -33,6 +35,7 @@ source feed
   -> canonical database
   -> classify
   -> review
+  -> edit (when needed)
   -> publish
   -> site
 ```
@@ -43,6 +46,33 @@ source feed
 - 來源層的 `fetch_group` 只負責並行抓取切片
 - 來源層的 `schedule_class` 只負責抓取頻率
 - 條目層最終是否屬於 `core / adjacent / irrelevant`，由後續分類與審核流程決定
+
+### 3.1 聚合流
+
+```text
+source feed
+  -> source_item
+  -> classify
+  -> review
+  -> publish
+  -> site
+```
+
+### 3.2 編輯流
+
+```text
+source_item(s)
+  -> edit_draft
+  -> review
+  -> publish
+  -> site
+```
+
+補充：
+
+- `edit_draft` 可由 LLM 起稿，也可由人工直接建立
+- edit 流的輸出不是來源全文的鏡像，而是站內自有內容單位
+- 在需求尚未穩定前，edit flow 可先作為 `review` 的延伸，而非獨立可執行模塊
 
 ---
 
@@ -76,6 +106,8 @@ source feed
 - `published`
 - `rejected`
 - `deleted`
+- `rewrite_candidate`（可選）
+- `edit_draft`
 
 ---
 
@@ -104,6 +136,7 @@ source feed
 - `topic_class`
 - `classification_reason`
 - `classification_confidence`
+- `rewrite_candidate`（可選）
 - `classified` 或 `draft`
 
 ### 6.3 `review`
@@ -117,6 +150,7 @@ source feed
 - `approved`
 - `rejected`
 - `deleted`
+- edit 責任確認
 
 ### 6.4 `publish`
 
@@ -150,6 +184,11 @@ source feed
 
 這樣可以保住主題辨識，也不犧牲邊緣內容的價值。
 
+若未來引入站內改寫或整理稿，前台至少還應區分：
+
+- `Aggregated Item`
+- `Edit Piece`
+
 ---
 
 ## 8. 刪除策略
@@ -158,14 +197,21 @@ source feed
 - `deleted` 必須由人工最終確認
 - 物理刪除不是分類流程的一部分，而是治理決策的一部分
 
----
+## 9. 追溯與揭露策略
 
-## 9. 與模塊文檔的關係
+- 每個公開內容單位都應能追溯到對應來源條目
+- 每個公開內容單位都應標記 AI 參與程度
+- 每個公開內容單位都應標記是否完成人工審核
+- edit 內容應保留最終責任主體
+- 對外展示的揭露資訊應由 `publish` 輸出，而不是由 `site` 臨時推斷
+
+## 10. 與模塊文檔的關係
 
 未來各模塊自己的 `docs/` 應基於本文件展開：
 
 - `ingest/docs/`：抓取與 schema 細節
 - `classify/docs/`：LLM prompt、批次策略、回寫契約
 - `review/docs/`：審核規則與操作方式
+- `edit/docs/`：站內 edit 草稿、引用與責任模型
 - `publish/docs/`：輸出格式與 rebuild 規則
 - `site/docs/`：頁面與內容展示規則
