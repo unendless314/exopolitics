@@ -80,7 +80,7 @@ RSS / Feed Sources
 - 讀取待分類條目
 - 呼叫 LLM
 - 回寫 `topic_class`、理由、信心與初始審核狀態
-- 視需要標記 `rewrite_candidate`
+- 視需要標記 `edit_candidate`
 
 不負責：
 
@@ -95,12 +95,20 @@ RSS / Feed Sources
 - 人工檢視草稿
 - 做狀態流轉
 - 決定是否批准發布
+- 提供適合人工與 agent 使用的 review entry points
 
 不負責：
 
 - 抓 RSS
 - 呼叫 LLM
 - 輸出靜態站檔案
+
+介面方向：
+
+- MVP 先以 CLI-first 實作
+- 核心應先穩定 review queue、filtering、state transition 與批次操作 contract
+- 若後續人工審核量增加，可在同一組後端能力之上補 thin web UI
+- 不應把 UI 當作 `review` 核心能力的唯一載體
 
 ### 3.4 `edit`
 
@@ -193,16 +201,17 @@ canonical database 至少應能區分三種內容物件：
 - 供 `site` 直接讀取的資料格式
 - 對外顯示用的來源列表與 disclosure label
 
-可選格式：
+MVP 建議格式：
 
 - Markdown
-- JSON
-- Markdown + JSON
+- frontmatter 承載必要 metadata
 
 原則：
 
 - 可以重建
 - 不作為唯一歷史來源
+- 優先保持人類可讀與可維護
+- 若未來需要供多個 machine consumers 使用，或 metadata 結構已不適合維護在 Markdown 中，可增補 JSON 派生輸出
 
 ### 4.3 Provenance And Disclosure Contract
 
@@ -223,13 +232,9 @@ canonical database 至少應能區分三種內容物件：
 - `rights_notes`
   - 內部版權、引用與改寫備註
 
-補充：
+Roadmap note：
 
-- `rewrite` 應視為 `edit` 的一種處理方法，而不是與 `aggregated`、`edit` 並列的內容大類
 - 若未來需要細分摘要、改寫、多來源綜述等差異，應新增獨立欄位表達，而不是擴張 `content_origin_type`
-
-Roadmap note:
-
 - MVP 階段可先只保留 `content_origin_type = aggregated / edit`
 - 未來若 edit 工作流穩定，可再引入獨立的 derivation 或 method 維度
 - 例如以額外欄位表達 `summary`、`rewrite`、`synthesis`、`commentary`
@@ -277,7 +282,8 @@ source_item
 
 ```text
 source_item(s)
-  -> rewrite_candidate (optional)
+  -> review
+  -> edit_candidate
   -> edit_draft
   -> human review
   -> approved
@@ -286,6 +292,7 @@ source_item(s)
 
 補充：
 
+- `review` 先決定內容是否值得進入 edit 分支
 - `edit_draft` 可以由 LLM 起稿，也可以由人工直接撰寫
 - 沒有人工責任確認的 edit 內容，不應進入公開發布層
 - `published_piece` 對外必須能區分為聚合條目或站內 edit 內容
@@ -301,8 +308,7 @@ project-root/
 │   ├── PRD.md
 │   ├── TECH_SPEC.md
 │   ├── CONTENT_LIFECYCLE.md
-│   ├── MODULE_BOUNDARIES.md
-│   └── comment.md
+│   └── MODULE_BOUNDARIES.md
 └── modules/
     ├── ingest/
     │   ├── config/
@@ -341,26 +347,26 @@ project-root/
 
 以下配置應先屬於各模塊：
 
-- `ingest/config/`
+- `modules/ingest/config/`
   - RSS sources
   - categories
   - fetch groups
   - schedule classes
   - fetch rules
-- `classify/config/`
+- `modules/classify/config/`
   - prompts
   - model settings
   - threshold
-- `review/config/`
+- `modules/review/config/`
   - queue policy
   - reviewer defaults
-- `edit/config/`
+- `modules/edit/config/`
   - edit policy
   - attribution defaults
-- `publish/config/`
+- `modules/publish/config/`
   - export rules
   - output policy
-- `site/config/`
+- `modules/site/config/`
   - locales
   - metadata
 
@@ -374,33 +380,17 @@ project-root/
 
 ### 7.3 `ingest` source config contract
 
-來源配置至少應分成三個彼此獨立的維度：
+`ingest` 應擁有來源配置的定義與驗證責任。
 
-- `category_id`
-  - 表示來源的主題歸檔或初始標籤
-- `fetch_group`
-  - 表示並行抓取時的執行分片
-- `schedule_class`
-  - 表示來源所屬的抓取頻率層
+在系統層級，來源配置至少應把以下三種維度分開建模：
 
-這三者不可互相偷代：
+- 內容語義分類
+- 抓取執行分片
+- 抓取頻率層級
 
-- `category_id` 不是排程依據
-- `fetch_group` 不是內容語義
-- `schedule_class` 不是內容品質評分
+這些維度不可互相偷代，避免內容語義、執行策略與排程策略耦合。
 
-示意：
-
-```yaml
-id: 55
-title: AARO Official Releases (DOD)
-xml_url: https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?max=10&Categories=UAP
-html_url: https://www.aaro.mil/
-category_id: 1
-fetch_group: 7
-schedule_class: hourly
-enabled: true
-```
+具體欄位命名、YAML 結構、範例與 validation 規則，應維護在 `modules/ingest/docs/`。
 
 ---
 

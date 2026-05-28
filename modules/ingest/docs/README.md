@@ -107,7 +107,7 @@ Expected downstream consumers:
 
 ## 6. Current Config Contract
 
-Based on the current draft assets in `config/`, source config already expresses three independent axes:
+The current assets in `modules/ingest/config/` already express three independent axes:
 
 - `category_id`
   - semantic grouping only
@@ -116,7 +116,34 @@ Based on the current draft assets in `config/`, source config already expresses 
 - `schedule_class`
   - fetch cadence tier
 
-This separation should be preserved when the files are later moved into `modules/ingest/config/`.
+These axes must remain separate:
+
+- `category_id` is not a scheduling signal
+- `fetch_group` is not a semantic label
+- `schedule_class` is not a quality score
+
+This separation should remain stable in the module-owned config layout.
+
+### Example source entry
+
+```yaml
+id: 55
+title: AARO Official Releases (DOD)
+xml_url: https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?max=10&Categories=UAP
+html_url: https://www.aaro.mil/
+category_id: 1
+fetch_group: 7
+schedule_class: hourly
+enabled: true
+```
+
+### Contract notes
+
+- `id` should be stable and unique within the source list
+- `xml_url` is the canonical fetch target
+- `html_url` is optional presentation metadata unless later required by tooling
+- `enabled` should support predictable source disable behavior without deleting config
+- category definitions, shard ranges, and schedule classes should be validated against their companion config files
 
 ---
 

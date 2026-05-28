@@ -46,7 +46,7 @@
 - prompt templates
 - batch policy
 - classification result contract
-- rewrite candidate tagging
+- edit candidate tagging
 
 不擁有：
 

@@ -119,6 +119,7 @@
 補充：
 
 - `edit` 在架構上應被正式承認
+- `edit` 不應被視為固定排在 `review` 前或後的線性階段，而是由 `review` 決定是否進入、完成後再回到 `review` 收口的中間工作流
 - 但在早期階段不必急著拆成獨立可執行模塊
 - 若需求仍以 RSS 聚合為主，可先由 `review` 階段承接少量 edit flow
 - 只有在站內編修內容成為穩定工作流後，才考慮把 `edit` 提升為獨立模塊
@@ -156,7 +157,7 @@ project-root/
 當前**不預設保留根目錄 `config/`**。  
 只有在未來出現真正跨模塊共享且語義一致的設定時，才考慮新增全域配置層。
 
-目前 `config/new_categories.yaml` 與 `config/new_rss_sources_merged.yaml` 可視為過渡期的 `ingest` 配置資產。
+目前 `modules/ingest/config/` 已作為 `ingest` 配置的正式歸屬位置。
 
 ---
 
@@ -183,13 +184,27 @@ project-root/
 
 ---
 
-## 9. 開放問題
+## 9. 已決定事項
 
-- `core / adjacent / irrelevant` 的細緻判準要如何定義
-- `review` 模塊 MVP 要先做 CLI 還是簡單 UI
-- `edit` 是否先作為 `review` 內的一條工作流，還是獨立模塊
-- `publish` 輸出先用 Markdown、JSON，或兩者並行
+- `core / adjacent / irrelevant` 已作為上層分類框架確立；更細的操作判準應在 `classify` 與 `review` 模塊文檔中展開
+- `edit` 在架構上被正式承認，但早期先作為 `review` 內的延伸工作流，而不是立即拆成獨立可執行模塊
+- `site` 首發語言以 `zh + en` 為主，`ja` 為後續優先擴充語言
+- AI 參與程度的公開揭露先採三級：
+  - `human_only`
+  - `ai_assisted`
+  - `ai_generated`
+- `review` 模塊 MVP 先以 CLI-first 方式實作，優先建立 review queue、state transition 與批次操作能力
+- 若後續人工審核量與例外處理需求上升，再補 thin web UI；UI 不應成為 `review` 模塊的核心依賴
+- `publish` MVP 先以 Markdown + frontmatter 作為發布層輸出
+- JSON 不作為初期主輸出格式；只有在出現多個 machine consumers 或 metadata 結構已不適合維護在 Markdown 時，才增補 JSON 派生輸出
+- edit 相關資料模型應從一開始保留多來源追溯能力，例如 `source_item_ids`
+- edit MVP 的 workflow 先以單來源內容為主；多來源整理或綜述留待後續版本
+
+## 10. 待定事項
+
 - 何時從 SQLite 升級到 Postgres
-- `site` 首發語言是否先以 `zh + en` 為主
-- AI 參與程度的公開揭露標籤要採幾級
-- edit MVP 應先支援單來源改寫，或直接支援多來源綜述
+  - 原則上 MVP 與 early production 先使用 SQLite
+  - 只有在 concurrent writers、跨進程/跨機協作、或營運需求使 SQLite 成為瓶頸時，才升級到 Postgres
+- 多來源 edit flow 的正式範圍
+  - 是否限制來源數量
+  - 是否只支援整理摘要，或進一步支援多來源綜述

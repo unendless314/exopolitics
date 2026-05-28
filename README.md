@@ -62,7 +62,6 @@ If future edit workflows become stable, a separate derivation or method dimensio
 ```text
 project-root/
 ├── docs/
-├── config/
 └── modules/
     ├── ingest/
     ├── classify/
@@ -75,7 +74,6 @@ project-root/
 Notes:
 
 - `docs/` contains top-level system documents
-- `config/` currently holds transitional planning assets, mainly for future `ingest`
 - module-level `config/` should remain the default ownership model
 - root-level shared config should only appear later if a setting is truly cross-module
 
@@ -86,8 +84,7 @@ docs/
 ├── PRD.md
 ├── TECH_SPEC.md
 ├── CONTENT_LIFECYCLE.md
-├── MODULE_BOUNDARIES.md
-└── comment.md
+└── MODULE_BOUNDARIES.md
 ```
 
 These documents cover:
@@ -115,4 +112,4 @@ At this stage, `modules/ingest/` is still documentation-first. The goal is to re
 
 ## Source Research
 
-The current RSS source list and category definitions are intended to seed the future `ingest` module.
+The current RSS source list, category definitions, and archived research now live under `modules/ingest/config/`.

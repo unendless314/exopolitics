@@ -11,6 +11,9 @@
 本文件描述的是 **跨模塊的內容生命週期**。  
 它定義內容如何在 `ingest -> classify -> review -> edit -> publish -> site` 之間流動。
 
+其中 `edit` 不應被理解為固定排在 `review` 前或後的線性階段。  
+較準確的定位是：由 `review` 決定是否進入 edit 分支，edit 完成後再回到 `review` 收口。
+
 這不是模塊內部設計文件，因此不展開各模塊的程式實作。
 
 ---
@@ -35,7 +38,8 @@ source feed
   -> canonical database
   -> classify
   -> review
-  -> edit (when needed)
+  -> edit branch (when needed)
+  -> review
   -> publish
   -> site
 ```
@@ -62,6 +66,8 @@ source feed
 
 ```text
 source_item(s)
+  -> review
+  -> edit_candidate
   -> edit_draft
   -> review
   -> publish
@@ -70,7 +76,9 @@ source_item(s)
 
 補充：
 
+- `review` 先決定某條內容是否值得進入 edit 流
 - `edit_draft` 可由 LLM 起稿，也可由人工直接建立
+- edit 完成後仍需回到 `review` 做最終人工確認
 - edit 流的輸出不是來源全文的鏡像，而是站內自有內容單位
 - 在需求尚未穩定前，edit flow 可先作為 `review` 的延伸，而非獨立可執行模塊
 
@@ -106,7 +114,7 @@ source_item(s)
 - `published`
 - `rejected`
 - `deleted`
-- `rewrite_candidate`（可選）
+- `edit_candidate`（可選）
 - `edit_draft`
 
 ---
@@ -136,7 +144,7 @@ source_item(s)
 - `topic_class`
 - `classification_reason`
 - `classification_confidence`
-- `rewrite_candidate`（可選）
+- `edit_candidate`（可選）
 - `classified` 或 `draft`
 
 ### 6.3 `review`
@@ -150,7 +158,13 @@ source_item(s)
 - `approved`
 - `rejected`
 - `deleted`
+- `edit_candidate`
 - edit 責任確認
+
+補充：
+
+- `review` 是 edit 分支的入口與收口
+- `review` 可決定條目直接進入聚合發布，或轉入 edit flow
 
 ### 6.4 `publish`
 
@@ -215,3 +229,9 @@ source_item(s)
 - `edit/docs/`：站內 edit 草稿、引用與責任模型
 - `publish/docs/`：輸出格式與 rebuild 規則
 - `site/docs/`：頁面與內容展示規則
+
+其中 `review/docs/` 與 `edit/docs/` 應共同描述兩者的交界：
+
+- 何時標記 `edit_candidate`
+- `edit_draft` 如何回到 `review`
+- 哪些批准責任不能由 `edit` 直接跳過

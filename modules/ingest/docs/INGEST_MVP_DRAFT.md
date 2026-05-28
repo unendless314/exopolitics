@@ -175,7 +175,7 @@ modules/
     tests/
 ```
 
-Only `docs/` is being established in this step.
+`config/` is now established as the module-owned home for active source definitions and archived research assets.
 
 ---
 
