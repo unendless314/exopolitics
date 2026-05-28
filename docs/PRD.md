@@ -68,6 +68,9 @@
 - 抓取批次與抓取頻率不綁定 `category_id`
 - 並行抓取應由獨立欄位控制，例如 `fetch_group`
 - 不同來源的抓取頻率應由獨立欄位控制，例如 `schedule_class`
+- `classified` 允許短期停留，但不應成為無上限暫存狀態
+- 對於超過審核時限的 `classified` 條目，系統應允許 agent 先行分流，再由人工做最終覆核
+- 任何 agent 參與的分流或建議，必須保留可追溯的決策紀錄
 
 ### 4.3 展示原則
 
@@ -120,6 +123,7 @@
 
 - `edit` 在架構上應被正式承認
 - `edit` 不應被視為固定排在 `review` 前或後的線性階段，而是由 `review` 決定是否進入、完成後再回到 `review` 收口的中間工作流
+- `edit` 的邏輯所有權屬於 `edit` 模塊；早期由 `review` 暫時承接執行入口與流程收口
 - 但在早期階段不必急著拆成獨立可執行模塊
 - 若需求仍以 RSS 聚合為主，可先由 `review` 階段承接少量 edit flow
 - 只有在站內編修內容成為穩定工作流後，才考慮把 `edit` 提升為獨立模塊
@@ -166,6 +170,7 @@ project-root/
 - 抓取流程穩定運行，RSS 抓取成功率 > 85%
 - 條目可永久保存並保留處理狀態
 - LLM 初篩後的每日人工審核量維持在可接受範圍
+- `classified` 積壓量維持在既定審核時限內，不形成無限期滯留
 - 公開網站 build 耗時可控，不因歷史資料膨脹而失控
 - 各模塊可獨立演進，不必重跑整條鏈才能局部調整
 - 已發布內容可清楚區分為聚合條目或 edit 內容，且可追溯 AI 參與程度
@@ -195,10 +200,13 @@ project-root/
   - `ai_generated`
 - `review` 模塊 MVP 先以 CLI-first 方式實作，優先建立 review queue、state transition 與批次操作能力
 - 若後續人工審核量與例外處理需求上升，再補 thin web UI；UI 不應成為 `review` 模塊的核心依賴
+- 對於逾時未處理的 `classified` 條目，允許引入 agent 做 queue triage；但最終發布決策仍需可追溯的人類責任
 - `publish` MVP 先以 Markdown + frontmatter 作為發布層輸出
+- 發布層輸出應保留最小版本契約欄位（例如 `publish_version`、`exported_at`、`source_snapshot`）以支援重建與回溯
 - JSON 不作為初期主輸出格式；只有在出現多個 machine consumers 或 metadata 結構已不適合維護在 Markdown 時，才增補 JSON 派生輸出
 - edit 相關資料模型應從一開始保留多來源追溯能力，例如 `source_item_ids`
 - edit MVP 的 workflow 先以單來源內容為主；多來源整理或綜述留待後續版本
+- `deleted` 的治理需保留 retention window 與 audit log 的最低要求；具體參數在 `review/docs/` 與資料層文檔定義
 
 ## 10. 待定事項
 

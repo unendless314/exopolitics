@@ -60,6 +60,8 @@
 擁有：
 
 - review queue logic
+- queue SLA policy for `classified`
+- timeout handling policy for `classified`
 - approval / rejection rules
 - deletion policy execution
 - edit responsibility confirmation
@@ -88,6 +90,7 @@
 
 補充：
 
+- `edit` 擁有 edit 內容契約與邏輯規則；早期可由 `review` 提供執行入口
 - `edit` 是架構上的能力，不代表早期一定要拆成獨立可執行模塊
 - 若 edit 需求仍屬低頻，應先由 `review` 承接，避免過早抽象
 
@@ -161,9 +164,14 @@
 - `classify` 只能更新分類相關欄位與初始分類狀態
 - `classify` 可標記改寫候選，但不應直接產出可發布終稿
 - `review` 只能更新人工審核相關狀態與 edit 責任確認
+- `review` 應擁有 `classified` 滯留治理責任（SLA、逾時轉派、triage 入口）
 - `edit` 只能更新站內 edit 草稿、引用關係與責任欄位
 - `publish` 只能更新輸出、發布記錄與對外揭露資料
 - `site` 不應回寫 canonical database
+
+補充：
+
+- 若 `review` 使用 agent 進行 queue triage，決策紀錄仍屬 `review` 模塊契約的一部分，且需可審計追溯
 
 ---
 

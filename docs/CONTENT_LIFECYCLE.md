@@ -27,6 +27,8 @@
 - 公開網站永遠落後於 canonical database 一個處理階段
 - 來源條目與 edit 內容屬於不同內容類型
 - 對外內容必須可追溯來源、AI 參與程度與人工責任
+- `classified` 可短期停留，但必須受審核時限治理，不可無限期積壓
+- 當人工審核量不足時，可由 agent 先做 queue triage；最終責任仍需可追溯到人類決策
 
 ---
 
@@ -78,6 +80,7 @@ source_item(s)
 
 - `review` 先決定某條內容是否值得進入 edit 流
 - `edit_draft` 可由 LLM 起稿，也可由人工直接建立
+- `edit` 的內容契約與邏輯規則歸屬 `edit`；早期可由 `review` 承接執行入口
 - edit 完成後仍需回到 `review` 做最終人工確認
 - edit 流的輸出不是來源全文的鏡像，而是站內自有內容單位
 - 在需求尚未穩定前，edit flow 可先作為 `review` 的延伸，而非獨立可執行模塊
@@ -147,6 +150,10 @@ source_item(s)
 - `edit_candidate`（可選）
 - `classified` 或 `draft`
 
+補充：
+
+- 進入 `classified` 的條目應被視為待處理隊列，而非長期封存狀態
+
 ### 6.3 `review`
 
 輸入：
@@ -165,6 +172,8 @@ source_item(s)
 
 - `review` 是 edit 分支的入口與收口
 - `review` 可決定條目直接進入聚合發布，或轉入 edit flow
+- `review` 應擁有 `classified` 隊列的 SLA 與逾時處理策略
+- 若由 agent 執行 triage，應回寫可審計欄位（actor、reason、confidence、timestamp）
 
 ### 6.4 `publish`
 
@@ -210,6 +219,7 @@ source_item(s)
 - `rejected` 不等於立刻刪除
 - `deleted` 必須由人工最終確認
 - 物理刪除不是分類流程的一部分，而是治理決策的一部分
+- `deleted` 的執行應滿足最小 retention window 與 audit log 要求；具體參數在 `review/docs/` 定義
 
 ## 9. 追溯與揭露策略
 

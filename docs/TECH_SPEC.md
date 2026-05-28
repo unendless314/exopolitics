@@ -39,6 +39,8 @@
 - 配置預設由各模塊自行擁有，只有真正共享時才上提為全域配置
 - 原始來源條目與 edit 內容必須分開建模
 - 發布內容必須保留來源追溯、AI 參與標記與人工責任欄位
+- `classified` 狀態可作為暫存隊列，但必須有可治理的時限與清理策略
+- 人工審核可被 agent queue triage 輔助，但不可失去可追溯的最終責任鏈
 
 ---
 
@@ -88,6 +90,10 @@ RSS / Feed Sources
 - 手動審核
 - 前台 build
 
+補充：
+
+- `classify` 產生的 `classified` 條目不可無上限滯留；逾時條目應交由 `review` 模塊的 queue policy 處理
+
 ### 3.3 `review`
 
 責任：
@@ -109,6 +115,8 @@ RSS / Feed Sources
 - 核心應先穩定 review queue、filtering、state transition 與批次操作 contract
 - 若後續人工審核量增加，可在同一組後端能力之上補 thin web UI
 - 不應把 UI 當作 `review` 核心能力的唯一載體
+- queue policy 應定義 `classified` 的審核時限（SLA）與逾時處理路徑
+- 逾時條目可由 agent 先做 triage，但 agent 決策須寫回可審計紀錄（actor、reason、confidence、timestamp）
 
 ### 3.4 `edit`
 
@@ -211,6 +219,7 @@ MVP 建議格式：
 - 可以重建
 - 不作為唯一歷史來源
 - 優先保持人類可讀與可維護
+- 應保留最小發布版本契約（例如 `publish_version`、`exported_at`、`source_snapshot`）以支援增量重建與回溯
 - 若未來需要供多個 machine consumers 使用，或 metadata 結構已不適合維護在 Markdown 中，可增補 JSON 派生輸出
 
 ### 4.3 Provenance And Disclosure Contract
@@ -266,6 +275,7 @@ rejected
 - `classify` 負責把來源條目推到 `classified` / `draft`
 - `review` 負責 `draft`、`approved`、`rejected`、`deleted`
 - `publish` 負責輸出 `approved` / `published`
+- `classified` 作為待審核暫存狀態時，應受 queue SLA 約束，不應無限期停留
 
 ### 5.1 Aggregation Flow
 
