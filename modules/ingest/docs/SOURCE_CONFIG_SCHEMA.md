@@ -15,6 +15,8 @@ Config ownership:
 - `modules/ingest/config/sources.yaml`
 - `modules/ingest/config/categories.yaml`
 
+`fetch_group` is stored per source in `sources.yaml`. `schedule_classes` are also defined in `sources.yaml` rather than separate config files.
+
 ---
 
 ## 2. Design Rule: Three Independent Axes

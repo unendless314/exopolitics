@@ -9,10 +9,6 @@ schedule_classes:
   slow:
     target_interval_minutes: 4320
     description: Low-frequency or fragile sources that should be crawled less often.
-fetch_groups:
-  strategy: round_robin_by_source_id
-  count: 8
-  description: Execution shards used for parallel fetching. Independent from category_id.
 sources:
 - title: MUFON (Mutual UFO Network)
   xml_url: https://mufon.com/feed/

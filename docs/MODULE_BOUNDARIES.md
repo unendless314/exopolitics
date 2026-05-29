@@ -25,8 +25,8 @@
 
 - RSS sources config
 - categories config
-- fetch group config
-- schedule class config
+- source-level `fetch_group` assignment
+- `schedule_classes` definitions in source config
 - fetch policy
 - source health
 - raw article ingestion
@@ -54,6 +54,10 @@
 - manual review decision
 - front-end output
 - final edit authorship
+
+補充：
+
+- `classify` 可在必要時觸發 page-level retrieval / content enrichment，但不應自行擁有一套脫離共享契約的 scraping 平台
 
 ### 2.3 `review`
 
@@ -125,6 +129,21 @@
 - review state transitions
 - feed configuration
 
+### 2.7 Shared capability candidate: external content retrieval
+
+定位：
+
+- page-level retrieval
+- content enrichment
+- 供 `classify`、`review`、`edit` 按需使用
+
+原則：
+
+- 不是目前主流程中的正式模塊
+- 不是 `ingest` 的預設責任
+- 早期可由使用方模塊觸發
+- 當其被多模塊穩定依賴後，再考慮獨立 ownership 與運行邊界
+
 ---
 
 ## 3. 配置所有權
@@ -138,8 +157,7 @@
 - `modules/ingest/config/`
   - `sources.yaml`
   - `categories.yaml`
-  - `schedule_classes.yaml`
-  - `fetch_groups.yaml`
+  - source entries, `fetch_group`, and `schedule_classes`
 - `modules/classify/config/`
   - prompt
   - threshold
@@ -185,3 +203,7 @@
 6. `site`
 
 這個順序可讓每一步都建立在前一步可驗證的輸出上，也避免在早期為低頻 edit 需求過度抽象。
+
+補充：
+
+- external content retrieval 可先作為共享能力候選存在，不必阻塞上述主模塊順序

@@ -93,6 +93,7 @@ RSS / Feed Sources
 補充：
 
 - `classify` 產生的 `classified` 條目不可無上限滯留；逾時條目應交由 `review` 模塊的 queue policy 處理
+- 當 feed 提供的 title / summary 不足以支持判斷時，`classify` 可在後續階段按需觸發 page-level retrieval 或 content enrichment 能力；此能力不屬於 `ingest` 的 MVP 責任
 
 ### 3.3 `review`
 
@@ -360,7 +361,6 @@ project-root/
 - `modules/ingest/config/`
   - RSS sources
   - categories
-  - fetch groups
   - schedule classes
   - fetch rules
 - `modules/classify/config/`
@@ -462,6 +462,20 @@ project-root/
 - i18n
 - SEO 與部署
 
+### Future Capability: external content retrieval
+
+作為後續共享能力考慮：
+
+- page-level content retrieval
+- content enrichment for low-context feed items
+- 給 `classify`、`review`、`edit` 按需觸發
+
+原則：
+
+- 不屬於 `ingest` MVP
+- 不應預設成所有條目的固定主流程
+- 只有在被多個模塊穩定依賴後，才考慮升級成獨立模塊或共享服務
+
 ---
 
 ## 9. 技術選型
@@ -485,3 +499,4 @@ project-root/
 - `edit` 的草稿契約、引用模型與責任欄位
 - `publish` 的輸出格式與 rebuild 規則
 - `site` 的頁面 IA 與 SEO 規則
+- external content retrieval 的觸發條件、快取策略與 ownership

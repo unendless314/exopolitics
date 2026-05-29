@@ -52,6 +52,7 @@ source feed
 - 來源層的 `fetch_group` 只負責並行抓取切片
 - 來源層的 `schedule_class` 只負責抓取頻率
 - 條目層最終是否屬於 `core / adjacent / irrelevant`，由後續分類與審核流程決定
+- 部分條目在 `classify`、`review` 或 `edit` 階段，可能因 feed 資訊不足而需要額外的 page-level retrieval；這屬於按需 enrichment，而非固定主流程階段
 
 ### 3.1 聚合流
 
@@ -174,6 +175,7 @@ source_item(s)
 - `review` 可決定條目直接進入聚合發布，或轉入 edit flow
 - `review` 應擁有 `classified` 隊列的 SLA 與逾時處理策略
 - 若由 agent 執行 triage，應回寫可審計欄位（actor、reason、confidence、timestamp）
+- `review` 在必要時也可使用共享的 external content retrieval 能力輔助判斷，但不應把該能力視為 review 私有邏輯
 
 ### 6.4 `publish`
 
