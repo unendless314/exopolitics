@@ -1,184 +1,64 @@
-# Ingest Module Overview
+# Ingest Module Docs
 
-**Document version:** v0.1 draft  
+**Document version:** v0.2  
 **Updated:** 2026-05-28  
-**Status:** Draft
+**Status:** Active
 
 ---
 
-## 1. Positioning
+## 1. Module Positioning
 
-`ingest` is the first executable module in the system.
+`ingest` is the first executable module in the pipeline:
 
-Its job is to:
+`ingest -> classify -> review -> edit (when needed) -> publish -> site`
 
-- read RSS source configuration
-- decide which sources should be fetched in the current run
-- fetch feeds with bounded parallelism
-- normalize feed entries into a stable internal shape
-- deduplicate incoming items
-- persist source metadata and raw items into canonical storage
-
-`ingest` is intentionally upstream only.
-
-It should not:
-
-- call LLMs
-- decide final public visibility
-- generate publish-layer output
-- render site pages
+`ingest` owns feed fetching, normalization, dedup inputs, and persistence of raw intake metadata.  
+It does not own topic judgment, review decisions, publishing output, or site rendering.
 
 ---
 
-## 2. Ownership
+## 2. Documentation Map
 
-At the current planning stage, `ingest` owns:
+Use the following docs as the source of truth for ingest scope and contracts:
 
-- source configuration
-- category configuration used by source config validation
-- fetch group contract
-- schedule class contract
-- source health tracking
-- raw ingestion records
-- deduplication inputs and ingest-time metadata
+1. `DATA_CONTRACT.md`
+   Defines ingest input/output boundaries and record-level contracts.
+2. `SOURCE_CONFIG_SCHEMA.md`
+   Defines `modules/ingest/config/*.yaml` schema and validation rules.
+3. `FETCH_EXECUTION.md`
+   Defines fetch flow, shard model, schedule handling, retries, and cache headers.
+4. `ERROR_POLICY.md`
+   Defines failure taxonomy, source health behavior, quarantine/disable rules.
+5. `OPERATIONS_RUNBOOK.md`
+   Defines day-to-day operations, troubleshooting, and recovery procedures.
 
-`ingest` does not own:
-
-- topic classification policy
-- review queue policy
-- edit authorship
-- publish formatting
-- front-end presentation
+`INGEST_MVP_DRAFT.md` is retained as an early planning draft. New decisions should be written in the docs above.
 
 ---
 
-## 3. Inputs And Outputs
+## 3. Scope Guardrails
 
-### Inputs
+In scope:
 
-- RSS/feed source config
-- categories config
-- current time
-- prior source state from canonical storage
+- load and validate source config
+- resolve due sources
+- fetch feeds with bounded concurrency
+- normalize entries and compute dedup keys
+- write canonical ingest records and run metadata
+- record source health and fetch outcomes
 
-### Outputs
+Out of scope:
 
-- new or updated `source_item` records
-- source fetch metadata
-- fetch run records
-- source health signals
-- ingest-time deduplication markers
-
----
-
-## 4. Boundaries With Other Modules
-
-### Upstream boundary
-
-`ingest` talks to:
-
-- source config files
-- remote feed endpoints
-- canonical database
-
-### Downstream boundary
-
-`ingest` hands off persisted records to later modules.
-
-Expected downstream consumers:
-
-- `classify` reads newly ingested items
-- `review` does not fetch feeds directly
-- `publish` does not repair missing ingest records
-- `site` never reads remote feeds
+- LLM calls
+- publish-layer transformation
+- editorial review logic
+- site-facing rendering decisions
 
 ---
 
-## 5. Design Principles
+## 4. Read Order For New Contributors
 
-- Save first, classify later.
-- Keep content semantics separate from fetch scheduling.
-- A failed source must not collapse the whole run.
-- Publish-facing concerns must not leak into ingest.
-- The module should remain small enough to operate on one machine.
-- Data written by `ingest` should be reusable by future pipelines without re-fetching.
-
----
-
-## 6. Current Config Contract
-
-The current assets in `modules/ingest/config/` already express three independent axes:
-
-- `category_id`
-  - semantic grouping only
-- `fetch_group`
-  - execution shard for parallel fetching
-- `schedule_class`
-  - fetch cadence tier
-
-These axes must remain separate:
-
-- `category_id` is not a scheduling signal
-- `fetch_group` is not a semantic label
-- `schedule_class` is not a quality score
-
-This separation should remain stable in the module-owned config layout.
-
-### Example source entry
-
-```yaml
-id: 55
-title: AARO Official Releases (DOD)
-xml_url: https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?max=10&Categories=UAP
-html_url: https://www.aaro.mil/
-category_id: 1
-fetch_group: 7
-schedule_class: hourly
-enabled: true
-```
-
-### Contract notes
-
-- `id` should be stable and unique within the source list
-- `xml_url` is the canonical fetch target
-- `html_url` is optional presentation metadata unless later required by tooling
-- `enabled` should support predictable source disable behavior without deleting config
-- category definitions, shard ranges, and schedule classes should be validated against their companion config files
-
----
-
-## 7. Near-Term Scope
-
-The first implementation pass should focus on:
-
-- config loading and validation
-- fetch scheduling selection
-- feed retrieval
-- normalization
-- deduplication
-- canonical persistence
-- source health bookkeeping
-
-The first pass should not overreach into:
-
-- complex source-specific adapters
-- full-text extraction
-- LLM-assisted parsing
-- edit drafting
-- automated deletion policy
-
----
-
-## 8. Open Decisions
-
-The following are intentionally not finalized yet:
-
-- canonical DB table design
-- exact deduplication key strategy
-- retry and backoff policy
-- timeout defaults
-- raw payload retention format
-- whether fetch run logs live in the same DB or a sidecar store
-- exact CLI shape for scheduled execution
-
-These should be refined after the overall architecture discussion stabilizes.
+1. Read `DATA_CONTRACT.md` first to understand ingest boundaries.
+2. Read `SOURCE_CONFIG_SCHEMA.md` and inspect `modules/ingest/config/`.
+3. Read `FETCH_EXECUTION.md` for runtime behavior.
+4. Read `ERROR_POLICY.md` and `OPERATIONS_RUNBOOK.md` before changing production-facing behavior.

@@ -2,7 +2,7 @@
 
 **Document version:** v0.1 draft  
 **Updated:** 2026-05-28  
-**Status:** Draft
+**Status:** Transitional draft (superseded by modular docs)
 
 ---
 
@@ -11,6 +11,15 @@
 Define a first-pass implementation target for `ingest` without freezing low-level details too early.
 
 This document is a planning draft, not a final implementation contract.
+
+Current module-level source-of-truth docs:
+
+- `README.md`
+- `DATA_CONTRACT.md`
+- `SOURCE_CONFIG_SCHEMA.md`
+- `FETCH_EXECUTION.md`
+- `ERROR_POLICY.md`
+- `OPERATIONS_RUNBOOK.md`
 
 ---
 
