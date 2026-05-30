@@ -3,7 +3,7 @@
 **Document version:** v1.0  
 **Updated:** 2026-05-30  
 **Status:** Implementation Locked (Concrete Specification)  
-**Reference:** Supersedes directions from `STORAGE_SCHEMA_DRAFT.md` and resolves all findings in `STORAGE_SCHEMA_LOCK_CHECKLIST.md`.
+**Reference:** Supersedes directions from `archive/STORAGE_SCHEMA_DRAFT.md` and resolves all findings in `archive/STORAGE_SCHEMA_LOCK_CHECKLIST.md`.
 
 ---
 

@@ -35,10 +35,8 @@ Use the following docs as the source of truth for ingest scope and contracts:
    Defines day-to-day operations, troubleshooting, and recovery procedures.
 7. `STORAGE_SCHEMA.md`
    Defines the concrete implementation-ready ingest storage schema and DDL.
-8. `STORAGE_SCHEMA_DRAFT.md`
-   Retained as design-history context for schema direction and decision rationale.
 
-Historical planning docs are kept under `archive/` (for example `archive/INGEST_MVP_DRAFT.md`).
+Historical planning docs are kept under `archive/` (for example `archive/INGEST_MVP_DRAFT.md`, `archive/STORAGE_SCHEMA_DRAFT.md`, and `archive/STORAGE_SCHEMA_LOCK_CHECKLIST.md`).
 New decisions should be written in active docs above.
 
 ---
