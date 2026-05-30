@@ -24,7 +24,7 @@ MVP ingest storage should cover four main record groups:
 3. source-level attempt records
 4. ingested source items and dedup support
 
-Recommended logical records:
+Logical records:
 
 - `source_state`
 - `fetch_run`
@@ -33,6 +33,7 @@ Recommended logical records:
 - `ingest_dedup_marker`
 
 `source_definition` remains config-owned in MVP and does not need to be materialized as a canonical table on day one.
+In MVP, `source_id` referential validity is guaranteed by ingest config validation (`modules/ingest/config/sources.yaml`) rather than a database `source_definition` table.
 
 ---
 
@@ -54,7 +55,7 @@ Purpose:
 
 - store the latest operational state for each configured source
 
-Recommended fields:
+Fields:
 
 - `source_id`
 - `last_fetch_at`
@@ -63,7 +64,7 @@ Recommended fields:
 - `etag`
 - `last_modified`
 - `consecutive_failures`
-- `last_error_code`
+- `last_error_class`
 - `last_error_at`
 - `health_status`
 - `quarantine_until`
@@ -77,6 +78,7 @@ Notes:
 
 - exactly one current `source_state` record per source
 - this record is updated by each completed source attempt
+- `last_error_class` uses the same taxonomy as `fetch_attempt.error_class`
 
 ### 4.2 `fetch_run`
 
@@ -84,7 +86,7 @@ Purpose:
 
 - record one ingest execution run
 
-Recommended fields:
+Fields:
 
 - `fetch_run_id`
 - `started_at`
@@ -107,6 +109,7 @@ Notes:
 
 - `run_status` should align with MVP values: `success`, `partial_failure`, `failed`
 - `error_summary` may begin as structured JSON/text rather than a normalized child table
+- `due_source_count` and `attempted_source_count` may differ when due sources are skipped before attempt start (for example disabled during run preparation, filtered by operator override, or excluded by quarantine policy)
 
 ### 4.3 `fetch_attempt`
 
@@ -114,7 +117,7 @@ Purpose:
 
 - record the outcome of one source within one fetch run
 
-Recommended fields:
+Fields:
 
 - `fetch_attempt_id`
 - `fetch_run_id`
@@ -135,9 +138,10 @@ Key direction:
 - primary key: `fetch_attempt_id`
 - foreign key direction: `fetch_run_id -> fetch_run.fetch_run_id`
 
-Recommended uniqueness expectation:
+Uniqueness:
 
-- one final `fetch_attempt` record per source per run
+- enforce unique constraint on (`fetch_run_id`, `source_id`)
+- this guarantees one final `fetch_attempt` record per source per run
 
 Notes:
 
@@ -151,7 +155,7 @@ Purpose:
 
 - store normalized feed entries as canonical ingest records
 
-Recommended fields:
+Fields:
 
 - `source_item_id`
 - `source_id`
@@ -161,7 +165,6 @@ Recommended fields:
 - `summary`
 - `published_at`
 - `fetched_at`
-- `raw_payload_ref`
 - `ingest_dedup_key`
 - `dedup_rule`
 - `ingest_status`
@@ -171,7 +174,7 @@ Key direction:
 
 - primary key: `source_item_id`
 
-Recommended index direction:
+Index direction:
 
 - index on `source_id`
 - index on `published_at`
@@ -180,7 +183,8 @@ Recommended index direction:
 Notes:
 
 - `ingest_status` can start with `ingested`
-- `dedup_rule` should indicate which rule produced the dedup key, such as `guid`, `canonical_url`, `title_published_at`, or `fallback_hash`
+- `dedup_rule` should indicate which rule produced the dedup key, such as `guid`, `url`, `tp`, or `fh`
+- MVP does not persist raw payload snapshots in canonical ingest storage; debugging relies on normalized fields and fetch/run error records
 
 ### 4.5 `ingest_dedup_marker`
 
@@ -188,33 +192,33 @@ Purpose:
 
 - keep dedup identity explainable without overloading `source_item` lookup behavior
 
-Recommended fields:
+Fields:
 
 - `dedup_marker_id`
 - `dedup_key`
 - `dedup_rule`
 - `source_item_id`
-- `source_scope`
 - `created_at`
 
 Key direction:
 
 - primary key: `dedup_marker_id`
 
-Recommended uniqueness direction:
+Uniqueness:
 
 - unique on `dedup_key`
 
 Notes:
 
-- `source_scope` can remain nullable when the key is valid across sources
+- MVP dedup markers use a single global `dedup_key` namespace
+- `dedup_key` must be rule-prefixed to prevent cross-rule key collisions (for example `guid:<value>`, `url:<value>`, `tp:<value>`, `fh:<value>`)
 - if implementation later proves this table unnecessary, the same contract may be folded into a different structure, but dedup explainability should remain
 
 ---
 
 ## 5. Relationship Direction
 
-Recommended relationships:
+Relationships:
 
 - one `fetch_run` to many `fetch_attempt`
 - one `source_state` per `source_id`
@@ -226,7 +230,7 @@ Recommended relationships:
 
 ## 6. Mutability Direction
 
-Recommended mutability model:
+Mutability model:
 
 - `source_state`: mutable current state
 - `fetch_run`: append-only after completion except for run finalization fields
@@ -240,9 +244,11 @@ This keeps debugging and audit trails simpler.
 
 ## 7. Minimal Integrity Rules
 
-Suggested integrity rules for MVP:
+Integrity rules for MVP:
 
 - every `fetch_attempt` must belong to a `fetch_run`
+- every (`fetch_run_id`, `source_id`) pair in `fetch_attempt` must be unique
+- every `source_id` used by `source_state`, `fetch_attempt`, and `source_item` must exist in validated ingest source config at run start
 - every `source_item` must have a non-null `source_id`
 - every `source_item` must have a non-null `ingest_dedup_key`
 - every `source_item` must have a non-null `fetched_at`
@@ -251,23 +257,22 @@ Suggested integrity rules for MVP:
 
 ---
 
-## 8. Deferred Decisions
+## 8. MVP Decisions (Locked)
 
-The following should stay open until implementation pressure makes them necessary:
+The following decisions are finalized for MVP implementation:
 
-- whether `source_definition` should also be mirrored into the database
-- whether retry events need their own table
-- whether `error_summary` should become a normalized child structure
-- whether `raw_payload_ref` points to file storage, blob storage, or in-db text
-- whether cross-source dedup markers need separate uniqueness semantics
-- final index set for SQLite performance
+- `source_definition` remains config-owned and is not mirrored into the database in MVP
+- retry events do not get a separate table in MVP; `fetch_attempt.retry_count` is the MVP contract
+- `error_summary` remains a single structured JSON/text field in `fetch_run` for MVP
+- SQLite index strategy in MVP uses the current baseline indexes in this document; index expansion is deferred until measured performance pressure appears
 
 ---
 
-## 9. Recommended Next Step
+## 9. Next Step
 
 Before writing persistence code, convert this draft into one concrete MVP schema decision set:
 
+- implementation checklist: `modules/ingest/docs/STORAGE_SCHEMA_LOCK_CHECKLIST.md`
 - exact field names
 - nullable vs non-nullable rules
 - unique constraints

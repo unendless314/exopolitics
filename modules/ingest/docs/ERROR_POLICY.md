@@ -37,11 +37,13 @@ Additional diagnosis can rely on `last_http_status` and raw detail payload.
 Maintain source-level health fields:
 
 - `consecutive_failures`
-- `last_error_code`
+- `last_error_class`
 - `last_error_at`
 - `last_success_at`
 - `health_status` (example: `healthy`, `degraded`, `quarantined`)
 - `quarantine_until` (nullable)
+
+`last_error_class` should use the same taxonomy as attempt-level `error_class`.
 
 Suggested transition direction:
 

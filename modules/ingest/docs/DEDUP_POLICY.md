@@ -55,6 +55,11 @@ Recommended precedence:
 
 The first stable match found should define the ingest dedup key used for that item.
 
+Dedup key encoding rule for MVP:
+
+- every persisted dedup key must include a rule prefix to avoid accidental collisions across rules
+- recommended prefixes: `guid:`, `url:`, `tp:` (title+published), `fh:` (fallback hash)
+
 ---
 
 ## 5. Rule Details

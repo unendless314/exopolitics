@@ -55,7 +55,6 @@ Minimum logical fields:
 - `summary` (nullable)
 - `published_at` (nullable)
 - `fetched_at`
-- `raw_payload_ref` or equivalent raw storage pointer
 - `ingest_dedup_key`
 - `ingest_status` (example: `ingested`)
 
@@ -69,7 +68,7 @@ Minimum logical fields:
 - `last_http_status`
 - `etag` (nullable)
 - `last_modified` (nullable)
-- health metrics (`consecutive_failures`, `last_error_code`, `quarantine_until` nullable)
+- health metrics (`consecutive_failures`, `last_error_class`, `quarantine_until` nullable)
 
 ### Fetch run / attempt
 

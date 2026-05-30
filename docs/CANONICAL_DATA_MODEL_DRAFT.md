@@ -108,7 +108,7 @@
 - `etag`
 - `last_modified`
 - `consecutive_failures`
-- `last_error_code`
+- `last_error_class`
 - `last_error_at`
 - `health_status`
 - `quarantine_until`
@@ -189,7 +189,6 @@ MVP does not require a separate `partial_success` attempt outcome.
 - `summary`
 - `published_at`
 - `fetched_at`
-- `raw_payload_ref`
 - `ingest_dedup_key`
 - `ingest_status`
 
@@ -201,6 +200,7 @@ MVP does not require a separate `partial_success` attempt outcome.
 
 - `source_item` 不應混入 `classify`、`review`、`publish` 的欄位
 - 後續模塊可透過關聯表或附屬記錄延伸，而不是直接破壞其語義邊界
+- ingest MVP 不要求保存 raw payload snapshot；若後續需要，可用獨立結構擴充而非回寫既有語義
 
 ### 5.6 `classification_result`
 
@@ -456,7 +456,7 @@ MVP does not require a separate `partial_success` attempt outcome.
 - AI 參與程度可被明確查詢
 - 審核與批准決策可追溯到 actor
 - 關鍵狀態轉移具備 timestamp 與 reason
-- 原始抓取資料具備回查能力
+- 抓取決策與來源條目具備回查能力（MVP 以正規化欄位與 run/attempt 記錄為主）
 
 ---
 
@@ -468,6 +468,7 @@ MVP does not require a separate `partial_success` attempt outcome.
 - `classification_result` 是否保留 full history
 - `review_decision` 是否兼作 queue event log
 - `published_piece` 是否直接存 body 或只存導出引用
+- ingest 是否需要引入 raw payload snapshot 能力（非 MVP 必要）
 - `audit_event` 採共用表或模塊分表
 - 各 entity 的 index 與唯一鍵細節
 

@@ -1,7 +1,7 @@
 # Ingest Module Docs
 
-**Document version:** v0.2  
-**Updated:** 2026-05-28  
+**Document version:** v0.3  
+**Updated:** 2026-05-30  
 **Status:** Active
 
 ---
@@ -33,10 +33,13 @@ Use the following docs as the source of truth for ingest scope and contracts:
    Defines failure taxonomy, source health behavior, quarantine/disable rules.
 6. `OPERATIONS_RUNBOOK.md`
    Defines day-to-day operations, troubleshooting, and recovery procedures.
-7. `STORAGE_SCHEMA_DRAFT.md`
-   Translates the ingest logical contract into a storage-oriented implementation draft.
+7. `STORAGE_SCHEMA.md`
+   Defines the concrete implementation-ready ingest storage schema and DDL.
+8. `STORAGE_SCHEMA_DRAFT.md`
+   Retained as design-history context for schema direction and decision rationale.
 
-`INGEST_MVP_DRAFT.md` is retained as an early planning draft. New decisions should be written in the docs above.
+Historical planning docs are kept under `archive/` (for example `archive/INGEST_MVP_DRAFT.md`).
+New decisions should be written in active docs above.
 
 ---
 
@@ -67,4 +70,5 @@ Out of scope:
 3. Read `DEDUP_POLICY.md` before changing ingest identity or insert behavior.
 4. Read `FETCH_EXECUTION.md` for runtime behavior.
 5. Read `ERROR_POLICY.md` and `OPERATIONS_RUNBOOK.md` before changing production-facing behavior.
-6. Read `STORAGE_SCHEMA_DRAFT.md` before locking persistence structures or writing schema code.
+6. Read `STORAGE_SCHEMA.md` before writing or changing persistence code.
+7. Use `archive/` only for historical context, not active implementation contracts.

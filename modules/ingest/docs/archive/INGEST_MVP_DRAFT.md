@@ -194,7 +194,7 @@ These items are intentionally deferred until the architecture conversation settl
 
 - final database schema
 - exact scheduler invocation shape
-- retention window for raw payloads
+- retention window for ingested records and run/attempt history
 - source disable/quarantine policy
 - whether source config should support per-source overrides for timeout, headers, or retry
 - whether `html_url` should normalize to `null` instead of empty string
