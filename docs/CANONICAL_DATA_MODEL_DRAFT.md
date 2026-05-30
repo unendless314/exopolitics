@@ -1,7 +1,7 @@
 # Canonical Data Model Draft
 
-**文件版本：** v0.1 草稿  
-**更新日期：** 2026-05-29  
+**文件版本：** v0.2 草稿  
+**更新日期：** 2026-05-30  
 **狀態：** 待審核
 
 ---
@@ -117,6 +117,12 @@
 
 - `ingest`
 
+MVP status examples:
+
+- `healthy`
+- `degraded`
+- `quarantined`
+
 ### 5.3 `fetch_run`
 
 表示一次 ingest 執行批次。
@@ -134,6 +140,12 @@
 所有權：
 
 - `ingest`
+
+MVP status examples:
+
+- `success`
+- `partial_failure`
+- `failed`
 
 ### 5.4 `fetch_attempt`
 
@@ -155,6 +167,13 @@
 所有權：
 
 - `ingest`
+
+MVP outcome examples:
+
+- `success`
+- `failed`
+
+MVP does not require a separate `partial_success` attempt outcome.
 
 ### 5.5 `source_item`
 

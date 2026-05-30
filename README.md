@@ -82,6 +82,7 @@ Notes:
 ```text
 docs/
 ├── PRD.md
+├── CANONICAL_DATA_MODEL_DRAFT.md
 ├── TECH_SPEC.md
 ├── CONTENT_LIFECYCLE.md
 └── MODULE_BOUNDARIES.md
@@ -90,6 +91,7 @@ docs/
 These documents cover:
 
 - product goals
+- canonical entities, ownership, and cross-module relationships draft
 - architecture direction
 - content lifecycle
 - storage and publication boundaries

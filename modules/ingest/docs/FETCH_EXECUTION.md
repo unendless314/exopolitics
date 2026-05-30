@@ -64,11 +64,22 @@ Required behaviors:
 - backoff between retries
 - response status capture for source health logic
 
+MVP retry defaults:
+
+- retry up to 2 additional attempts for `network_error`, `timeout_error`, and `http_error_5xx`
+- do not retry `http_error_4xx`
+- do not retry `parse_error`
+
 Cache headers:
 
 - persist and reuse `ETag` if provided
 - persist and reuse `Last-Modified` if provided
 - handle `304 Not Modified` as successful poll with no new entries
+
+Failure isolation rule:
+
+- source-level failures should not cancel remaining sources in the same run
+- run-level failures such as `validation_error`, `persistence_error`, or `unexpected_error` should fail the run
 
 ---
 

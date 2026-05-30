@@ -34,8 +34,14 @@ Recommended quick checks:
 
 1. inspect last error class and HTTP status
 2. verify source `xml_url` and feed availability manually
-3. temporarily quarantine source if failure is persistent
+3. confirm whether the source has moved to `degraded` or `quarantined`
 4. open follow-up issue for source-specific handling if needed
+
+MVP note:
+
+- sources move to `degraded` after 3 consecutive failures
+- sources move to `quarantined` after 5 consecutive failures
+- automatic quarantine duration defaults to 24 hours
 
 ### B. Many sources failing at once
 
@@ -43,6 +49,8 @@ Recommended quick checks:
 2. inspect recent config changes
 3. run targeted retry on a small known-good subset
 4. avoid mass disable until root cause is confirmed
+
+If the run stopped on `validation_error`, `persistence_error`, or `unexpected_error`, treat it as a run-level incident rather than independent source failures.
 
 ### C. Unexpected dedup spike or duplicate inserts
 

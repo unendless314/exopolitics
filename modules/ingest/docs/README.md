@@ -27,10 +27,14 @@ Use the following docs as the source of truth for ingest scope and contracts:
    Defines `modules/ingest/config/*.yaml` schema and validation rules.
 3. `FETCH_EXECUTION.md`
    Defines fetch flow, shard model, schedule handling, retries, and cache headers.
-4. `ERROR_POLICY.md`
+4. `DEDUP_POLICY.md`
+   Defines ingest-time dedup precedence, conflict handling, and MVP non-goals.
+5. `ERROR_POLICY.md`
    Defines failure taxonomy, source health behavior, quarantine/disable rules.
-5. `OPERATIONS_RUNBOOK.md`
+6. `OPERATIONS_RUNBOOK.md`
    Defines day-to-day operations, troubleshooting, and recovery procedures.
+7. `STORAGE_SCHEMA_DRAFT.md`
+   Translates the ingest logical contract into a storage-oriented implementation draft.
 
 `INGEST_MVP_DRAFT.md` is retained as an early planning draft. New decisions should be written in the docs above.
 
@@ -60,5 +64,7 @@ Out of scope:
 
 1. Read `DATA_CONTRACT.md` first to understand ingest boundaries.
 2. Read `SOURCE_CONFIG_SCHEMA.md` and inspect `modules/ingest/config/`.
-3. Read `FETCH_EXECUTION.md` for runtime behavior.
-4. Read `ERROR_POLICY.md` and `OPERATIONS_RUNBOOK.md` before changing production-facing behavior.
+3. Read `DEDUP_POLICY.md` before changing ingest identity or insert behavior.
+4. Read `FETCH_EXECUTION.md` for runtime behavior.
+5. Read `ERROR_POLICY.md` and `OPERATIONS_RUNBOOK.md` before changing production-facing behavior.
+6. Read `STORAGE_SCHEMA_DRAFT.md` before locking persistence structures or writing schema code.
