@@ -68,18 +68,18 @@ gantt
 #### Story 2.1: SQLite Migration & Connection Setup
 - **Goal:** Initialize and manage the local database schema lifecycle.
 - **Tasks:**
-  - [ ] **Task 2.1.1:** Setup **per-operation SQLite connection management** (using connection factories). *Do not introduce an unnecessary database connection pool; SQLite runs locally and is best managed with clean connection creation and disposal per fetch task.*
-  - [ ] **Task 2.1.2:** Write a schema runner applying DDL scripts (e.g. `v001_initial_ingest_tables.sql`) containing correct column types and indices. Explicitly enforce session-scoped `PRAGMA foreign_keys = ON;` on every connection.
-  - [ ] **Task 2.1.3:** Support UTC ISO-8601 string conversions (`YYYY-MM-DDTHH:MM:SSZ`) natively in DB adapters.
-  - [ ] **Task 2.1.4:** Create a simple `schema_migrations` tracking table to log run DDL history, providing metadata for migrations and tracking.
+  - [x] **Task 2.1.1:** Setup **per-operation SQLite connection management** (using connection factories). *Do not introduce an unnecessary database connection pool; SQLite runs locally and is best managed with clean connection creation and disposal per fetch task.*
+  - [x] **Task 2.1.2:** Write a schema runner applying DDL scripts (e.g. `v001_initial_ingest_tables.sql`) containing correct column types and indices. Explicitly enforce session-scoped `PRAGMA foreign_keys = ON;` on every connection.
+  - [x] **Task 2.1.3:** Support UTC ISO-8601 string conversions (`YYYY-MM-DDTHH:MM:SSZ`) natively in DB adapters.
+  - [x] **Task 2.1.4:** Create a simple `schema_migrations` tracking table to log run DDL history, providing metadata for migrations and tracking.
 
 #### Story 2.2: Repository Layer & Transaction Boundaries
 - **Goal:** Create clean, transactional interfaces for persistence.
 - **Tasks:**
-  - [ ] **Task 2.2.1:** Implement transaction wrapper ensuring `BEGIN IMMEDIATE TRANSACTION;` for atomic source fetches.
-  - [ ] **Task 2.2.2:** Develop `SourceStateRepository` to upsert and query source state metrics.
-  - [ ] **Task 2.2.3:** Develop `FetchRunRepository` and `FetchAttemptRepository` to audit execution logs.
-  - [ ] **Task 2.2.4:** Develop `SourceItemRepository` and `DedupMarkerRepository` for writing immutable normalized articles.
+  - [x] **Task 2.2.1:** Implement transaction wrapper ensuring `BEGIN IMMEDIATE TRANSACTION;` for atomic source fetches.
+  - [x] **Task 2.2.2:** Develop `SourceStateRepository` to upsert and query source state metrics.
+  - [x] **Task 2.2.3:** Develop `FetchRunRepository` and `FetchAttemptRepository` to audit execution logs.
+  - [x] **Task 2.2.4:** Develop `SourceItemRepository` and `DedupMarkerRepository` for writing immutable normalized articles.
 
 ---
 
