@@ -31,7 +31,7 @@ def transaction(conn: sqlite3.Connection):
     """
     # By default, sqlite3 in Python handles transactions implicitly.
     # BEGIN IMMEDIATE immediately acquires a RESERVED lock, which blocks other writers
-    # from initiating write transactions while still allowing active readers to continue, avoiding deadlocks.
+    # from initiating write transactions while still allowing active readers to continue.
     conn.execute("BEGIN IMMEDIATE")
     try:
         yield conn
@@ -39,6 +39,35 @@ def transaction(conn: sqlite3.Connection):
     except Exception:
         conn.rollback()
         raise
+
+def split_sql_statements(sql_content: str) -> List[str]:
+    """
+    Safely splits a SQL script into individual complete statements.
+    Uses sqlite3.complete_statement to correctly respect statement boundaries,
+    ignoring semicolons inside string literals, block comments, or triggers.
+    """
+    statements = []
+    buffer = []
+    
+    for line in sql_content.splitlines():
+        buffer.append(line)
+        combined = "\n".join(buffer).strip()
+        
+        if not combined:
+            buffer.clear()
+            continue
+            
+        # Check if accumulated text forms a complete statement (SQLite C-API check)
+        if sqlite3.complete_statement(combined):
+            statements.append(combined)
+            buffer.clear()
+            
+    # Handle any remaining text in the buffer
+    remaining = "\n".join(buffer).strip()
+    if remaining:
+        statements.append(remaining)
+        
+    return statements
 
 def run_migrations(db_path: pathlib.Path, migrations_dir: pathlib.Path) -> None:
     """
@@ -75,9 +104,8 @@ def run_migrations(db_path: pathlib.Path, migrations_dir: pathlib.Path) -> None:
             with transaction(conn):
                 sql_content = file.read_text(encoding="utf-8")
                 
-                # Split and execute statement-by-statement to preserve outer transaction boundaries.
-                # Avoid executescript() because it commits implicitly and breaks atomicity.
-                statements = [stmt.strip() for stmt in sql_content.split(";") if stmt.strip()]
+                # Split statements using SQLite statement boundaries check
+                statements = split_sql_statements(sql_content)
                 for stmt in statements:
                     conn.execute(stmt)
                 
