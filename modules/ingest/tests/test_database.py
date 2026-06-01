@@ -6,6 +6,7 @@ from modules.ingest.src.database import (
     get_connection,
     transaction,
     run_migrations,
+    split_sql_statements,
     get_utc_now_iso8601,
     SourceStateRepository,
     FetchRunRepository,
@@ -97,6 +98,23 @@ class TestDatabaseStorage(unittest.TestCase):
                 self.assertEqual(count, 0, "Bad migration should not be registered in schema_migrations!")
             finally:
                 conn.close()
+
+    def test_split_sql_statements_ignores_comment_only_chunks(self) -> None:
+        sql_content = """
+        -- comment-only prelude;
+        /* block comment with ; semicolon */
+
+        CREATE TABLE example_table (
+            id INTEGER PRIMARY KEY
+        );
+
+        -- trailing comment-only chunk;
+        """
+
+        statements = split_sql_statements(sql_content)
+
+        self.assertEqual(len(statements), 1)
+        self.assertIn("CREATE TABLE example_table", statements[0])
 
     def test_transaction_commit_on_success(self) -> None:
         run_repo = FetchRunRepository(self.conn)

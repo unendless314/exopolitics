@@ -1,6 +1,7 @@
 import contextlib
 import datetime
 import pathlib
+import re
 import sqlite3
 from typing import List, Dict, Any, Optional
 
@@ -59,15 +60,25 @@ def split_sql_statements(sql_content: str) -> List[str]:
             
         # Check if accumulated text forms a complete statement (SQLite C-API check)
         if sqlite3.complete_statement(combined):
-            statements.append(combined)
+            if _has_executable_sql(combined):
+                statements.append(combined)
             buffer.clear()
             
     # Handle any remaining text in the buffer
     remaining = "\n".join(buffer).strip()
-    if remaining:
+    if remaining and _has_executable_sql(remaining):
         statements.append(remaining)
         
     return statements
+
+
+def _has_executable_sql(statement: str) -> bool:
+    """Returns True when the buffered text contains executable SQL, not only comments."""
+    stripped = re.sub(r"/\*.*?\*/", "", statement, flags=re.DOTALL)
+    lines = []
+    for line in stripped.splitlines():
+        lines.append(line.split("--", 1)[0])
+    return bool("\n".join(lines).strip())
 
 def run_migrations(db_path: pathlib.Path, migrations_dir: pathlib.Path) -> None:
     """
