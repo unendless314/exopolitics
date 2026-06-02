@@ -97,6 +97,27 @@ def get_args_parser() -> argparse.ArgumentParser:
         help="Output the source health report in structured JSON log format"
     )
 
+    # 5. export-report subcommand
+    report_parser = subparsers.add_parser("export-report", help="Export an interactive HTML report of the ingested database")
+    report_parser.add_argument(
+        "--db-path",
+        type=pathlib.Path,
+        default=DEFAULT_DB_PATH,
+        help="Custom SQLite canonical database path"
+    )
+    report_parser.add_argument(
+        "--out",
+        type=pathlib.Path,
+        default=DEFAULT_WORKSPACE_ROOT / "data" / "ingested_report.html",
+        help="Path where the HTML report should be saved"
+    )
+    report_parser.add_argument(
+        "--limit",
+        type=int,
+        default=500,
+        help="Maximum number of latest articles to export in the report"
+    )
+
     return parser
 
 def cmd_validate(config_dir: pathlib.Path) -> int:
@@ -282,6 +303,22 @@ def cmd_fetch(args: argparse.Namespace) -> int:
         return 1
     return 0
 
+def cmd_export_report(config_dir: pathlib.Path, db_path: pathlib.Path, out_path: pathlib.Path, limit: int) -> int:
+    """Generates an interactive HTML inspection report for the database."""
+    try:
+        from .inspector import generate_inspector_html
+        print(f"Generating HTML report from {db_path} to {out_path} (limit: {limit} items)...")
+        generate_inspector_html(
+            db_path=db_path,
+            config_dir=config_dir,
+            out_path=out_path,
+            item_limit=limit
+        )
+        return 0
+    except Exception as e:
+        print(f"Failed to generate report: {str(e)}", file=sys.stderr)
+        return 1
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = get_args_parser()
     args = parser.parse_args(argv)
@@ -294,6 +331,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return cmd_show_health(args.config_dir, args.db_path, args.json)
     elif args.command == "fetch":
         return cmd_fetch(args)
+    elif args.command == "export-report":
+        return cmd_export_report(args.config_dir, args.db_path, args.out, args.limit)
     return 0
 
 if __name__ == "__main__":

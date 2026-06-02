@@ -22,10 +22,11 @@ python -m modules.ingest.src.cli <subcommand> [flags]
 
 Subcommands:
 
-- `validate`     — load `modules/ingest/config/*.yaml` and check schema rules (no network, no DB)
-- `migrate`      — apply SQLite DDL migrations to the canonical database
-- `fetch`        — execute a fetch run (auto-applies pending migrations first)
-- `show-health`  — report current per-source health state
+- `validate`      — load `modules/ingest/config/*.yaml` and check schema rules (no network, no DB)
+- `migrate`       — apply SQLite DDL migrations to the canonical database
+- `fetch`         — execute a fetch run (auto-applies pending migrations first)
+- `show-health`   — report current per-source health state
+- `export-report` — export an interactive HTML dashboard of the ingested database
 
 Common flags on `fetch`:
 
@@ -35,6 +36,11 @@ Common flags on `fetch`:
 - `--dry-run`                list eligible sources without any HTTP or DB writes
 - `--trigger-type {scheduled|manual|recovery}`  recorded on the `fetch_run` row for auditability
 - `--json`                   emit the run summary in JSON (use this for cron/scheduled mode)
+
+Common flags on `export-report`:
+
+- `--out <path>`             where the HTML report should be saved (default: `data/ingested_report.html`)
+- `--limit <number>`         maximum number of latest articles to export (default: 500)
 
 Common flag on every DB-touching subcommand:
 

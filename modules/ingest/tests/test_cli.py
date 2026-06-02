@@ -139,6 +139,66 @@ sources:
             with patch_stderr(StringIO()):
                 main(["invalid_command"])
 
+    def test_cli_export_report_no_db_raises_error(self) -> None:
+        # DB path does not exist
+        report_path = pathlib.Path(self.temp_dir.name) / "no_db_report.html"
+        non_existent_db = pathlib.Path(self.temp_dir.name) / "missing.db"
+        stderr_capture = StringIO()
+        with patch_stderr(stderr_capture):
+            exit_code = main(["--config-dir", str(self.config_dir), "export-report", "--db-path", str(non_existent_db), "--out", str(report_path)])
+        
+        self.assertEqual(exit_code, 1)
+        self.assertIn("Failed to generate report", stderr_capture.getvalue())
+        self.assertFalse(report_path.exists())
+
+    def test_cli_export_report_empty_db(self) -> None:
+        # Database exists (migrated) but has zero items, runs, or states
+        main(["migrate", "--db-path", str(self.db_path)])
+        
+        report_path = pathlib.Path(self.temp_dir.name) / "empty_report.html"
+        stdout_capture = StringIO()
+        with patch_stdout(stdout_capture):
+            exit_code = main(["--config-dir", str(self.config_dir), "export-report", "--db-path", str(self.db_path), "--out", str(report_path)])
+        
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(report_path.exists())
+        with open(report_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn("Ingest Inspector", content)
+        self.assertIn("Test Feed", content)
+        self.assertIn("資料庫中目前沒有已抓取的文章條目", content)
+
+    def test_cli_export_report_with_data_and_escaping(self) -> None:
+        # Migrate the DB first
+        main(["migrate", "--db-path", str(self.db_path)])
+        
+        # Insert a source_item with special characters into db
+        import sqlite3
+        conn = sqlite3.connect(str(self.db_path))
+        conn.execute("""
+            INSERT INTO source_item (source_id, title, summary, canonical_url, published_at, fetched_at, ingest_dedup_key, dedup_rule, created_at)
+            VALUES (101, 'Special <Script> "Quote" & Char', 'Another <Danger> summary & test.', 'https://example.com/rss?a=1&b=2', '2026-06-02T12:00:00Z', '2026-06-02T12:00:00Z', 'key1', 'guid', '2026-06-02T12:00:00Z')
+        """)
+        conn.commit()
+        conn.close()
+
+        report_path = pathlib.Path(self.temp_dir.name) / "escaped_report.html"
+        stdout_capture = StringIO()
+        with patch_stdout(stdout_capture):
+            exit_code = main(["--config-dir", str(self.config_dir), "export-report", "--db-path", str(self.db_path), "--out", str(report_path), "--limit", "10"])
+        
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(report_path.exists())
+        with open(report_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        # Verify characters are fully escaped in the HTML output
+        self.assertIn("Special &lt;Script&gt; &quot;Quote&quot; &amp; Char", content)
+        self.assertIn("Another &lt;Danger&gt; summary &amp; test.", content)
+        self.assertIn("https://example.com/rss?a=1&amp;b=2", content)
+        self.assertNotIn('<Script>', content)
+        self.assertNotIn('<Danger>', content)
+
 # Helpers to redirect stdout and stderr
 import contextlib
 
