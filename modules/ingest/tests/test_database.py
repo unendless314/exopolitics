@@ -220,5 +220,47 @@ class TestDatabaseStorage(unittest.TestCase):
 
         self.assertFalse(dedup_repo.exists("guid:uap-guid-123"))
 
+    def test_transaction_safety_item_and_marker_insert_failure(self) -> None:
+        item_repo = SourceItemRepository(self.conn)
+        dedup_repo = DedupMarkerRepository(self.conn)
+
+        # First, insert an item and register its dedup marker successfully
+        item1_data = {
+            "source_id": 5,
+            "source_item_guid": "uap-guid-999",
+            "canonical_url": "https://example.com/uap-news-999",
+            "title": "First Unidentified Object",
+            "ingest_dedup_key": "guid:5:uap-guid-999",
+            "dedup_rule": "guid"
+        }
+        with transaction(self.conn):
+            item1_id = item_repo.insert(item1_data)
+            dedup_repo.insert(dedup_key="guid:5:uap-guid-999", dedup_rule="guid", source_item_id=item1_id)
+
+        # Now, try to insert another item, but force a duplicate dedup_key collision
+        item2_data = {
+            "source_id": 5,
+            "source_item_guid": "uap-guid-duplicate",
+            "canonical_url": "https://example.com/uap-news-dup",
+            "title": "Second Object with Colliding Key",
+            "ingest_dedup_key": "guid:5:uap-guid-999",  # Collides with item1's dedup key!
+            "dedup_rule": "guid"
+        }
+
+        # Attempt to insert within a single transaction block
+        with self.assertRaises(sqlite3.IntegrityError):
+            with transaction(self.conn):
+                # The item insertion itself succeeds...
+                item2_id = item_repo.insert(item2_data)
+                # ...but the dedup marker insertion will raise IntegrityError due to UNIQUE constraint!
+                dedup_repo.insert(dedup_key="guid:5:uap-guid-999", dedup_rule="guid", source_item_id=item2_id)
+
+        # Verify that because of the exception, the entire transaction rolled back:
+        # The second item ('Second Object with Colliding Key') MUST NOT exist in the database!
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM source_item WHERE title = 'Second Object with Colliding Key'")
+        count = cursor.fetchone()[0]
+        self.assertEqual(count, 0, "The second item should have been rolled back and not persisted!")
+
 if __name__ == "__main__":
     unittest.main()

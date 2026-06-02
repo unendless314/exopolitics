@@ -7,19 +7,25 @@ category_policy:
 categories:
   0:
     name: Disabled & Unrelated (禁用與無關排除)
+    slug: disabled-unrelated
     enabled: false
   1:
     name: Government Policy & Official Disclosure (政府決策與官方解密)
+    slug: gov-disclosure
     enabled: true
   2:
     name: Civilian Investigation & Databases (民間調查與數據庫)
+    slug: civilian-investigation
     enabled: true
   3:
     name: Scientific Verification & Frontier Research (科學驗證與前沿研究)
+    slug: scientific-verification
     enabled: true
   4:
     name: Public Sightings & Community Discussion (大眾目擊與社群輿論)
+    slug: public-sightings
     enabled: true
   5:
     name: Speculative Hypotheses & Editorial Commentaries (假說探索與專欄評論)
+    slug: speculative-hypotheses
     enabled: true

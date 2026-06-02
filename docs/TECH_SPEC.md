@@ -482,7 +482,7 @@ project-root/
 
 | 項目 | 建議 |
 |------|------|
-| Ingest / Classify / Review / Edit / Publish | Python 3.11+ |
+| Ingest / Classify / Review / Edit / Publish | Python 3.12+ |
 | Feed fetching | `aiohttp` + `feedparser` |
 | Canonical DB | SQLite 起步，預留 Postgres 遷移 |
 | Site | Astro |

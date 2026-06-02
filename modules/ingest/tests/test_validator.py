@@ -6,8 +6,8 @@ class TestValidator(unittest.TestCase):
     def setUp(self) -> None:
         # Standard valid categories and schedule classes
         self.categories = {
-            1: CategoryConfig(id=1, name="Valid Enabled Category", enabled=True),
-            2: CategoryConfig(id=2, name="Disabled Category", enabled=False)
+            1: CategoryConfig(id=1, name="Valid Enabled Category", slug="valid-cat", enabled=True),
+            2: CategoryConfig(id=2, name="Disabled Category", slug="disabled-cat", enabled=False)
         }
         self.schedule_classes = {
             "daily": ScheduleClassConfig(name="daily", target_interval_minutes=1440, description="Daily"),
@@ -224,6 +224,70 @@ class TestValidator(unittest.TestCase):
         self.assertTrue(any("Suspiciously empty title" in warn for warn in warnings))
         self.assertTrue(any("Missing html_url" in warn for warn in warnings))
         self.assertTrue(any("Duplicate xml_url" in warn for warn in warnings))
+
+    def test_fail_fast_invalid_category_fields(self) -> None:
+        source = SourceConfig(
+            id=1,
+            title="AARO Official Releases",
+            xml_url="https://www.defense.gov/uap.xml",
+            html_url="https://www.aaro.mil/",
+            category_id=1,
+            fetch_group=3,
+            schedule_class="daily",
+            enabled=True
+        )
+
+        # 1. Missing/Invalid Category Name
+        bad_categories_name = {
+            1: CategoryConfig(id=1, name=None, slug="valid-cat", enabled=True),
+            2: CategoryConfig(id=2, name="", slug="disabled-cat", enabled=False)
+        }
+        config = IngestConfig(categories=bad_categories_name, schedule_classes=self.schedule_classes, sources=[source])
+        errors, warnings = validate_config(config)
+        self.assertGreater(len(errors), 0)
+        self.assertTrue(any("Missing required 'name' field" in err or "name' must be a non-empty string" in err for err in errors))
+
+        # 2. Missing/Invalid Category Slug
+        bad_categories_slug = {
+            1: CategoryConfig(id=1, name="Category", slug=None, enabled=True),
+            2: CategoryConfig(id=2, name="Category 2", slug=123, enabled=False)
+        }
+        config = IngestConfig(categories=bad_categories_slug, schedule_classes=self.schedule_classes, sources=[source])
+        errors, warnings = validate_config(config)
+        self.assertGreater(len(errors), 0)
+        self.assertTrue(any("Missing required 'slug' field" in err or "slug' must be a non-empty string" in err for err in errors))
+
+    def test_fail_fast_invalid_schedule_class_fields(self) -> None:
+        source = SourceConfig(
+            id=1,
+            title="AARO Official Releases",
+            xml_url="https://www.defense.gov/uap.xml",
+            html_url="https://www.aaro.mil/",
+            category_id=1,
+            fetch_group=3,
+            schedule_class="daily",
+            enabled=True
+        )
+
+        # 1. Missing/Invalid Schedule Class target_interval_minutes
+        bad_sc_interval = {
+            "daily": ScheduleClassConfig(name="daily", target_interval_minutes=None, description="Daily"),
+            "hourly": ScheduleClassConfig(name="hourly", target_interval_minutes=-50, description="Hourly")
+        }
+        config = IngestConfig(categories=self.categories, schedule_classes=bad_sc_interval, sources=[source])
+        errors, warnings = validate_config(config)
+        self.assertGreater(len(errors), 0)
+        self.assertTrue(any("Missing required 'target_interval_minutes'" in err or "positive integer" in err for err in errors))
+
+        # 2. Missing/Invalid Schedule Class description
+        bad_sc_desc = {
+            "daily": ScheduleClassConfig(name="daily", target_interval_minutes=1440, description=None),
+            "hourly": ScheduleClassConfig(name="hourly", target_interval_minutes=60, description="")
+        }
+        config = IngestConfig(categories=self.categories, schedule_classes=bad_sc_desc, sources=[source])
+        errors, warnings = validate_config(config)
+        self.assertGreater(len(errors), 0)
+        self.assertTrue(any("Missing required 'description'" in err or "description' must be a non-empty string" in err for err in errors))
 
 if __name__ == "__main__":
     unittest.main()

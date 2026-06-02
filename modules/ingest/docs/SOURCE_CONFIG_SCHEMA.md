@@ -66,10 +66,12 @@ enabled: true
 
 Minimum required fields per category:
 
-- `id` (int, unique)
+- `id` (int, unique, derived from the YAML mapping key)
 - `slug` (stable key)
 - `name`
 - `enabled` (bool)
+
+*Note: In `categories.yaml`, the category ID is represented by the YAML mapping key itself (e.g. `0:`), rather than an explicit `id` field within the category block. The loader parses the mapping key as the category ID.*
 
 `category_id` in sources must reference an existing enabled category unless explicitly allowed by migration tooling.
 

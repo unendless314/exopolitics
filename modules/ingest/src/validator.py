@@ -49,6 +49,18 @@ def validate_config(config: IngestConfig, max_fetch_groups: int = 8) -> Tuple[Li
             errors.append(f"{cat_label}: Category ID must be an integer, got {type(cat_id).__name__}")
             continue
 
+        # Validate name
+        if category.name is None:
+            errors.append(f"{cat_label}: Missing required 'name' field")
+        elif not isinstance(category.name, str) or not category.name.strip():
+            errors.append(f"{cat_label}: 'name' must be a non-empty string, got {type(category.name).__name__}")
+
+        # Validate slug
+        if category.slug is None:
+            errors.append(f"{cat_label}: Missing required 'slug' field")
+        elif not isinstance(category.slug, str) or not category.slug.strip():
+            errors.append(f"{cat_label}: 'slug' must be a non-empty string, got {type(category.slug).__name__}")
+
         # Validate category enabled type
         if category.enabled is None:
             errors.append(f"{cat_label}: Missing 'enabled' field")
@@ -56,6 +68,27 @@ def validate_config(config: IngestConfig, max_fetch_groups: int = 8) -> Tuple[Li
             errors.append(f"{cat_label}: 'enabled' must be a boolean, got {type(category.enabled).__name__}")
         elif category.enabled:
             valid_category_ids.add(cat_id)
+
+    # Validate Schedule Classes next
+    for name, sc in config.schedule_classes.items():
+        sc_label = f"Schedule Class '{name}'"
+        if not isinstance(name, str) or not name.strip():
+            errors.append(f"Schedule Class name must be a non-empty string, got {type(name).__name__}")
+            continue
+        
+        # Validate target_interval_minutes
+        if sc.target_interval_minutes is None:
+            errors.append(f"{sc_label}: Missing required 'target_interval_minutes' field")
+        elif not isinstance(sc.target_interval_minutes, int) or isinstance(sc.target_interval_minutes, bool):
+            errors.append(f"{sc_label}: 'target_interval_minutes' must be an integer, got {type(sc.target_interval_minutes).__name__}")
+        elif sc.target_interval_minutes <= 0:
+            errors.append(f"{sc_label}: 'target_interval_minutes' must be a positive integer, got {sc.target_interval_minutes}")
+
+        # Validate description
+        if sc.description is None:
+            errors.append(f"{sc_label}: Missing required 'description' field")
+        elif not isinstance(sc.description, str) or not sc.description.strip():
+            errors.append(f"{sc_label}: 'description' must be a non-empty string, got {type(sc.description).__name__}")
 
     # Validate Sources
     for idx, source in enumerate(config.sources):

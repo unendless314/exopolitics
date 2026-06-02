@@ -15,6 +15,7 @@ schema_version: 2
 categories:
   0:
     name: Disabled Category
+    slug: disabled-cat
     enabled: false
   1:
     name: Enabled Category

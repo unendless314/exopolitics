@@ -49,7 +49,7 @@ Records execution batches of the Ingest module.
 | `ended_at` | `TEXT` | `NULL` | UTC ISO-8601 run end. Null while running. |
 | `run_scope` | `TEXT` | `NOT NULL` | Scope identifier (e.g., `'all'` or serialized shard list like `'[1,2]'`). |
 | `trigger_type` | `TEXT` | `NOT NULL` | Checked Enums: `'scheduled'`, `'manual'`, `'recovery'`. |
-| `run_status` | `TEXT` | `NOT NULL` | Checked Enums: `'success'`, `'partial_failure'`, `'failed'`. |
+| `run_status` | `TEXT` | `NOT NULL` | Checked Enums: `'running'`, `'success'`, `'partial_failure'`, `'failed'`. |
 | `due_source_count` | `INTEGER` | `NOT NULL` | Total sources targeted for this run at start. |
 | `attempted_source_count`| `INTEGER` | `NOT NULL DEFAULT 0` | Sources actually attempted. |
 | `succeeded_source_count`| `INTEGER` | `NOT NULL DEFAULT 0` | Sources successfully fetched (including 304). |
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS fetch_run (
     ended_at TEXT,
     run_scope TEXT NOT NULL,
     trigger_type TEXT NOT NULL CHECK (trigger_type IN ('scheduled', 'manual', 'recovery')),
-    run_status TEXT NOT NULL CHECK (run_status IN ('success', 'partial_failure', 'failed')),
+    run_status TEXT NOT NULL CHECK (run_status IN ('running', 'success', 'partial_failure', 'failed')),
     due_source_count INTEGER NOT NULL,
     attempted_source_count INTEGER NOT NULL DEFAULT 0,
     succeeded_source_count INTEGER NOT NULL DEFAULT 0,
