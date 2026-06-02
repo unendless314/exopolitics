@@ -1,8 +1,8 @@
 # Ingest Operations Runbook
 
-**Document version:** v0.1  
-**Updated:** 2026-05-28  
-**Status:** Draft
+**Document version:** v0.2  
+**Updated:** 2026-06-02  
+**Status:** Active
 
 ---
 
@@ -12,42 +12,90 @@ Provide practical run and recovery guidance for operating ingest in daily schedu
 
 ---
 
-## 2. Standard Operating Checks
+## 2. CLI Reference
 
-Before scheduled deployment or major config updates:
+All operations go through the ingest CLI, executed from the repository root:
 
-1. validate config structure
-2. run a limited-scope fetch on selected shards
-3. verify run summary and source health records
-4. confirm no abnormal duplicate spike in `source_item`
+```text
+python -m modules.ingest.src.cli <subcommand> [flags]
+```
 
-Recommended quick checks:
+Subcommands:
 
-- `rg --files modules/ingest/config`
-- `git diff -- modules/ingest/config/ modules/ingest/docs/`
+- `validate`     — load `modules/ingest/config/*.yaml` and check schema rules (no network, no DB)
+- `migrate`      — apply SQLite DDL migrations to the canonical database
+- `fetch`        — execute a fetch run (auto-applies pending migrations first)
+- `show-health`  — report current per-source health state
+
+Common flags on `fetch`:
+
+- `--groups <ids...>`        restrict to specific `fetch_group` shards
+- `--source-ids <ids...>`    restrict to specific source IDs
+- `--force`                  bypass schedule-due check and active quarantine (still respects `enabled=false`)
+- `--dry-run`                list eligible sources without any HTTP or DB writes
+- `--trigger-type {scheduled|manual|recovery}`  recorded on the `fetch_run` row for auditability
+- `--json`                   emit the run summary in JSON (use this for cron/scheduled mode)
+
+Common flag on every DB-touching subcommand:
+
+- `--db-path <path>`         override the default SQLite location (default: `data/canonical.db` at the repo root)
 
 ---
 
-## 3. Common Failure Playbooks
+## 3. Standard Operating Checks
+
+Before scheduled deployment or major config updates:
+
+1. **Validate config structure**
+   ```text
+   python -m modules.ingest.src.cli validate
+   ```
+   Exit code `0` with zero `ERROR:` lines is required. `WARNING:` lines are non-blocking.
+
+2. **Run a limited-scope dry-run to confirm sharding is correct**
+   ```text
+   python -m modules.ingest.src.cli fetch --dry-run --groups <id>
+   ```
+
+3. **Execute a limited-scope real fetch on a known-good shard**
+   ```text
+   python -m modules.ingest.src.cli fetch --groups <id> --trigger-type manual
+   ```
+
+4. **Verify run summary and source health records**
+   ```text
+   python -m modules.ingest.src.cli show-health
+   ```
+   Check that no expected-healthy source has slipped to `degraded` or `quarantined`.
+
+---
+
+## 4. Common Failure Playbooks
 
 ### A. Single source repeatedly failing
 
-1. inspect last error class and HTTP status
+1. inspect last error class and HTTP status via `show-health`:
+   ```text
+   python -m modules.ingest.src.cli show-health --json
+   ```
 2. verify source `xml_url` and feed availability manually
 3. confirm whether the source has moved to `degraded` or `quarantined`
 4. open follow-up issue for source-specific handling if needed
 
-MVP note:
+Health transition thresholds (consistent with `ERROR_POLICY.md` §3 and `scheduler.apply_fetch_failure`):
 
-- sources move to `degraded` after 3 consecutive failures
-- sources move to `quarantined` after 5 consecutive failures
-- automatic quarantine duration defaults to 24 hours
+- 1–2 consecutive failures: `healthy`
+- 3–4 consecutive failures: `degraded`
+- 5 or more consecutive failures: `quarantined` for 24 hours (auto-released when `quarantine_until` elapses)
 
 ### B. Many sources failing at once
 
 1. check network/DNS/TLS environment first
 2. inspect recent config changes
-3. run targeted retry on a small known-good subset
+3. run targeted retry on a small known-good subset:
+   ```text
+   python -m modules.ingest.src.cli fetch --source-ids <id1> <id2> --force --trigger-type recovery
+   ```
 4. avoid mass disable until root cause is confirmed
 
 If the run stopped on `validation_error`, `persistence_error`, or `unexpected_error`, treat it as a run-level incident rather than independent source failures.
@@ -60,23 +108,31 @@ If the run stopped on `validation_error`, `persistence_error`, or `unexpected_er
 
 ---
 
-## 4. Recovery Operations
+## 5. Recovery Operations
 
-Supported recovery modes should include:
+Supported recovery modes:
 
-- rerun by `fetch_group`
-- rerun by source ID list
-- rerun by time window
+- **rerun by `fetch_group`** — implemented:
+  ```text
+  python -m modules.ingest.src.cli fetch --groups <id> --trigger-type recovery
+  ```
+- **rerun by source ID list** — implemented:
+  ```text
+  python -m modules.ingest.src.cli fetch --source-ids <id1> <id2> --trigger-type recovery
+  ```
+- **rerun by time window** — **Deferred** (not implemented in the current CLI; tracked separately, do not assume availability).
+
+`--force` may be combined with the implemented modes to bypass schedule-due checks and active quarantines (still respects `enabled=false`).
 
 Recovery runs must:
 
-- preserve auditability (new run ID)
-- avoid destructive overwrite of historical attempts
-- emit clear summary for later review
+- preserve auditability — each run produces a new `fetch_run_id`; always pass `--trigger-type recovery` so the row is distinguishable from scheduled and manual runs
+- avoid destructive overwrite of historical attempts — the schema appends to `fetch_attempt`, never updates prior rows
+- emit clear summary for later review — capture stdout, or use `--json` for machine-readable archival
 
 ---
 
-## 5. Change Safety Checklist
+## 6. Change Safety Checklist
 
 Any change touching config schema, fetch behavior, or dedup policy should include:
 
@@ -87,7 +143,7 @@ Any change touching config schema, fetch behavior, or dedup policy should includ
 
 ---
 
-## 6. Ownership And Handoff
+## 7. Ownership And Handoff
 
 `ingest` operators own source intake reliability.  
 Downstream modules (`classify`, `review`) should not patch ingest data quality by silent workarounds.
