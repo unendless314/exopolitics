@@ -41,6 +41,7 @@
 - 發布內容必須保留來源追溯、AI 參與標記與人工責任欄位
 - `classified` 狀態可作為暫存隊列，但必須有可治理的時限與清理策略
 - 人工審核可被 agent queue triage 輔助，但不可失去可追溯的最終責任鏈
+- 當 feed metadata 不足以可靠判斷時，系統應允許以 `unknown` 保留低上下文條目，避免誤判為 `irrelevant`
 
 ---
 
@@ -81,7 +82,7 @@ RSS / Feed Sources
 
 - 讀取待分類條目
 - 呼叫 LLM
-- 回寫 `topic_class`、理由、信心與初始審核狀態
+- 回寫 `topic_class`、理由、信心與 `edit_candidate`
 - 視需要標記 `edit_candidate`
 
 不負責：
@@ -93,7 +94,7 @@ RSS / Feed Sources
 補充：
 
 - `classify` 產生的 `classified` 條目不可無上限滯留；逾時條目應交由 `review` 模塊的 queue policy 處理
-- 當 feed 提供的 title / summary 不足以支持判斷時，`classify` 可在後續階段按需觸發 page-level retrieval 或 content enrichment 能力；此能力不屬於 `ingest` 的 MVP 責任
+- 當 feed 提供的 title / summary 不足以支持判斷時，`classify` 可直接將條目標記為 `topic_class = unknown`，供後續按需 enrichment 或人工 triage；此能力不屬於 `ingest` 的 MVP 責任
 
 ### 3.3 `review`
 
@@ -190,7 +191,7 @@ canonical database 至少應能區分三種內容物件：
 
 - 正規化抓取欄位與來源識別資訊
 - 來源狀態
-- LLM 判定結果
+- 分類結果（可由規則或 LLM 產生）
 - 人工審核狀態
 - 發布記錄
 - 來源追溯關係
@@ -257,11 +258,11 @@ Roadmap note：
 ```text
 ingested
   -> classified
-  -> draft
+  -> review decision
   -> approved
   -> published
 
-draft
+review decision
   -> rejected
   -> approved
 
@@ -273,8 +274,8 @@ rejected
 說明：
 
 - `ingest` 只負責產生 `ingested`
-- `classify` 負責把來源條目推到 `classified` / `draft`
-- `review` 負責 `draft`、`approved`、`rejected`、`deleted`
+- `classify` 負責產生初始分類結果，包含 `core / adjacent / irrelevant / unknown`
+- `review` 負責 `approved`、`rejected`、`deleted` 與是否進入 edit 分支
 - `publish` 負責輸出 `approved` / `published`
 - `classified` 作為待審核暫存狀態時，應受 queue SLA 約束，不應無限期停留
 
@@ -284,7 +285,7 @@ rejected
 source_item
   -> ingested
   -> classified
-  -> draft
+  -> review
   -> approved
   -> published
 ```

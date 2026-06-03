@@ -62,6 +62,10 @@
 - `adjacent`：非直接主題，但有脈絡、流量或分享價值
 - `irrelevant`：目前看來與主題無顯著關聯
 
+在 feed metadata 過少時，系統也可暫時標記為：
+
+- `unknown`：RSS title / summary 資訊不足，暫時無法可靠判斷
+
 補充：
 
 - `category_id` 是來源層的語義歸檔，不等於條目最終展示分類
@@ -69,6 +73,7 @@
 - 並行抓取應由獨立欄位控制，例如 `fetch_group`
 - 不同來源的抓取頻率應由獨立欄位控制，例如 `schedule_class`
 - `classified` 允許短期停留，但不應成為無上限暫存狀態
+- `unknown` 不等於失敗，而是保留低上下文條目供後續 enrichment 或人工判斷
 - 對於超過審核時限的 `classified` 條目，系統應允許 agent 先行分流，再由人工做最終覆核
 - 任何 agent 參與的分流或建議，必須保留可追溯的決策紀錄
 
@@ -98,7 +103,7 @@
 - `ingest`
   - RSS 抓取、去重、來源健康管理、抓取分片、抓取頻率管理、正規化條目入庫
 - `classify`
-  - LLM 初篩、主題打標、信心分數、初始狀態回寫、改寫候選標記
+  - LLM 初篩、主題打標、信心分數、低上下文 `unknown` 判定、改寫候選標記
 - `review`
   - 人工審核、狀態流轉、發佈決策、edit 內容責任確認
 - `edit`
@@ -191,7 +196,7 @@ project-root/
 
 ## 9. 已決定事項
 
-- `core / adjacent / irrelevant` 已作為上層分類框架確立；更細的操作判準應在 `classify` 與 `review` 模塊文檔中展開
+- `core / adjacent / irrelevant / unknown` 已作為上層分類框架確立；更細的操作判準應在 `classify` 與 `review` 模塊文檔中展開
 - `edit` 在架構上被正式承認，但早期先作為 `review` 內的延伸工作流，而不是立即拆成獨立可執行模塊
 - `site` 首發語言以 `zh + en` 為主，`ja` 為後續優先擴充語言
 - AI 參與程度的公開揭露先採三級：

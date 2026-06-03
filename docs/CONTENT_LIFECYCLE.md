@@ -29,6 +29,7 @@
 - 對外內容必須可追溯來源、AI 參與程度與人工責任
 - `classified` 可短期停留，但必須受審核時限治理，不可無限期積壓
 - 當人工審核量不足時，可由 agent 先做 queue triage；最終責任仍需可追溯到人類決策
+- 當 feed metadata 過少時，條目可先被標記為 `unknown`，避免在資訊不足下被誤判
 
 ---
 
@@ -52,6 +53,7 @@ source feed
 - 來源層的 `fetch_group` 只負責並行抓取切片
 - 來源層的 `schedule_class` 只負責抓取頻率
 - 條目層最終是否屬於 `core / adjacent / irrelevant`，由後續分類與審核流程決定
+- 條目層若因 RSS metadata 過少而無法可靠判斷，可先標記為 `unknown`
 - 部分條目在 `classify`、`review` 或 `edit` 階段，可能因 feed 資訊不足而需要額外的 page-level retrieval；這屬於按需 enrichment，而非固定主流程階段
 
 ### 3.1 聚合流
@@ -107,9 +109,17 @@ source_item(s)
 - 不對外展示
 - 仍可短期保留供人工複核，或經人工確認後刪除
 
+### 4.4 `unknown`
+
+- 目前可用的 RSS metadata 不足以支持可靠分類
+- 不等於失敗，也不等於 `irrelevant`
+- 可作為後續 enrichment 或人工 triage 的候選集合
+
 ---
 
 ## 5. 狀態模型
+
+以下清單混合了流程狀態與重要內容結果，用於描述上層生命週期，不等同於單一資料表欄位設計。
 
 - `ingested`
 - `classified`
@@ -120,6 +130,7 @@ source_item(s)
 - `deleted`
 - `edit_candidate`（可選）
 - `edit_draft`
+- `unknown`（分類結果）
 
 ---
 
@@ -149,11 +160,12 @@ source_item(s)
 - `classification_reason`
 - `classification_confidence`
 - `edit_candidate`（可選）
-- `classified` 或 `draft`
+- `classified`
 
 補充：
 
 - 進入 `classified` 的條目應被視為待處理隊列，而非長期封存狀態
+- `unknown` 表示低上下文分類結果，不代表流程失敗
 
 ### 6.3 `review`
 

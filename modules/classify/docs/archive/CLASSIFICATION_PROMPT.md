@@ -10,6 +10,8 @@
 
 The model must classify feed entries according to these strict rules:
 
+Low-context items are handled before prompt execution. If the combined `title + summary` length is below the configured `min_context_characters` threshold, the module must not call the LLM and must write `topic_class = 'unknown'` directly.
+
 ### 1.1 `core`
 * **Topic:** Directly related to Unidentified Anomalous Phenomena (UAP), UFOs, alien/anomalous encounters, military sensor recordings of unrecognized flyers (FLIR, radar), official government disclosure initiatives (e.g. AARO, UAPTF, Congressional hearings), or scientific studies of anomalous aerial objects.
 * **Examples:** UAP disclosure bills, whistleblower testimonies, military reports of unknown drones hovering over warships, analysis of the "gimbal" video.
@@ -22,6 +24,10 @@ The model must classify feed entries according to these strict rules:
 * **Topic:** Unrelated to UAP, extraterrestrial science, or defense aerospace anomalies.
 * **Examples:** Standard stock market reports, entertainment news, sports, standard geopolitical events without aerospace context.
 
+### 1.4 `unknown`
+* **Topic:** Reserved for low-context feed items where the available RSS metadata is too thin to support a reliable classification.
+* **Rule:** This class is assigned by module logic, not by the LLM prompt, when the configured minimum context threshold is not met.
+
 ---
 
 ## 2. Edit Candidate Tagging (`edit_candidate`)
@@ -29,6 +35,7 @@ The model must classify feed entries according to these strict rules:
 The model should flag an item as an `edit_candidate` (`1` for True, `0` for False) based on:
 1. **Rich Context:** The article summary contains complex quotes, references, or timelines that would benefit from站內 (in-site) rewrite/summarization rather than just aggregating the link.
 2. **High-Impact News:** Core UAP breakthroughs or policy changes that warrant dedicated coverage.
+3. **Low-Context Exception:** Items classified directly as `unknown` must set `edit_candidate = 0`.
 
 ---
 
@@ -55,3 +62,5 @@ Your classification MUST output in valid JSON format ONLY, matching this schema:
 }}
 ```
 No markdown wrapper (like ```json ... ```) is needed in the raw API response if using JSON output mode or Structured Outputs.
+
+`unknown` is intentionally excluded from the LLM response schema because it is produced by deterministic pre-check logic before any prompt is sent.

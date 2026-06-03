@@ -1,12 +1,15 @@
-# LLM settings
-model:
-  name: "gpt-5.4-mini"
+# Active provider and prompt selection for the classify module.
+active_provider: openai
+active_prompt_template: single_item_v2
+
+# Request behavior shared across providers.
+request_defaults:
   temperature: 0.1
   top_p: 0.95
   max_output_tokens: 1024
 
-# Execution batch policy
-batch_policy:
+# Execution controls owned by the classify module.
+execution_policy:
   batch_size: 20
   max_concurrent_requests: 3
   rate_limit_per_minute: 60
@@ -14,3 +17,24 @@ batch_policy:
   min_context_characters: 100
   retry_attempts: 3
   backoff_factor: 2.0
+
+# Provider registry. The MVP only needs one active provider,
+# but the structure keeps switching cost low later.
+providers:
+  openai:
+    api_type: openai
+    api_key_env: OPENAI_API_KEY
+    model_name: gpt-5.4-mini
+    supports_structured_output: true
+
+  openai_compatible_example:
+    api_type: openai_compatible
+    api_base: https://api.example.com/v1
+    api_key_env: OPENAI_COMPATIBLE_API_KEY
+    model_name: example-classifier-model
+    supports_structured_output: false
+
+# Deterministic results still need stable metadata in the DB.
+deterministic_classification:
+  model_name: deterministic-low-context
+  prompt_version: rule_v1

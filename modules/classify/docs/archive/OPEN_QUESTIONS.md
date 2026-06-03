@@ -3,7 +3,7 @@
 This document serves as the shared discussion record between the **User (Product Owner)** and the **AI Agents (Antigravity & Peer AIs)** regarding the `classify` module. We will co-maintain this file to record technical discussion topics, align on specifications, and document consensuses.
 
 > [!IMPORTANT]
-> **Consensus Rule:** No application code should be written for the `classify` module until all topics listed in this document are marked as **[RESOLVED]**.
+> **Consensus Rule:** This file is a discussion and decision log. Implementation should follow the formal specifications in `README.md`, `DATA_CONTRACT.md`, `CLASSIFICATION_PROMPT.md`, and `BATCH_POLICY.md`.
 
 ---
 
@@ -42,7 +42,7 @@ This document serves as the shared discussion record between the **User (Product
     * Following `docs/MODULE_BOUNDARIES.md`, page-level retrieval is a shared capability candidate and is **not** an MVP feature of `ingest`.
     * For `classify`, we should first run a dry check: if the combined title and summary is less than a certain character threshold (e.g., 100 characters), or if the LLM returns `irrelevant` with very low confidence due to "insufficient info", the pipeline should flag it for optional enrichment. However, in Stage 2 (MVP), we should default to classifying based purely on feed metadata, and fallback to human triage if unsure.
   * **Peer AI's View:** *(To be filled by peer AI)*
-  * **User's Decision:** Agree with the policy. If the combined title and summary length falls below a configurable threshold, the item is marked as `'unknown'` to await enrichment. The threshold must not be hardcoded; it will be defined in `model_settings.yaml` (e.g., as `min_context_characters`).
+  * **User's Decision:** Agree with the policy. If the combined title and summary length falls below a configurable threshold, the item is marked as `'unknown'`. The threshold must not be hardcoded; it will be defined in `model_settings.yaml` (e.g., as `min_context_characters`). In the current MVP, `unknown` is sufficient and no separate `classification_status` field is added.
 * **Status:** `[RESOLVED]`
 
 ---
@@ -114,8 +114,8 @@ This document serves as the shared discussion record between the **User (Product
     * **DDL Changes:** Update the `topic_class` constraint in `classification_result` to:
       `CHECK (topic_class IN ('core', 'adjacent', 'irrelevant', 'unknown'))`
   * **Peer AI's View:** *(To be filled by peer AI)*
-  * **User's Decision:** *(Pending)*
-* **Status:** `[OPEN]`
+  * **User's Decision:** Adopt `'unknown'` as a formal `topic_class` value for low-context RSS items. In the MVP, low-context items are identified before LLM invocation using the configured `min_context_characters` threshold. These items do not require a separate `classification_status` field.
+* **Status:** `[RESOLVED]`
 
 ---
 
@@ -216,8 +216,8 @@ This document serves as the shared discussion record between the **User (Product
       3. **Simpler & Safer Queries:** Querying `WHERE classification_status = 'failed'` is much cleaner and less error-prone for downstream consumers than checking combinations of NULL/NOT NULL timestamps and joined result tables.
     * *Recommendation:* Keep the explicit `classification_status` column in the DDL to support robust error-handling, retry queues, and intermediate states like enrichment.
   * **Peer AI's View:** *(To be filled by peer AI)*
-  * **User's Decision:** *(Pending)*
-* **Status:** `[OPEN]`
+  * **User's Decision:** Do not add `classification_status` to the MVP schema. The presence of a `classification_result` row is sufficient to indicate a completed initial classification pass, and `topic_class = 'unknown'` covers low-context items. If future enrichment workflow needs richer operational state, prefer introducing a dedicated workflow table instead of overloading `classification_result`.
+* **Status:** `[RESOLVED]`
 
 ---
 
@@ -246,5 +246,7 @@ This document serves as the shared discussion record between the **User (Product
 | **Topic 1.1** | Enforce a 1-to-1 relationship with a UNIQUE constraint on `source_item_id` in `classification_result`. Overwrite existing records if re-run, no historical records preserved to minimize API cost. | 2026-06-03 |
 | **Topic 1.2** | Use `gpt-5.4-mini` for the initial MVP, with potential future transitions to MiniMax M3 or DeepSeek V4 Flash due to cost. If classification fails, items are left unclassified for triage rather than auto-assigning defaults. | 2026-06-03 |
 | **Topic 1.3** | Trigger page-level enrichment for low-context items by marking them as `'unknown'`. The threshold for low-context classification is defined configurably as `min_context_characters` in `model_settings.yaml` instead of being hardcoded. | 2026-06-03 |
+| **Topic 1.7** | Adopt `'unknown'` as a formal `topic_class` for low-context feed items. In the MVP, these items are detected before LLM invocation and do not require a separate `classification_status` field. | 2026-06-03 |
 | **Topic 1.4** | Deferred. SLA policies and automated triage logic belong strictly to Stage 3 (`review`) and will not be implemented in the `classify` module. | 2026-06-03 |
 | **Topic 1.11** | Operational parameters live signatures strictly in `model_settings.yaml`; CLI overrides are omitted to keep the user interface simple. | 2026-06-03 |
+| **Topic 1.12** | Omit `classification_status` from the MVP schema. If future enrichment workflow needs explicit operational state, prefer a dedicated workflow table instead of extending `classification_result`. | 2026-06-03 |

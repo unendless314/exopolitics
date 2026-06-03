@@ -1,0 +1,16 @@
+# LLM settings
+model:
+  name: "gpt-5.4-mini"
+  temperature: 0.1
+  top_p: 0.95
+  max_output_tokens: 1024
+
+# Execution batch policy
+batch_policy:
+  batch_size: 20
+  max_concurrent_requests: 3
+  rate_limit_per_minute: 60
+  request_timeout_seconds: 10.0
+  min_context_characters: 100
+  retry_attempts: 3
+  backoff_factor: 2.0

@@ -1,46 +1,62 @@
 # Classify Module Documentation
 
-**Document version:** v1.0  
+**Document version:** v2.0  
 **Updated:** 2026-06-03  
-**Status:** Active  
+**Status:** Active
 
 ---
 
 ## 1. Module Positioning
 
-`classify` is the second executable module in the content aggregation pipeline:
+`classify` is the second executable module in the pipeline:
 
 `ingest -> classify -> review -> edit (when needed) -> publish -> site`
 
-The module fetches pending `source_item` records (those with status `'ingested'` and no existing classification result), runs them through the LLM classifier, and writes the output classification parameters (such as `topic_class`, `classification_reason`, `classification_confidence`, and `edit_candidate` flags) to the canonical database.
+The module reads `source_item` rows that have been ingested but do not yet have a `classification_result`, evaluates them using feed metadata, and writes the initial classification result into the canonical database.
 
-It operates strictly on the boundary rules defined in `docs/MODULE_BOUNDARIES.md`. It does not handle RSS feeds, final publication decisions, or site generation.
+Its responsibilities are limited to:
 
----
+* topic classification
+* low-context detection
+* `edit_candidate` tagging
+* prompt/model selection
+* execution controls such as batching, retries, and timeouts
 
-## 2. Documentation Map
-
-Use the following documents to understand classification scope, constraints, and DDL contracts:
-
-1. **[DATA_CONTRACT.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/DATA_CONTRACT.md)**  
-   Defines database contracts, DDL schema, status definitions, and constraint matrices for `classification_result`.
-2. **[CLASSIFICATION_PROMPT.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/CLASSIFICATION_PROMPT.md)**  
-   Defines model inputs, prompt structures, expected response formats, and classification criteria (`core`, `adjacent`, `irrelevant`).
-3. **[BATCH_POLICY.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/BATCH_POLICY.md)**  
-   Defines rate limits, batch size, recovery behavior, concurrency parameters, and SLA queue constraints.
+It does not own manual review decisions, publication decisions, or site output.
 
 ---
 
-## 3. Scope Guardrails
+## 2. MVP Summary
 
-### In Scope:
-* Load LLM configurations and prompt templates.
-* Query the SQLite database for unclassified `source_item` records.
-* Invoke the LLM with title/summary data to get classification judgments.
-* Parse the LLM's structured JSON outputs.
-* Save the results in `classification_result` tables transactionally.
+The current MVP rules are:
 
-### Out of Scope:
-* Modifying original `source_item` data (strictly immutable).
-* Initiating manual human review state transitions (owned by the `review` module).
-* Direct HTML page construction or publishing files.
+* `topic_class` supports `core`, `adjacent`, `irrelevant`, and `unknown`.
+* `unknown` is a formal classification result, not an error state.
+* `unknown` may be produced in two ways:
+  * deterministic pre-checks when feed metadata is too short
+  * LLM judgment when the text is long enough but still too ambiguous to classify reliably
+* The schema does not include `classification_status`.
+* The presence of a `classification_result` row is sufficient to indicate that an item has completed an initial classification pass.
+* If an LLM call fails after retries, no `classification_result` row is written for that item.
+
+---
+
+## 3. Document Map
+
+1. **`DATA_CONTRACT.md`**  
+   Database schema, DDL, pending-item query rules, and persistence semantics.
+
+2. **`CLASSIFICATION_POLICY.md`**  
+   The meaning of `core`, `adjacent`, `irrelevant`, and `unknown`, plus low-context and `edit_candidate` rules.
+
+3. **`PROMPT_CONTRACT.md`**  
+   LLM input fields, prompt boundaries, and output schema.
+
+4. **`EXECUTION_POLICY.md`**  
+   Batch size, concurrency, timeout, retry, and run behavior.
+
+---
+
+## 4. Archive Note
+
+The earlier planning files were preserved under `docs/archive/` as discussion history. They are not the active implementation contract.

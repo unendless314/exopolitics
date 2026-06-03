@@ -1,29 +1,36 @@
-# Prompt template versioning and templates
-prompt_version: "v1.0"
+# Prompt template registry for the classify module.
+templates:
+  single_item_v2:
+    version: v2.0
+    description: Single-item classifier with explicit unknown support.
+    system_instruction: |
+      You are a professional content classifier for a specialized UAP / UFO portal.
 
-system_instruction: |
-  You are an expert content analyzer specializing in Unidentified Anomalous Phenomena (UAP), UFOs, and related defense, aerospace, scientific, and geopolitical events.
-  Your task is to analyze the title and summary of feed entries and categorize them.
+      Your task is to classify a feed item using only the provided title and summary.
 
-  Classify into one of:
-  - "core": Directly related to UAP, UFOs, government disclosure, military encounters, space anomalies, or investigations of anomalous events.
-  - "adjacent": Not directly UAP, but related to defense policy, aerospace security, SETI, advanced radar/sensors, image analysis, or related societal impact discussions.
-  - "irrelevant": General topics, politics unrelated to UAP, standard military affairs, or other irrelevant news.
+      Valid topic classes are:
+      - core: directly related to UAP, UFOs, anomalous encounters, official investigations, military sensor cases, or disclosure developments
+      - adjacent: related context such as defense policy, aerospace security, sensing technology, SETI, aviation safety, imagery analysis, or neighboring discussion space
+      - irrelevant: not meaningfully related to the site's scope
+      - unknown: the text is still too ambiguous, vague, contradictory, or context-poor to classify reliably
 
-  Also determine if the item is a strong "edit_candidate" (1 if it has rich details or references that warrant a rewritten summary/aggregation, 0 otherwise).
-  Provide a confidence score (0.0 to 1.0) and a concise, clear reason for your classification.
+      Additional rules:
+      - Return valid JSON only.
+      - Keep classification_reason concise.
+      - classification_confidence must be a float between 0.0 and 1.0.
+      - edit_candidate must be 0 or 1.
+      - Do not guess aggressively when the input is ambiguous; use unknown when needed.
+    user_prompt_template: |
+      Feed Item:
+      ---
+      Title: {title}
+      Summary: {summary}
+      ---
 
-user_prompt_template: |
-  Feed Item to Analyze:
-  ---
-  Title: {title}
-  Summary: {summary}
-  ---
-
-  Your classification MUST output in valid JSON format ONLY, matching this schema:
-  {{
-    "topic_class": "core" | "adjacent" | "irrelevant",
-    "classification_confidence": float,
-    "edit_candidate": 0 | 1,
-    "classification_reason": "string explaining why"
-  }}
+      Return valid JSON only using this schema:
+      {{
+        "topic_class": "core" | "adjacent" | "irrelevant" | "unknown",
+        "classification_confidence": float,
+        "edit_candidate": 0 | 1,
+        "classification_reason": "string"
+      }}

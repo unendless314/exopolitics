@@ -1,43 +1,53 @@
-# Classification Data Contract Specification
+# Classification Data Contract
 
-**Document version:** v1.0  
+**Document version:** v2.0  
 **Updated:** 2026-06-03  
-**Status:** Concrete Specification
+**Status:** Active
 
 ---
 
-## 1. Column Types & Design Rules
+## 1. Purpose
 
-To maintain compatibility with SQLite and ensure easy migration to PostgreSQL in the future:
-* **Timestamps:** Standardized to **UTC ISO-8601 second-precision text: `YYYY-MM-DDTHH:MM:SSZ`** (exactly 20 characters).
-* **Identifiers:** SQLite auto-increment integers will be used for surrogate primary keys (`classification_result_id`).
-* **Statuses:** Stored as `TEXT` check-constraints to limit variables to predefined values.
+`classification_result` stores the latest initial classification output for each `source_item`.
+
+The table is intentionally narrow in the MVP:
+
+* one row per `source_item`
+* no historical classification versions
+* no workflow-state column such as `classification_status`
+* low-context items are represented through `topic_class = 'unknown'`
+
+The repository may also contain draft SQL migration artifacts under `modules/classify/src/migrations/` that mirror this contract. Those files should be treated as implementation-preparation artifacts, not as evidence that runtime implementation is already complete.
 
 ---
 
-## 2. Table Schema: `classification_result`
+## 2. Design Rules
 
-This table stores LLM classification details for processed `source_item` rows.
+* **Timestamps:** UTC ISO-8601 second-precision text: `YYYY-MM-DDTHH:MM:SSZ`
+* **Primary key:** SQLite auto-increment integer
+* **One-to-one rule:** `source_item_id` is unique in `classification_result`
+* **Overwrite rule:** if future reclassification is introduced, the module updates the existing row instead of keeping history
+
+---
+
+## 3. Schema
 
 | Field Name | SQLite Type | Nullability | Description / Constraint |
 | :--- | :--- | :--- | :--- |
-| `classification_result_id` | `INTEGER` | `NOT NULL PRIMARY KEY AUTOINCREMENT` | Primary key identifier. |
-| `source_item_id` | `INTEGER` | `NOT NULL UNIQUE` | Foreign key referencing `source_item(source_item_id) ON DELETE CASCADE`. UNIQUE ensures a strict 1-to-1 relationship (maintaining only the latest result). |
-| `topic_class` | `TEXT` | `NOT NULL` | The assigned category: `'core'`, `'adjacent'`, or `'irrelevant'`. |
-| `classification_reason` | `TEXT` | `NULL` | Concise reason provided by the model. |
-| `classification_confidence`| `REAL` | `NULL` | Model-provided confidence score (between `0.0` and `1.0`). |
-| `edit_candidate` | `INTEGER` | `NOT NULL DEFAULT 0` | 0 (No) or 1 (Yes) indicating if this is suggested for edit/rewrite. |
-| `model_name` | `TEXT` | `NOT NULL` | Name and version of the LLM used (e.g. `'gemini-1.5-flash'`). |
-| `prompt_version` | `TEXT` | `NOT NULL` | Prompt template version identifier (e.g. `'v1.0'`). |
-| `classification_status` | `TEXT` | `NOT NULL DEFAULT 'classified'` | Classification state indicator. Checked: `'classified'`. |
-| `classified_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp representing when the LLM finished processing. |
-| `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp representing database entry creation time. |
+| `classification_result_id` | `INTEGER` | `NOT NULL PRIMARY KEY AUTOINCREMENT` | Surrogate key. |
+| `source_item_id` | `INTEGER` | `NOT NULL UNIQUE` | Foreign key to `source_item(source_item_id) ON DELETE CASCADE`. |
+| `topic_class` | `TEXT` | `NOT NULL` | One of `core`, `adjacent`, `irrelevant`, `unknown`. |
+| `classification_reason` | `TEXT` | `NULL` | Concise explanation for the classification outcome. |
+| `classification_confidence` | `REAL` | `NULL` | Confidence score between `0.0` and `1.0`. May be `NULL` for deterministic low-context `unknown` results. |
+| `edit_candidate` | `INTEGER` | `NOT NULL DEFAULT 0` | Boolean flag encoded as `0` or `1`. |
+| `model_name` | `TEXT` | `NOT NULL` | LLM model identifier or deterministic classifier label. |
+| `prompt_version` | `TEXT` | `NOT NULL` | Prompt template version or deterministic rule version. |
+| `classified_at` | `TEXT` | `NOT NULL` | Time the classification decision was finalized. |
+| `created_at` | `TEXT` | `NOT NULL` | Time the row was written. |
 
 ---
 
-## 3. SQLite DDL
-
-This DDL will be packaged as a migration file in `modules/classify/src/migrations/v002_initial_classify_tables.sql`.
+## 4. SQLite DDL
 
 ```sql
 PRAGMA foreign_keys = ON;
@@ -45,28 +55,25 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS classification_result (
     classification_result_id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_item_id INTEGER NOT NULL UNIQUE,
-    topic_class TEXT NOT NULL CHECK (topic_class IN ('core', 'adjacent', 'irrelevant')),
+    topic_class TEXT NOT NULL CHECK (topic_class IN ('core', 'adjacent', 'irrelevant', 'unknown')),
     classification_reason TEXT,
     classification_confidence REAL CHECK (classification_confidence >= 0.0 AND classification_confidence <= 1.0),
     edit_candidate INTEGER NOT NULL DEFAULT 0 CHECK (edit_candidate IN (0, 1)),
     model_name TEXT NOT NULL,
     prompt_version TEXT NOT NULL,
-    classification_status TEXT NOT NULL DEFAULT 'classified' CHECK (classification_status IN ('classified')),
     classified_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
     FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_classification_result_topic_class ON classification_result(topic_class);
+CREATE INDEX IF NOT EXISTS idx_classification_result_topic_class
+    ON classification_result(topic_class);
 ```
 
 ---
 
-## 4. Query Boundary & State Logic
+## 5. Pending Item Query
 
-The classifier scans the canonical database for any `source_item` that has **not** been classified.
-
-### 4.1 SQL to Fetch Pending Items
 ```sql
 SELECT s.source_item_id, s.title, s.summary, s.published_at, s.canonical_url
 FROM source_item s
@@ -75,5 +82,31 @@ WHERE s.ingest_status = 'ingested'
   AND c.classification_result_id IS NULL;
 ```
 
-### 4.2 State Update Rule
-The classification process does **not** update the `ingest_status` of the `source_item` row, respecting module boundaries and ensuring immutability of the original ingest table. The presence of a row in `classification_result` serves as the implicit indicator that an item has transitioned to the `'classified'` phase. Downstream review logic in the `review` module will join `source_item` with `classification_result` to populate its review queue.
+This query defines the MVP pending queue.
+
+---
+
+## 6. Persistence Semantics
+
+### 6.1 Successful LLM classification
+
+When the LLM returns a valid structured result, the module writes a `classification_result` row.
+
+### 6.2 Deterministic low-context classification
+
+When the combined feed `title + summary` length is below `min_context_characters`, the module skips the LLM call and writes:
+
+* `topic_class = 'unknown'`
+* `classification_confidence = NULL`
+* `edit_candidate = 0`
+* `classification_reason` must clearly indicate that the feed metadata is below the minimum context threshold and may include the measured length and configured threshold value
+* `model_name = 'deterministic-low-context'`
+* `prompt_version = 'rule_v1'`
+
+### 6.3 Failed LLM execution
+
+If the LLM call fails after all retries, the module does not write a row for that item. The item remains pending for a future run.
+
+### 6.4 State boundary
+
+`classify` does not modify `source_item.ingest_status`. The existence of a `classification_result` row is sufficient to indicate that an item has completed an initial classification pass.

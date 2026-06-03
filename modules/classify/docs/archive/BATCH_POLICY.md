@@ -13,6 +13,7 @@ The classify pipeline processes items in discrete execution batches to manage da
 * **Batch Size (`batch_size`):** Default **20** pending `source_item` rows from SQLite. Limits memory footprint and transaction locks.
 * **Concurrency (`max_concurrent_requests`):** Default **3** concurrent LLM API calls using Python's `asyncio`.
 * **Rate Limits (`rate_limit_per_minute`):** Default **60** API requests per minute.
+* **Context Threshold (`min_context_characters`):** Default **100** combined characters across `title + summary`. Items below this threshold are classified as `unknown` without an LLM call.
 
 ---
 
@@ -29,4 +30,5 @@ If an LLM call fails (e.g., API down, rate limited, network timeout):
 
 * **Processing Timeout:** Default **10.0** seconds (configured as `request_timeout_seconds`). If it exceeds this, it is treated as a timeout error and retried.
 * **Batch Lifetime:** A single CLI invocation of `classify run` will terminate if it cannot make progress after all items in the current batch have been processed or skipped.
-* **Cleanup & Retries for Failed Items:** If an item consistently fails to classify (e.g., due to toxic content flags or unparseable metadata), the `review` module can triage the item or assign a default classification class (such as `'irrelevant'`).
+* **Low-Context Handling:** Items below `min_context_characters` are treated as successful deterministic classifications and written as `topic_class = 'unknown'`.
+* **Retries for Failed Items:** If an item consistently fails to classify because the LLM call never completes successfully, it remains without a `classification_result` row and may be retried by a later run.

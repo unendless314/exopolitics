@@ -19,7 +19,7 @@ The current system direction is:
 - `ingest`
   - fetch RSS/feed sources, deduplicate, persist canonical records
 - `classify`
-  - run initial topic classification and candidate tagging
+  - run initial topic classification, including `unknown`, and candidate tagging
 - `review`
   - perform human review and state transitions
 - `edit`

@@ -217,7 +217,8 @@ MVP does not require a separate `partial_success` attempt outcome.
 - `model_name`
 - `prompt_version`
 - `classified_at`
-- `classification_status`
+- `topic_class`
+  - `core` / `adjacent` / `irrelevant` / `unknown`
 
 所有權：
 
@@ -225,8 +226,11 @@ MVP does not require a separate `partial_success` attempt outcome.
 
 說明：
 
-- 若未來需要保留多次重跑結果，可考慮一筆 `source_item` 對多筆 `classification_result`
-- MVP 也可先只保留 latest result，但應明確定義覆寫與歷史策略
+- 目前 classify MVP 已明確採用一筆 `source_item` 對一筆 `classification_result` 的 latest-result 模型
+- `topic_class` 在 MVP 中支援 `core`、`adjacent`、`irrelevant`、`unknown`
+- `unknown` 是正式分類結果，不等於流程失敗
+- MVP 不在 `classification_result` 中加入 `classification_status`
+- 若未來需要 enrichment、retry、triage 等工作流狀態，較佳方向是引入專用 workflow table，而不是把流程欄位直接塞入結果表
 
 ### 5.7 `review_decision`
 
@@ -358,7 +362,7 @@ MVP does not require a separate `partial_success` attempt outcome.
 - 一個 `fetch_run` 對多個 `fetch_attempt`
 - 一個 `source_definition` 對多個 `fetch_attempt`
 - 一個 `source_definition` 對多個 `source_item`
-- 一個 `source_item` 對零到多個 `classification_result`
+- 一個 `source_item` 對零到一個 `classification_result`
 - 一個 `source_item` 對零到多個 `review_decision`
 - 一個 `edit_draft` 對一到多個 `content_source_link`
 - 一個 `published_piece` 對一到多個 `content_source_link`
@@ -434,10 +438,14 @@ MVP does not require a separate `partial_success` attempt outcome.
 本文件不凍結最終欄位實作，但建議至少區分以下狀態語義：
 
 - ingest intake status
-- classification status
 - review queue status
 - edit draft status
 - publish status
+
+補充：
+
+- classify MVP 目前只有分類結果，尚未引入獨立的 classification workflow status
+- 若未來 classify 出現 enrichment queue、retry queue 或 triage queue，再以專用資料表承載其 operational state
 
 建議避免：
 
@@ -466,6 +474,7 @@ MVP does not require a separate `partial_success` attempt outcome.
 
 - 各 logical entity 是否一對一映射為資料表
 - `classification_result` 是否保留 full history
+- classify workflow state 是否需要獨立資料表
 - `review_decision` 是否兼作 queue event log
 - `published_piece` 是否直接存 body 或只存導出引用
 - ingest 是否需要引入 raw payload snapshot 能力（非 MVP 必要）
