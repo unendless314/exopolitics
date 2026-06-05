@@ -1,223 +1,166 @@
-# PRD：UAP / UFO 聚合網站總覽
+# PRD
 
-**文件版本：** v0.2 草稿  
-**更新日期：** 2026-05-27  
-**狀態：** 待審核
-
----
-
-## 1. 產品定位
-
-本項目是一個以 **UAP / UFO** 為核心主題的內容聚合系統，目標不是做論壇、百科或全文鏡像站，而是建立一套可持續運作的內容管線：
-
-- 從多來源 RSS 抓取條目
-- 永久保存正規化條目與處理狀態
-- 以 LLM 做初篩與打標
-- 由人工決定最終展示內容
-- 將已發布內容輸出到靜態網站
-
-補充定位：
-
-- 產品核心是 aggregation + curation，而不是全文轉載
-- 未來可擴展出 edit-based publishing，但必須和原始來源條目分開建模
-- 改寫內容只應建立在明確來源追溯、人工責任與前台揭露之上
-
-目前根目錄 `docs/` 的角色是 **上層總覽文件**。  
-未來每個模塊會有各自的子目錄與自己的 `docs/`，根目錄文檔不負責描述模塊內部實作細節。
+**Status:** Active rewrite draft  
+**Updated:** 2026-06-05
 
 ---
 
-## 2. 產品目標
+## 1. Product Definition
 
-- 建立一個主題明確、分類清楚的 UAP / UFO 聚合站
-- 讓抓取到的條目先保存，再決定是否展示
-- 兼顧主題聚焦與邊緣內容的資訊價值
-- 以模塊化方式逐步實作，降低後續維護與遷移成本
-- 為未來可能的 AI 輔助改寫與人工 edit 內容預留合法且可追溯的結構
+This project is a UAP / UFO topic-focused aggregation system.
 
----
+Its purpose is not to mirror full articles, run a discussion forum, or generate large volumes of AI-written content. The purpose is to operate a durable content pipeline that can:
 
-## 3. 目標受眾
+- ingest feed items from many external sources
+- preserve enough structured data for downstream processing and auditing
+- classify items into topic-relevant buckets
+- support human review before public exposure
+- publish approved outputs to a static public site
 
-- 想快速追蹤 UAP / UFO 新聞的普通讀者
-- 關注政府披露、調查報告與研究進展的研究型使用者
-- 對社群動態、目擊報告與邊緣相關訊號有興趣的愛好者
+The product is fundamentally an **aggregation and curation system**.
 
 ---
 
-## 4. 內容原則
+## 2. Product Goals
 
-### 4.1 保存原則
+The system should:
 
-- 所有抓取到的條目先進資料庫
-- 是否上站與是否保存是兩個不同問題
-- LLM 不直接執行物理刪除
-- 人工刪除是最終決策
-
-### 4.2 分類原則
-
-條目至少會先被分成三類：
-
-- `core`：直接與 UAP / UFO 主題相關
-- `adjacent`：非直接主題，但有脈絡、流量或分享價值
-- `irrelevant`：目前看來與主題無顯著關聯
-
-在 feed metadata 過少時，系統也可暫時標記為：
-
-- `unknown`：RSS title / summary 資訊不足，暫時無法可靠判斷
-
-補充：
-
-- `category_id` 是來源層的語義歸檔，不等於條目最終展示分類
-- 抓取批次與抓取頻率不綁定 `category_id`
-- 並行抓取應由獨立欄位控制，例如 `fetch_group`
-- 不同來源的抓取頻率應由獨立欄位控制，例如 `schedule_class`
-- `classified` 允許短期停留，但不應成為無上限暫存狀態
-- `unknown` 不等於失敗，而是保留低上下文條目供後續 enrichment 或人工判斷
-- 對於超過審核時限的 `classified` 條目，系統應允許 agent 先行分流，再由人工做最終覆核
-- 任何 agent 參與的分流或建議，必須保留可追溯的決策紀錄
-
-### 4.3 展示原則
-
-- 公開網站只展示已通過審核的內容
-- 首頁以 `core` 為主
-- `adjacent` 內容可保留獨立區塊或次級頁
-- 站內不展示全文，點擊後前往原始來源
-
-### 4.4 版權與透明原則
-
-- 站點不以全文鏡像或隱性轉載為目標
-- 原始來源條目與站內 edit 內容必須分開管理
-- 若內容由 AI 參與生成、改寫或潤飾，前台應保留揭露能力
-- 若內容基於外部來源改寫，系統必須保留來源追溯鏈
-- 最終對外發布內容必須能對應到明確的人類責任主體
+- maintain a stable, repeatable ingest pipeline for topic-relevant sources
+- reduce human review load without giving final editorial control to automation
+- preserve source attribution and editorial accountability
+- keep the public site focused on approved and interpretable content only
+- allow future growth into edit-assisted publishing without collapsing source content and site-owned content into one model
 
 ---
 
-## 5. 模塊化實施策略
+## 3. Intended Users
 
-本項目明確採用 **分模塊、分階段** 的方式實施。
+Primary readers:
 
-### 5.1 模塊列表
+- readers who want a focused stream of UAP / UFO coverage
+- researchers or hobbyists tracking disclosure, sightings, investigations, and related reporting
 
-- `ingest`
-  - RSS 抓取、去重、來源健康管理、抓取分片、抓取頻率管理、正規化條目入庫
-- `classify`
-  - LLM 初篩、主題打標、信心分數、低上下文 `unknown` 判定、改寫候選標記
-- `review`
-  - 人工審核、狀態流轉、發佈決策、edit 內容責任確認
-- `edit`
-  - 基於一個或多個 `source_item` 建立站內草稿、摘要、引述整理或改寫內容
-- `publish`
-  - 將已核准內容輸出為前台發布層資料，附帶來源與揭露資訊
-- `site`
-  - Astro 靜態網站，僅讀取發布層輸出
+Primary operators:
 
-### 5.2 實施順序
-
-1. 先完成 `ingest`
-2. 再完成 `classify`
-3. 再補 `review`
-4. 若有明確站內編修需求，再引入 `edit` flow
-5. 再做 `publish`
-6. 最後完成 `site`
-
-這個順序的目的，是先讓資料穩定入庫，再逐步增加分類、審核、必要時的 edit 能力與展示能力。
-
-補充：
-
-- `edit` 在架構上應被正式承認
-- `edit` 不應被視為固定排在 `review` 前或後的線性階段，而是由 `review` 決定是否進入、完成後再回到 `review` 收口的中間工作流
-- `edit` 的邏輯所有權屬於 `edit` 模塊；早期由 `review` 暫時承接執行入口與流程收口
-- 但在早期階段不必急著拆成獨立可執行模塊
-- 若需求仍以 RSS 聚合為主，可先由 `review` 階段承接少量 edit flow
-- 只有在站內編修內容成為穩定工作流後，才考慮把 `edit` 提升為獨立模塊
+- the site owner or editor running the pipeline
+- future human reviewers responsible for approval and rejection decisions
 
 ---
 
-## 6. 目錄與文檔分層原則
+## 4. Core Content Principles
 
-目前規劃中的專案結構如下：
+### 4.1 Save Before Display
 
-```text
-project-root/
-├── docs/                  # 上層總覽文件
-└── modules/
-    ├── ingest/
-    │   ├── config/
-    │   └── docs/
-    ├── classify/
-    │   ├── config/
-    │   └── docs/
-    ├── review/
-    │   ├── config/
-    │   └── docs/
-    ├── edit/
-    │   ├── config/
-    │   └── docs/
-    ├── publish/
-    │   ├── config/
-    │   └── docs/
-    └── site/
-        ├── config/
-        └── docs/
-```
+- ingesting an item and publicly displaying an item are separate decisions
+- items may be stored even if they are never published
+- deletion is a governance action, not an automatic side effect of classification
 
-當前**不預設保留根目錄 `config/`**。  
-只有在未來出現真正跨模塊共享且語義一致的設定時，才考慮新增全域配置層。
+### 4.2 Topic Classification Is A Filtering Aid
 
-目前 `modules/ingest/config/` 已作為 `ingest` 配置的正式歸屬位置。
+Initial topic classes are:
 
----
+- `core`
+- `adjacent`
+- `irrelevant`
+- `unknown`
 
-## 7. 成功指標
+These classes exist to reduce review burden and organize attention.
+They do not replace human judgment.
 
-- 抓取流程穩定運行，RSS 抓取成功率 > 85%
-- 條目可永久保存並保留處理狀態
-- LLM 初篩後的每日人工審核量維持在可接受範圍
-- `classified` 積壓量維持在既定審核時限內，不形成無限期滯留
-- 公開網站 build 耗時可控，不因歷史資料膨脹而失控
-- 各模塊可獨立演進，不必重跑整條鏈才能局部調整
-- 已發布內容可清楚區分為聚合條目或 edit 內容，且可追溯 AI 參與程度
+### 4.3 Human Review Owns Final Public Decisions
+
+- automation may assist prioritization and triage
+- automation must not become the unreviewed public publishing authority
+- public-facing outputs must remain attributable to a human owner or operator
+
+### 4.4 Source Attribution And Transparency Are Required
+
+- public outputs must preserve source attribution
+- site-owned edited content must remain distinguishable from aggregated source items
+- AI participation must remain disclosable where relevant
 
 ---
 
-## 8. 明確排除項目
+## 5. Practical Data Principles
 
-- 使用者帳號與登入系統
-- 站內全文鏡像
-- 評論、社交互動功能
-- 讓 LLM 自動刪除資料而不經人工覆核
-- 在專案早期就過度抽象出全域配置層
-- 在缺乏來源追溯與人工責任的情況下直接發布全 AI 改寫稿
-- 在需求尚未穩定前，過早把 `edit` 抽象成複雜獨立系統
+The system must distinguish between:
+
+- raw feed input
+- sanitized downstream text
+- review and publish decisions
+
+This distinction exists because raw feed metadata is often noisy, HTML-heavy, and unsuitable for direct downstream classification.
+
+The product requirement is therefore:
+
+- raw input may be retained for validation and debugging
+- sanitized text is the downstream working representation
+- retention of raw input is a policy choice, not a reason to contaminate downstream contracts
 
 ---
 
-## 9. 已決定事項
+## 6. MVP Scope
 
-- `core / adjacent / irrelevant / unknown` 已作為上層分類框架確立；更細的操作判準應在 `classify` 與 `review` 模塊文檔中展開
-- `edit` 在架構上被正式承認，但早期先作為 `review` 內的延伸工作流，而不是立即拆成獨立可執行模塊
-- `site` 首發語言以 `zh + en` 為主，`ja` 為後續優先擴充語言
-- AI 參與程度的公開揭露先採三級：
-  - `human_only`
-  - `ai_assisted`
-  - `ai_generated`
-- `review` 模塊 MVP 先以 CLI-first 方式實作，優先建立 review queue、state transition 與批次操作能力
-- 若後續人工審核量與例外處理需求上升，再補 thin web UI；UI 不應成為 `review` 模塊的核心依賴
-- 對於逾時未處理的 `classified` 條目，允許引入 agent 做 queue triage；但最終發布決策仍需可追溯的人類責任
-- `publish` MVP 先以 Markdown + frontmatter 作為發布層輸出
-- 發布層輸出應保留最小版本契約欄位（例如 `publish_version`、`exported_at`、`source_snapshot`）以支援重建與回溯
-- JSON 不作為初期主輸出格式；只有在出現多個 machine consumers 或 metadata 結構已不適合維護在 Markdown 時，才增補 JSON 派生輸出
-- edit 相關資料模型應從一開始保留多來源追溯能力，例如 `source_item_ids`
-- edit MVP 的 workflow 先以單來源內容為主；多來源整理或綜述留待後續版本
-- `deleted` 的治理需保留 retention window 與 audit log 的最低要求；具體參數在 `review/docs/` 與資料層文檔定義
+MVP includes:
 
-## 10. 待定事項
+- source configuration and scheduled feed ingestion
+- deduplication and canonical storage of normalized source items
+- sanitized text generation for downstream classification
+- initial classification pipeline
+- human review workflow
+- publish export for approved content
+- static site consumption of publish outputs
 
-- 何時從 SQLite 升級到 Postgres
-  - 原則上 MVP 與 early production 先使用 SQLite
-  - 只有在 concurrent writers、跨進程/跨機協作、或營運需求使 SQLite 成為瓶頸時，才升級到 Postgres
-- 多來源 edit flow 的正式範圍
-  - 是否限制來源數量
-  - 是否只支援整理摘要，或進一步支援多來源綜述
+MVP does not require:
+
+- full-page scraping as a mandatory step for every item
+- permanent retention of all raw feed payloads
+- user accounts
+- comments or community features
+- fully autonomous AI publishing
+- immediate extraction of a separate standalone `edit` runtime module
+
+---
+
+## 7. Success Criteria
+
+The MVP is successful when:
+
+- ingest runs reliably enough to keep source coverage current
+- classification reduces human review burden without destroying topic precision
+- reviewers can inspect and decide on pending content with clear provenance
+- the public site only depends on approved publish outputs
+- raw-versus-sanitized handling is explicit and no longer ambiguous in contracts
+- storage growth remains governable through retention policy rather than accidental bloat
+
+---
+
+## 8. Non-Goals
+
+The system is not intended to be:
+
+- a full-text archive of third-party news sites
+- a generic CMS for arbitrary publishing workflows
+- a forum or social platform
+- a one-click AI rewriting factory
+- a design that assumes permanent retention of every raw payload forever
+
+---
+
+## 9. Product Decisions Locked By This Rewrite
+
+- the system remains modular
+- canonical storage remains the main system record
+- raw input and sanitized working text must be modeled separately
+- classification reads sanitized working text rather than ambiguous raw summary fields
+- raw retention is allowed but must be policy-driven and time-bounded by default
+- edited site-owned content remains a separate content type from source-ingested items
+
+---
+
+## 10. Deferred Product Questions
+
+- when, if ever, full-page retrieval becomes a common shared capability
+- when `edit` should become an independently executable module instead of a review-adjacent workflow
+- what retention window is best for raw input in early production
+- whether certain sources deserve custom sanitization rules

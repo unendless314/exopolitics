@@ -2,7 +2,12 @@
 
 This repository is currently the planning workspace for a modular UAP / UFO aggregation system.
 
-The top-level documents focus on system architecture, content flow, and module boundaries. They do not try to lock implementation details too early.
+The top-level documents focus on system architecture, data lifecycle, storage policy, and module boundaries. They do not try to lock implementation details too early.
+
+This repository is currently in a documentation reset phase:
+
+- `docs/` contains the active rewritten planning set
+- `docs_archive/2026-06-reset/` preserves superseded planning as historical reference
 
 ## Current Scope
 
@@ -17,9 +22,9 @@ The top-level documents focus on system architecture, content flow, and module b
 The current system direction is:
 
 - `ingest`
-  - fetch RSS/feed sources, deduplicate, persist canonical records
+  - fetch RSS/feed sources, deduplicate, persist canonical records, and generate sanitized working text
 - `classify`
-  - run initial topic classification, including `unknown`, and candidate tagging
+  - run initial topic classification against sanitized working text, including `unknown`, and candidate tagging
 - `review`
   - perform human review and state transitions
 - `edit`
@@ -82,20 +87,24 @@ Notes:
 ```text
 docs/
 ├── PRD.md
-├── CANONICAL_DATA_MODEL_DRAFT.md
-├── TECH_SPEC.md
-├── CONTENT_LIFECYCLE.md
-└── MODULE_BOUNDARIES.md
+├── SYSTEM_OVERVIEW.md
+├── DATA_LIFECYCLE.md
+├── STORAGE_AND_RETENTION.md
+├── MODULE_BOUNDARIES.md
+├── IMPLEMENTATION_ROADMAP.md
+├── RESET_DECISION.md
+└── README.md
 ```
 
 These documents cover:
 
 - product goals
-- canonical entities, ownership, and cross-module relationships draft
-- architecture direction
-- content lifecycle
-- storage and publication boundaries
+- system architecture direction
+- data lifecycle
+- storage and retention policy
 - module ownership and implementation order
+
+Archived top-level planning lives under `docs_archive/2026-06-reset/`.
 
 ## Current Module Workspace
 

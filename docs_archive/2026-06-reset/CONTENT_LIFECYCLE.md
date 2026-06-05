@@ -1,4 +1,4 @@
-# Content Lifecycle：上層內容生命週期
+﻿# Content Lifecycle：上層內容生命週期
 
 **文件版本：** v0.2 草稿  
 **更新日期：** 2026-05-27  

@@ -1,209 +1,186 @@
-# Module Boundaries：模塊邊界與所有權
+# Module Boundaries
 
-**文件版本：** v0.1 草稿  
-**更新日期：** 2026-05-27  
-**狀態：** 待審核
-
----
-
-## 1. 目的
-
-本文件用來避免以下問題：
-
-- 一個模塊順手做了另一個模塊的事
-- 狀態變更散落在多處
-- 配置與資料所有權不清
-- 後續遷移時無法分離模塊
+**Status:** Active rewrite draft  
+**Updated:** 2026-06-05
 
 ---
 
-## 2. 模塊清單
+## 1. Purpose
 
-### 2.1 `ingest`
+This document defines ownership boundaries between modules so the rewritten system does not repeat ambiguous contracts.
 
-擁有：
+It is intended to prevent:
 
-- RSS sources config
-- categories config
-- source-level `fetch_group` assignment
-- `schedule_classes` definitions in source config
-- fetch policy
-- source health
-- raw article ingestion
+- one module silently redefining another module's data meaning
+- state changes being scattered across unrelated code
+- storage concerns leaking into downstream logic without contract updates
 
-不擁有：
+---
 
-- LLM prompt
-- review queue policy
-- publish output format
-- site rendering
+## 2. Boundary Principles
 
-### 2.2 `classify`
+- modules own decisions, not just code locations
+- upstream modules must not force downstream modules to interpret ambiguous fields
+- downstream modules may rely only on explicitly defined representations
+- publish and site layers must remain downstream-only consumers
 
-擁有：
+---
 
-- model config
-- prompt templates
-- batch policy
-- classification result contract
-- edit candidate tagging
+## 3. Module Ownership
 
-不擁有：
+### 3.1 `ingest`
 
-- RSS source ownership
-- manual review decision
-- front-end output
-- final edit authorship
+Owns:
 
-補充：
+- source configuration
+- feed fetching
+- deduplication
+- normalized source item persistence
+- raw input capture policy
+- sanitized working text generation
+- source health and fetch execution records
 
-- `classify` 可在必要時觸發 page-level retrieval / content enrichment，但不應自行擁有一套脫離共享契約的 scraping 平台
+May read:
 
-### 2.3 `review`
+- source config
+- prior source state
+- prior dedup markers
 
-擁有：
+Must not own:
 
-- review queue logic
-- queue SLA policy for `classified`
-- timeout handling policy for `classified`
-- approval / rejection rules
-- deletion policy execution
-- edit responsibility confirmation
-- AI participation disclosure confirmation
+- LLM prompts
+- topic classification decisions
+- human approval decisions
+- publish export formatting
 
-不擁有：
+Important boundary:
+
+- `ingest` owns the transformation from raw feed input into sanitized working text
+- `ingest` must not leave downstream modules guessing whether a field is raw or cleaned
+
+### 3.2 `classify`
+
+Owns:
+
+- pending queue selection for unclassified items
+- topic classification results
+- classification rationale and confidence
+- edit-candidate signaling if required by policy
+
+May read:
+
+- normalized source item metadata
+- sanitized working text
+- source URL and timestamp metadata
+
+Must not own:
+
+- raw feed retention policy
+- feed fetching
+- manual review decisions
+- publish-layer output structure
+
+Important boundary:
+
+- `classify` reads sanitized working text, not ambiguous raw summary fields
+
+### 3.3 `review`
+
+Owns:
+
+- review queue behavior
+- approval, rejection, and deletion decisions
+- queue aging and SLA policy
+- final human responsibility over public exposure
+
+May read:
+
+- source item metadata
+- sanitized working text
+- classification results
+- selected raw evidence when retained and needed for investigation
+
+Must not own:
 
 - feed fetching
-- prompt design
-- site page generation
-
-### 2.4 `edit`
-
-擁有：
-
-- edit draft contract
-- source linking for edit content
-- summary / rewrite / context-note workflow
-- edit metadata
-
-不擁有：
-
-- RSS source ownership
-- final public output structure
+- model prompt design
 - site rendering
 
-補充：
+### 3.4 `edit`
 
-- `edit` 擁有 edit 內容契約與邏輯規則；早期可由 `review` 提供執行入口
-- `edit` 是架構上的能力，不代表早期一定要拆成獨立可執行模塊
-- 若 edit 需求仍屬低頻，應先由 `review` 承接，避免過早抽象
+Owns when introduced:
 
-### 2.5 `publish`
+- site-owned draft content
+- source linking for edited content
+- edit-specific metadata and responsibility fields
 
-擁有：
+Must not own:
 
-- export rules
-- publish-layer file structure
-- selection of approved records for output
-- disclosure label emission
-- source attribution emission
+- source ingest identity
+- public export rules
+- site rendering
 
-不擁有：
+### 3.5 `publish`
+
+Owns:
+
+- selection of approved records for export
+- publish representation
+- attribution and disclosure emission
+
+May read:
+
+- approved canonical records
+- source links and provenance data
+
+Must not own:
 
 - raw data collection
 - classification logic
-- manual review judgment
+- human editorial judgment itself
 
-### 2.6 `site`
+### 3.6 `site`
 
-擁有：
+Owns:
 
-- page routes
-- content presentation
-- i18n
-- SEO metadata
+- routes
+- public presentation
+- i18n and SEO concerns
 
-不擁有：
+May read:
+
+- publish-layer outputs only
+
+Must not own:
 
 - canonical database writes
-- review state transitions
-- feed configuration
-
-### 2.7 Shared capability candidate: external content retrieval
-
-定位：
-
-- page-level retrieval
-- content enrichment
-- 供 `classify`、`review`、`edit` 按需使用
-
-原則：
-
-- 不是目前主流程中的正式模塊
-- 不是 `ingest` 的預設責任
-- 早期可由使用方模塊觸發
-- 當其被多模塊穩定依賴後，再考慮獨立 ownership 與運行邊界
+- review state changes
+- feed or classification configuration
 
 ---
 
-## 3. 配置所有權
+## 4. Shared Capability Rules
 
-### 3.1 目前原則
+Some capabilities may later be shared without becoming formal modules immediately.
 
-配置先屬於模塊，而不是根目錄。
+Example candidate:
 
-例子：
+- external page retrieval or enrichment
 
-- `modules/ingest/config/`
-  - `sources.yaml`
-  - `categories.yaml`
-  - source entries, `fetch_group`, and `schedule_classes`
-- `modules/classify/config/`
-  - prompt
-  - threshold
-  - model settings
+Criteria for becoming shared:
 
-### 3.2 何時才建立根目錄 `config/`
+- used by multiple modules
+- stable enough to justify a common contract
+- no longer just an implementation detail of one module
 
-只有在以下情況同時成立時才建立：
-
-- 至少兩個模塊穩定共用同一設定
-- 這份設定不是某模塊的內部策略
-- 抽出後能降低維護成本
+Until then, avoid inventing heavyweight shared systems too early.
 
 ---
 
-## 4. 狀態變更所有權
+## 5. Decisions Locked By This Rewrite
 
-建議遵守以下規則：
-
-- `ingest` 只能建立新條目與更新抓取元資料
-- `ingest` 可更新來源層的排程欄位，但不應以 `category_id` 直接決定抓取節奏
-- `classify` 只能更新分類相關欄位與初始分類狀態
-- `classify` 可標記改寫候選，但不應直接產出可發布終稿
-- `review` 只能更新人工審核相關狀態與 edit 責任確認
-- `review` 應擁有 `classified` 滯留治理責任（SLA、逾時轉派、triage 入口）
-- `edit` 只能更新站內 edit 草稿、引用關係與責任欄位
-- `publish` 只能更新輸出、發布記錄與對外揭露資料
-- `site` 不應回寫 canonical database
-
-補充：
-
-- 若 `review` 使用 agent 進行 queue triage，決策紀錄仍屬 `review` 模塊契約的一部分，且需可審計追溯
-
----
-
-## 5. 實作順序建議
-
-1. `ingest`
-2. `classify`
-3. `review`
-4. `edit`（僅在需求穩定後）
-5. `publish`
-6. `site`
-
-這個順序可讓每一步都建立在前一步可驗證的輸出上，也避免在早期為低頻 edit 需求過度抽象。
-
-補充：
-
-- external content retrieval 可先作為共享能力候選存在，不必阻塞上述主模塊順序
+- `ingest` owns sanitization of feed input into downstream working text
+- `classify` owns classification, not text cleanup
+- `review` owns final public decision-making
+- `publish` owns export shape
+- `site` is a pure downstream consumer
