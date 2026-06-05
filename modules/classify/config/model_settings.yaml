@@ -1,5 +1,5 @@
 # Active provider and prompt selection for the classify module.
-active_provider: openai
+active_provider: mini-proxy
 active_prompt_template: single_item_v3
 
 # Request behavior shared across providers.
@@ -33,6 +33,13 @@ providers:
     api_key_env: OPENAI_COMPATIBLE_API_KEY
     model_name: example-classifier-model
     supports_structured_output: false
+  
+  mini-proxy:
+    api_type: openai_compatible
+    api_base: https://mini-proxy.noeticseeker.com/v1
+    api_key_env: MINI_API_KEY
+    model_name: gpt-5.4-mini
+    supports_structured_output: true
 
 # Deterministic results still need stable metadata in the DB.
 deterministic_classification:
