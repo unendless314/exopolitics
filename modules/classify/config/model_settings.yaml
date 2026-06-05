@@ -1,6 +1,6 @@
 # Active provider and prompt selection for the classify module.
 active_provider: openai
-active_prompt_template: single_item_v2
+active_prompt_template: single_item_v3
 
 # Request behavior shared across providers.
 request_defaults:
@@ -13,7 +13,7 @@ execution_policy:
   batch_size: 20
   max_concurrent_requests: 3
   rate_limit_per_minute: 60
-  request_timeout_seconds: 10.0
+  request_timeout_seconds: 45.0
   min_context_characters: 100
   retry_attempts: 3
   backoff_factor: 2.0
