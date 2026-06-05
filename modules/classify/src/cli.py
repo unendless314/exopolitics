@@ -7,6 +7,8 @@ import pathlib
 import sys
 from typing import List, Optional
 
+from dotenv import load_dotenv
+
 from .config import load_classify_config
 from .prompt_loader import load_prompt_templates
 from .repository import run_migrations, get_connection, ClassificationRepository, get_utc_now_iso8601
@@ -16,6 +18,10 @@ DEFAULT_WORKSPACE_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent.p
 DEFAULT_DB_PATH = DEFAULT_WORKSPACE_ROOT / "data" / "canonical.db"
 DEFAULT_CONFIG_DIR = pathlib.Path(__file__).resolve().parent.parent / "config"
 DEFAULT_MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parent / "migrations"
+
+def load_local_env(workspace_root: pathlib.Path = DEFAULT_WORKSPACE_ROOT) -> None:
+    """Loads a local .env file for development without overriding real env vars."""
+    load_dotenv(dotenv_path=workspace_root / ".env", override=False)
 
 def get_args_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -432,6 +438,7 @@ def cmd_export_report(db_path: pathlib.Path, out_path: pathlib.Path) -> int:
         return 1
 
 def main(argv: Optional[List[str]] = None) -> int:
+    load_local_env()
     parser = get_args_parser()
     args = parser.parse_args(argv)
 

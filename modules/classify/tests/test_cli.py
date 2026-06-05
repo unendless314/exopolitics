@@ -1,5 +1,6 @@
 import contextlib
 import json
+import os
 import pathlib
 import sys
 import tempfile
@@ -8,7 +9,7 @@ from io import StringIO
 from unittest.mock import patch, AsyncMock
 import httpx
 
-from modules.classify.src.cli import main
+from modules.classify.src.cli import load_local_env, main
 from modules.classify.src.repository import run_migrations
 
 @contextlib.contextmanager
@@ -249,6 +250,18 @@ templates:
         self.assertNotIn("<Script>", html_out)
         self.assertNotIn("<Danger>", html_out)
         self.assertNotIn("<Alert>", html_out)
+
+    def test_load_local_env_reads_workspace_dotenv_without_override(self) -> None:
+        env_path = pathlib.Path(self.temp_dir.name) / ".env"
+        env_path.write_text("TEST_OPENAI_API_KEY=from-dotenv\n", encoding="utf-8")
+
+        with patch.dict(os.environ, {}, clear=True):
+            load_local_env(pathlib.Path(self.temp_dir.name))
+            self.assertEqual(os.environ.get("TEST_OPENAI_API_KEY"), "from-dotenv")
+
+        with patch.dict(os.environ, {"TEST_OPENAI_API_KEY": "existing-value"}, clear=True):
+            load_local_env(pathlib.Path(self.temp_dir.name))
+            self.assertEqual(os.environ.get("TEST_OPENAI_API_KEY"), "existing-value")
 
 if __name__ == "__main__":
     unittest.main()

@@ -63,7 +63,27 @@ The earlier planning files were preserved under `docs/archive/` as discussion hi
 
 ---
 
-## 5. Migration Execution Policy
+## 5. Local Development Environment
+
+The `classify` module reads provider credentials from environment variables, not from YAML config values.
+
+For local development:
+
+* install dependencies with `pip install -r modules/classify/requirements.txt`
+* copy `.env.example` to `.env`
+* set the required key such as `OPENAI_API_KEY`
+* run the CLI normally; `modules/classify/src/cli.py` loads the workspace root `.env` automatically
+
+For cloud or production environments:
+
+* inject the same environment variables directly through the hosting platform
+* do not rely on `.env` files as the deployment secret source
+
+The provider registry in `config/model_settings.yaml` should continue to store only the environment variable name through `api_key_env`.
+
+---
+
+## 6. Migration Execution Policy
 
 The `classify` module runs DDL schema migrations sequentially under a strict single-transaction boundary (`BEGIN IMMEDIATE`). 
 
@@ -71,4 +91,3 @@ Under **Option A**, the following rules apply:
 *   **Simple DDL only:** Migration SQL files are restricted to simple DDL statements (e.g. `CREATE TABLE`, `CREATE INDEX`) terminated by semicolons.
 *   **No procedural SQL/Triggers:** Triggers (`CREATE TRIGGER`), views (`CREATE VIEW`), and explicit embedded transaction statements (`BEGIN`, `COMMIT`) are strictly forbidden.
 *   **Fail-fast validation:** The runner scans the SQL content and fails fast (raising a `ValueError`) if any forbidden keyword is found, ensuring no invalid execution or parsing splits occur.
-

@@ -1,7 +1,7 @@
 # Execution Policy
 
-**Document version:** v2.0  
-**Updated:** 2026-06-03  
+**Document version:** v2.1  
+**Updated:** 2026-06-05  
 **Status:** Active
 
 ---
@@ -27,6 +27,12 @@ The following values are owned by `modules/classify/config/model_settings.yaml`:
 * provider/model selection settings
 
 These parameters are not exposed as CLI override flags in the MVP.
+
+Provider credentials are resolved from environment variables named by the provider's `api_key_env` setting.
+
+For local development, the CLI may load a workspace root `.env` file before command execution.
+
+For cloud or production environments, secrets should be injected directly into the process environment by the hosting platform.
 
 ---
 

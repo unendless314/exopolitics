@@ -1,7 +1,7 @@
 # Classify Module Implementation Plan
 
-**Document version:** v1.0  
-**Updated:** 2026-06-03  
+**Document version:** v1.1  
+**Updated:** 2026-06-05  
 **Status:** Active Draft  
 
 This implementation plan serves as the blueprint for developing the `classify` module MVP. It defines the codebase layout, development sequence, and the verification test matrix.
@@ -26,7 +26,7 @@ modules/classify/
 │   └── README.md                      # Overview
 ├── src/
 │   ├── __init__.py
-│   ├── cli.py                         # Click/Argparse interface (classify run)
+│   ├── cli.py                         # Argparse CLI interface (.env loaded for local dev)
 │   ├── config.py                      # Configurations and settings loader
 │   ├── prompt_loader.py               # Template parser and resolver
 │   ├── repository.py                  # Database reads/writes (SQLite queries)
@@ -35,10 +35,10 @@ modules/classify/
 │       └── v002_initial_classify_tables.sql
 └── tests/
     ├── __init__.py
-    ├── conftest.py                    # Pytest DB and API mocks
     ├── test_config.py                 # Settings loading tests
     ├── test_repository.py             # Database read/write unit tests
-    └── test_classifier.py             # Core pipeline execution & retry tests
+    ├── test_classifier.py             # Core pipeline execution & retry tests
+    └── test_cli.py                    # CLI behavior and local .env loading tests
 ```
 
 ---
@@ -62,8 +62,9 @@ We will execute the development in 5 steps:
 * Build parallel execution loop (`asyncio.gather` up to `max_concurrent_requests`) with retry/backoff throttling.
 
 ### Step 4: CLI Interface (`cli.py`)
-* Hook up the Click CLI command `classify run` that triggers the orchestrator batch execution.
+* Hook up the Argparse CLI commands `run`, `migrate`, and `export-report`.
 * Ensure progress outputs are streamed properly to `stderr`.
+* Load the workspace root `.env` for local development without overriding already-injected environment variables.
 
 ### Step 5: Test Execution and E2E validation
 * Verify execution using unit and integration tests.
@@ -82,3 +83,4 @@ Before finalizing a PR, the following test scenarios must be verified under `mod
 | **TC-04** | Transient Malformed Output | Standard item; LLM first returns malformed JSON, then valid JSON | Parser rejects first attempt, triggers retry loop, succeeds on second attempt, and persists the correct row. |
 | **TC-05** | Persistent Failure (Retries Exhausted) | Standard item; LLM consistently times out or returns bad JSON | Retries up to `retry_attempts`, logs the failure type to error logs, writes **no** row for this item, and successfully continues with the rest of the batch. |
 | **TC-06** | Queue Selection & De-duplication | Database contains 1 classified item and 1 unclassified item | Pending item query select only the unclassified item. |
+| **TC-07** | Local `.env` Loading | Workspace root contains `.env` with the configured key name | CLI startup loads the key for local runs without overriding pre-existing environment variables. |
