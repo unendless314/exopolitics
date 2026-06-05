@@ -92,3 +92,24 @@ graph TD
 
 3. **相關規劃文件**：
    * 需同步更新 [`MODULE_BOUNDARIES.md`](file:///C:/Users/user/documents/derived-work/docs/MODULE_BOUNDARIES.md) 中關於 Ingest 與 Canonical 庫的權責劃分。
+
+---
+
+## 5. 跨模組正文抓取與清洗邏輯之共享架構展望
+
+### A. 未來潛在需求場景
+隨系統演進，除了 Ingest 模組在背景批次處理 RSS 外，未來在 **Review（審核）** 或 **Edit（編修）** 階段，不論是人工審查員或 AI Agent，都有可能需要「輸入一個外部 URL，即時獲取並查看其經過清洗後的全文內容」。這並不屬於 Ingest 的定時批次排程範疇。
+
+### B. 核心邏輯的共性與差異
+* **共性（90% 底層一致）：** 即時抓取與批次擷取本質上都是對指定 URL 進行 HTTP GET 請求，取得 HTML 後透過 Readability 演算法提取正文並轉化為 Markdown。
+* **差異：** Ingest 是「批次/定時排程/寫入資料庫」；而 Review/Edit 是「單次/即時互動/記憶體中渲染」。
+
+### C. 建議設計模式：無狀態共享核心引擎（Shared Stateless Scraper Engine）
+為了避免 Review/Edit 模組直接與複雜的 Ingest 模組排程器產生強耦合，建議不要將「抓取與清洗」做成一個帶有狀態（Stateful）與 CLI 的重量級獨立模組，而是將其封裝為一個**無狀態的共享核心工具包（Shared Utility SDK）**：
+
+1. **核心模組封裝**：將 HTTP 抓取與 Readability 清洗邏輯封裝在一個獨立的共享模組或工具類中（例如 `modules/common/scraper_engine.py`），該模組不包含任何資料庫狀態，僅提供乾淨的輸入輸出接口，例如 `fetch_and_clean(url: str) -> str`。
+2. **多重呼叫源**：
+   * **Ingest 模組**：在批次同步時，調用此共享引擎將結果寫入暫存庫及主資料庫。
+   * **Review/Edit 模組**：當 Agent 或人工需要即時檢索時，直接調用同一個共享引擎進行實時抓取與渲染，而不需經過 Ingest 的排程資料表。
+3. **優勢**：在保持代碼重用性的同時，維護了低耦合的系統邊界。
+
