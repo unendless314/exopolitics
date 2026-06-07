@@ -1,17 +1,24 @@
 # Ingest Module Docs
 
-This directory contains the active ingest module documents for the post-reset implementation.
+This directory contains the active ingest module contracts for the rewrite.
 
-Current status:
+Status:
 
-- this module has been reset and is being rewritten from current top-level contracts
-- old ingest docs and code now live under `modules_archive/`
-- new ingest contracts should be defined here before implementation is rebuilt
+- these docs replace the pre-reset ingest plan for new implementation work
+- prior drafts now live under `modules/ingest/docs/backup/` and `modules_archive/ingest/`
+- this set is intended to be implementation-facing, not just directional
 
-Planned active docs:
+Read order:
 
 1. `DATA_CONTRACT.md`
-2. `STORAGE_SCHEMA.md`
-3. `SANITIZATION_CONTRACT.md`
-4. `RETENTION_POLICY.md`
+2. `SOURCE_CONFIG_CONTRACT.md`
+3. `SANITIZATION_STRATEGY.md`
+4. `STORAGE_SCHEMA.md`
 5. `FETCH_EXECUTION.md`
+6. `CLEANUP_EXECUTION.md`
+7. `RETENTION_POLICY.md`
+
+Scope note:
+
+- `ingest` owns the transition from raw feed input to sanitized working text
+- `ingest` does not own classification, review, publish formatting, or site rendering

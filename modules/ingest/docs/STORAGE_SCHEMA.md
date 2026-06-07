@@ -7,65 +7,130 @@
 
 ## 1. Purpose
 
-This document defines the ingest storage direction after the reset.
+This document defines the minimum ingest storage shape required by the rewrite.
 
-It does not yet lock final column-by-column DDL, but it does lock the storage shape the implementation must follow.
-
----
-
-## 2. Required Storage Separation
-
-The ingest schema must separate at least these concerns:
-
-1. normalized source item identity and metadata
-2. sanitized working text and sanitization metrics
-3. raw retained payloads under bounded retention
-4. source state and source health
-5. fetch run and fetch attempt history
-6. dedup state
-
-The rewritten schema must not overload a single `summary`-style column with both raw and sanitized meanings.
+It does not lock every final column name yet, but it does lock the minimum table set, logical relationships, and representation separation.
 
 ---
 
-## 3. Logical Record Groups
+## 2. Minimum Table Set
 
-### 3.1 Source Item
+The ingest schema must contain at least these logical tables:
 
-Durable canonical identity and source metadata.
+1. `source_item`
+2. `source_item_text`
+3. `source_item_raw`
+4. `source_state`
+5. `fetch_run`
+6. `fetch_attempt`
+7. `ingest_dedup_marker`
 
-### 3.2 Sanitized Text Record
+Important rule:
 
-Durable downstream working text linked to the source item.
+- the rewritten schema must not overload a single `summary`-style column with both raw and sanitized meanings
 
-### 3.3 Raw Retained Record
+---
 
-Short-retention raw payload storage linked to the source item.
+## 3. Logical Roles
 
-### 3.4 Source State
+### 3.1 `source_item`
+
+Durable canonical source identity and metadata.
+
+Expected contents:
+
+- source identity
+- normalized title
+- published timestamp
+- fetched timestamp
+- dedup key and rule
+- ingest status
+
+### 3.2 `source_item_text`
+
+Durable sanitized downstream working text linked to `source_item`.
+
+Expected contents:
+
+- sanitized text body
+- sanitization method or version
+- HTML detected flag
+- truncation flag
+- low-context flag
+- raw and sanitized length metrics
+
+Default direction:
+
+- one current text record per source item in MVP
+- future multi-version re-sanitization is allowed only if later contracts introduce it explicitly
+
+### 3.3 `source_item_raw`
+
+Short-retention raw payload storage linked to `source_item`.
+
+Expected contents:
+
+- raw payload or fragment
+- capture kind
+- retained-at timestamp
+- retention class
+- exception retention marker when applicable
+
+Default direction:
+
+- one source item may have zero or more raw retained records
+
+### 3.4 `source_state`
 
 Current mutable source health and fetch state.
 
-### 3.5 Fetch Run And Attempt
+### 3.5 `fetch_run`
 
-Execution history for ingest operations.
+Run-level execution history.
 
-### 3.6 Dedup Marker
+### 3.6 `fetch_attempt`
 
-Deterministic ingest identity control.
+Source-level execution outcome within a run.
+
+Expected contents should include counts for:
+
+- new items
+- dedup matches
+- item anomalies such as low-context or sanitization failures when tracked
+
+### 3.7 `ingest_dedup_marker`
+
+Explicit deduplication state for deterministic ingest identity control.
 
 ---
 
-## 4. Schema Direction Rules
+## 4. Required Relationships
 
-- canonical source identity must remain stable even if raw retained payloads expire
+- one `source_item` may have zero or one active `source_item_text` record in MVP
+- one `source_item` may have zero or more `source_item_raw` records
+- one `fetch_run` has many `fetch_attempt` records
+- one `ingest_dedup_marker` must point to exactly one `source_item`
+
+Important rules:
+
+- canonical source identity must remain stable even after raw retained payloads expire
 - sanitized text must be queryable independently from raw retained payloads
-- raw retention cleanup must be possible without damaging downstream contracts
-- source state should remain operationally separate from immutable source item history
+- raw cleanup must be possible without damaging downstream contracts
+- mutable source state must remain operationally separate from immutable source item history
+
+---
+
+## 5. Schema Direction Rules
+
+- normalized source identity and working text are separate records
+- raw retained payloads are retention-governed and must not be the only copy of downstream text
+- item-level sanitization outcomes should be representable without reinterpreting fetch-level status fields
 - dedup state must stay explicit and auditable
 
 ---
 
-## 5. Immediate Next Schema Task
+## 6. Immediate Next Schema Task
 
-The next active schema task is to translate this storage direction into a concrete table set and DDL after the ingest data contract and sanitization contract are accepted.
+The next schema task is to translate this direction into concrete DDL after implementation begins.
+
+That DDL should preserve the separation defined here even if final column names differ from this document.

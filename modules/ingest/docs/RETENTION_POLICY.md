@@ -7,7 +7,7 @@
 
 ## 1. Purpose
 
-This document defines which ingest-layer records are long-term, which are short-retention, and how cleanup must behave.
+This document defines which ingest-layer records are long-term, which are short-retention, and what cleanup must preserve.
 
 ---
 
@@ -18,8 +18,8 @@ The following ingest-layer records belong in long-term canonical storage:
 - normalized source item identity and metadata
 - sanitized working text
 - dedup state
-- source state and source health history needed for operation
-- fetch run and fetch attempt records
+- source state needed for ongoing operation
+- fetch run and fetch attempt history
 - sanitization metrics and flags needed for long-term observability
 
 ---
@@ -32,38 +32,52 @@ The following records should be short-retention by default:
 - raw embedded HTML fragments
 - oversized noisy raw text kept for sanitizer validation
 
-These records are useful, but they do not define the long-term downstream contract.
+These records are useful evidence, but they do not define the long-term downstream contract.
 
 ---
 
-## 4. Cleanup Rules
+## 4. Retention Classes
+
+The policy shape should support at least:
+
+- default raw retention
+- exception retention
+- operator-frozen retention
+
+Default direction:
+
+- most raw records use the bounded default class
+- special investigations may promote selected records into exception retention
+
+---
+
+## 5. Cleanup Rules
 
 Cleanup must support the following rules:
 
 - raw retained records older than the configured retention window may be deleted
 - cleanup must not delete the sanitized working text needed downstream
-- cleanup must respect exception-retained records
+- cleanup must respect exception-retained and operator-frozen records
 - cleanup actions should be auditable
 
 ---
 
-## 5. Exception Retention
+## 6. Audit Expectations
 
-Some raw records may need longer retention.
+Cleanup should preserve enough auditability to answer:
 
-Examples:
+- which raw records were deleted
+- when cleanup ran
+- which retention class applied
+- whether any records were skipped due to exception retention
 
-- sanitizer investigation samples
-- parsing anomaly investigations
-- classification dispute investigations
-- operator-frozen records
-
-The policy shape must support these exceptions without turning all raw data into permanent storage.
+This does not require permanent retention of the deleted payload itself.
 
 ---
 
-## 6. Direction Locked By This Rewrite
+## 7. Decisions Locked By This Rewrite
 
 - raw retention is allowed but not indefinite by default
 - sanitized working text remains durable even after raw cleanup
-- cleanup is an expected operation, not accidental data loss by itself
+- cleanup is expected operation, not accidental data loss by itself
+- exception retention must exist without turning all raw data into permanent storage

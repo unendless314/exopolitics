@@ -7,9 +7,9 @@
 
 ## 1. Purpose
 
-This document defines the runtime responsibilities of ingest fetch execution at a high level.
+This document defines the runtime behavior of ingest fetch execution.
 
-It focuses on execution shape, not final CLI syntax.
+It focuses on execution semantics and failure handling, not final CLI syntax.
 
 ---
 
@@ -21,8 +21,9 @@ Fetch execution owns:
 - applying operator-provided run scope when present
 - fetching feed payloads with bounded concurrency
 - parsing feed entries
-- creating normalized source item records
+- normalizing source items
 - creating sanitized working text
+- recording item-level anomalies when they occur
 - recording source-level outcomes and source health updates
 
 ---
@@ -30,31 +31,92 @@ Fetch execution owns:
 ## 3. Expected Flow
 
 ```text
-select due sources
+load config
+  -> validate config
+  -> resolve due sources
   -> fetch source payload
   -> parse entries
   -> normalize source items
   -> sanitize working text
-  -> persist ingest-layer records
+  -> persist source items, sanitized text, and raw retained records when policy allows
   -> update source state and run records
 ```
 
 ---
 
-## 4. Failure Expectations
+## 4. Concurrency And Isolation
 
-- one source failure must not abort the entire run by default
-- one item-level sanitization problem must be captured without corrupting unrelated items
-- source health state must reflect repeated failures
-- fetch execution must preserve enough evidence for later debugging
+- source fetching must use bounded concurrency
+- failure in one source must not cancel unrelated sources by default
+- one source attempt should have a clear transaction boundary for persistence
+- run-level failures should be reserved for configuration, storage, or other systemic failures
 
 ---
 
-## 5. Out Of Scope
+## 5. Item-Level Outcome Semantics
+
+For each parsed entry, `ingest` should distinguish at least these outcomes:
+
+1. new item with usable sanitized text
+2. dedup match
+3. new item with low-context sanitized text
+4. item-level sanitization failure
+5. item-level parse or normalization failure
+
+Default direction:
+
+- a dedup match should not create a new source item
+- a low-context result may still create a source item and sanitized text record
+- an item-level sanitization failure should be captured without hiding the source-level fetch outcome
+
+Important rule:
+
+- source-level success does not require every item to be equally useful downstream
+
+---
+
+## 6. Source-Level Outcome Semantics
+
+Each source attempt should capture:
+
+- HTTP result when available
+- retry count
+- final source-level outcome
+- new item count
+- dedup matched count
+- item anomaly counts when tracked
+- error class and detail when failed
+
+Default direction:
+
+- successful fetch plus some low-context items is still a source-level success
+- successful fetch plus some item-level sanitization failures may still be source-level success if the source payload was processed and anomalies were recorded
+- transport, parse, or persistence failures that prevent meaningful processing should be source-level failures
+
+---
+
+## 7. Failure Expectations
+
+- one source failure must not abort the whole run by default
+- one item-level failure must not corrupt unrelated items from the same source
+- source health must reflect repeated source-level failures, not merely low-context content
+- execution must preserve enough evidence for later debugging
+
+---
+
+## 8. Out Of Scope
 
 Fetch execution does not own:
 
-- classification retries or batch policy
+- classification retry policy
 - review queue behavior
 - edit workflow behavior
 - publish formatting
+
+---
+
+## 9. Decisions Locked By This Rewrite
+
+- fetch execution includes sanitization as part of ingest completion
+- item-level anomalies must be representable without forcing a second module
+- source-level success and item usefulness are related but not identical states
