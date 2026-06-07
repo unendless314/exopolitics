@@ -32,7 +32,7 @@ External Feed Sources
   -> site
 ```
 
-Optional future branch:
+Recognized workflow branch:
 
 ```text
 review
@@ -61,6 +61,7 @@ Canonical storage exists to keep the durable system record for:
 - source health and ingest execution metadata
 - classification outputs
 - review decisions
+- site-owned edit records when introduced into the workflow
 - publishable content references
 
 Canonical storage is not required to retain every raw payload forever.
@@ -126,11 +127,19 @@ Owns:
 
 Owns:
 
-- selecting approved records for export
+- selecting approved source-derived records and approved edited records for export
 - generating publish-layer outputs
 - preserving attribution and disclosure in exported form
 
-### 6.5 `site`
+### 6.5 `edit`
+
+Owns when active in the workflow:
+
+- site-owned draft and edited content records
+- source linking for edited content
+- edit-specific provenance and responsibility metadata
+
+### 6.6 `site`
 
 Owns:
 

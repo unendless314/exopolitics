@@ -6,14 +6,14 @@ This repository is a phased, modular UAP/UFO aggregation system plan. Top-level 
 Planned module sequence:
 `ingest -> classify -> review -> edit (when needed) -> publish -> site`
 
-Current scaffold is `modules/ingest/`, but new changes should preserve future module boundaries.
+The active module workspace has been reset. Archived pre-reset module trees live under `modules_archive/`; new implementation work should restart under `modules/` and preserve future module boundaries.
 
 ## Build, Test, and Development Commands
 There is no repo-wide build or CI pipeline yet. Use lightweight local commands while working:
 
 - `rg --files` to quickly inspect repository contents
 - `sed -n '1,200p' docs/README.md` to review the active top-level documentation set before edits
-- `git diff -- docs/ modules/` to verify changes across planning and module paths
+- `git diff -- docs/ modules/ modules_archive/` to verify changes across planning, active module, and archived module paths when structural moves are involved
 
 When executable code is added, prefer module-local commands from `modules/<module>/`.
 
@@ -52,4 +52,4 @@ Follow the existing commit style: short, imperative subjects (example: `Refine a
 PRs should include a concise summary, affected paths, rationale for structural moves, and linked docs/issues. Include screenshots only for visual output changes and list deferred decisions.
 
 ## Agent Notes
-Do not invent undocumented runtime behavior. Keep top-level docs focused on active cross-module contracts, and put implementation details in module docs. Historical planning belongs in `docs_archive/` and should not be treated as current source of truth. Any new scaffold, schema, or state transition must update `modules/<module>/docs/` in the same change.
+Do not invent undocumented runtime behavior. Keep top-level docs focused on active cross-module contracts, and put implementation details in module docs. Historical planning belongs in `docs_archive/` and historical module snapshots belong in `modules_archive/`; neither should be treated as current source of truth. Any new scaffold, schema, or state transition must update `modules/<module>/docs/` in the same change.

@@ -8,13 +8,14 @@ This repository is currently in a documentation reset phase:
 
 - `docs/` contains the active rewritten planning set
 - `docs_archive/2026-06-reset/` preserves superseded planning as historical reference
+- `modules_archive/` preserves superseded module docs and code as historical reference
 
 ## Current Scope
 
 - define the top-level product and architecture direction
 - preserve RSS source research and category definitions
 - establish module boundaries before implementation expands
-- document the development order for `ingest`, `classify`, `review`, optional `edit`, `publish`, and `site`
+- document the development order for `ingest`, `classify`, `review`, `edit`, `publish`, and `site`
 - reserve a compliant path for future edit content with source attribution and AI disclosure
 
 ## Architecture Summary
@@ -28,8 +29,8 @@ The current system direction is:
 - `review`
   - perform human review and state transitions
 - `edit`
-  - reserved for future site-native drafts, summaries, rewrites, and synthesis
-  - in early stages, low-volume edit flow can remain inside `review`
+  - reserved for near-term site-native drafts, summaries, rewrites, and synthesis
+  - in early stages, low-volume edit flow can remain inside `review` before separate extraction
 - `publish`
   - export approved content into a publish layer
 - `site`
@@ -44,7 +45,7 @@ The current system direction is:
 5. `publish`
 6. `site`
 
-This order is intentional. The project should first stabilize data ingestion and review before introducing a dedicated edit workflow.
+This order is intentional. The project should first stabilize data ingestion and review before introducing a dedicated standalone edit workflow.
 
 ## Content Model Direction
 
@@ -55,7 +56,7 @@ At the current architecture level, public content is treated as two high-level o
 
 The current recommendation is to keep this model simple in MVP.
 
-If future edit workflows become stable, a separate derivation or method dimension can be added later for cases such as:
+If edit workflows become stable, a separate derivation or method dimension can be added later for cases such as:
 
 - `summary`
 - `rewrite`
@@ -67,18 +68,17 @@ If future edit workflows become stable, a separate derivation or method dimensio
 ```text
 project-root/
 ├── docs/
+├── docs_archive/
+├── modules_archive/
 └── modules/
     ├── ingest/
-    ├── classify/
-    ├── review/
-    ├── edit/
-    ├── publish/
-    └── site/
+    └── ...
 ```
 
 Notes:
 
 - `docs/` contains top-level system documents
+- `modules_archive/` contains pre-reset module snapshots and is reference-only
 - module-level `config/` should remain the default ownership model
 - root-level shared config should only appear later if a setting is truly cross-module
 
@@ -108,7 +108,7 @@ Archived top-level planning lives under `docs_archive/2026-06-reset/`.
 
 ## Current Module Workspace
 
-The first module workspace has already been established:
+The active module workspace has been reset. The rebuilt tree currently starts with:
 
 ```text
 modules/
@@ -121,6 +121,8 @@ modules/
 
 At this stage, `modules/ingest/` is still documentation-first. The goal is to refine system direction before committing to detailed implementation.
 
+Pre-reset module docs and code now live under `modules_archive/`.
+
 ## Source Research
 
-The current RSS source list, category definitions, and archived research now live under `modules/ingest/config/`.
+RSS source research and prior module artifacts from before the reset now live under `modules_archive/` until the new ingest config contract is rewritten.

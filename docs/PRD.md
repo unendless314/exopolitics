@@ -18,6 +18,7 @@ Its purpose is not to mirror full articles, run a discussion forum, or generate 
 - publish approved outputs to a static public site
 
 The product is fundamentally an **aggregation and curation system**.
+An initial pipeline MVP may publish approved source-derived outputs first, but product usability beyond that initial stage is expected to rely on edit-assisted publishing.
 
 ---
 
@@ -29,7 +30,7 @@ The system should:
 - reduce human review load without giving final editorial control to automation
 - preserve source attribution and editorial accountability
 - keep the public site focused on approved and interpretable content only
-- allow future growth into edit-assisted publishing without collapsing source content and site-owned content into one model
+- support near-term growth into edit-assisted publishing without collapsing source content and site-owned content into one model
 
 ---
 
@@ -120,6 +121,8 @@ MVP does not require:
 - fully autonomous AI publishing
 - immediate extraction of a separate standalone `edit` runtime module
 
+This does not mean `edit` is optional as a product capability. It means only that the first MVP does not need `edit` to ship as a separately executable module.
+
 ---
 
 ## 7. Success Criteria
@@ -161,6 +164,6 @@ The system is not intended to be:
 ## 10. Deferred Product Questions
 
 - when, if ever, full-page retrieval becomes a common shared capability
-- when `edit` should become an independently executable module instead of a review-adjacent workflow
+- when `edit` should become an independently executable module instead of remaining a review-adjacent workflow for a short period
 - what retention window is best for raw input in early production
 - whether certain sources deserve custom sanitization rules

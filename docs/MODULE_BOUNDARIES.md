@@ -108,7 +108,7 @@ Must not own:
 
 ### 3.4 `edit`
 
-Owns when introduced:
+Owns:
 
 - site-owned draft content
 - source linking for edited content
@@ -124,7 +124,7 @@ Must not own:
 
 Owns:
 
-- selection of approved records for export
+- selection of approved source-derived records and approved edited records for export
 - publish representation
 - attribution and disclosure emission
 

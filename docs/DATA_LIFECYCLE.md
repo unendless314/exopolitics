@@ -25,7 +25,7 @@ The key lifecycle rule is:
 
 - raw input may enter first
 - sanitized text becomes the downstream working form
-- publish outputs are derived from reviewed records
+- publish outputs are derived from reviewed canonical records
 
 These are different lifecycle stages, not interchangeable copies of the same field.
 
@@ -43,7 +43,7 @@ raw feed item
   -> site rendering
 ```
 
-Optional branch:
+Recognized branch:
 
 ```text
 review decision
@@ -146,7 +146,7 @@ Review consumes classified items and determines whether they should:
 - be approved
 - be rejected
 - be deleted under governance policy
-- enter a later edit-oriented workflow
+- enter an edit-oriented workflow before publication
 
 Review is also where queue aging and SLA governance belong.
 
@@ -154,13 +154,18 @@ Review is also where queue aging and SLA governance belong.
 
 ## 8. Publish Lifecycle
 
-Approved records move into a publish representation.
+Approved canonical records move into a publish representation.
 
 Publish output should:
 
 - be derived from canonical records
 - preserve provenance and disclosure data
 - remain rebuildable if needed
+
+Those canonical records may be either:
+
+- approved source-derived records that are ready for direct aggregation-style publication
+- approved edited records created through the edit workflow
 
 The site must consume publish output, not canonical operational tables directly.
 

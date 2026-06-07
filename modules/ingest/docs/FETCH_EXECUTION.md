@@ -1,124 +1,60 @@
-# Ingest Fetch Execution
+# Fetch Execution
 
-**Document version:** v0.1  
-**Updated:** 2026-05-28  
-**Status:** Draft
+**Status:** Active rewrite draft  
+**Updated:** 2026-06-07
 
 ---
 
 ## 1. Purpose
 
-Define how ingest selects due sources and executes fetch runs with bounded concurrency and stable failure isolation.
+This document defines the runtime responsibilities of ingest fetch execution at a high level.
+
+It focuses on execution shape, not final CLI syntax.
 
 ---
 
-## 2. Execution Flow
+## 2. Core Responsibilities
+
+Fetch execution owns:
+
+- selecting due sources
+- applying operator-provided run scope when present
+- fetching feed payloads with bounded concurrency
+- parsing feed entries
+- creating normalized source item records
+- creating sanitized working text
+- recording source-level outcomes and source health updates
+
+---
+
+## 3. Expected Flow
 
 ```text
-load config
-  -> validate config
-  -> resolve due sources
-  -> shard by fetch_group
-  -> fetch with bounded concurrency
-  -> parse + normalize entries
-  -> compute dedup keys
-  -> persist items + source state + run records
-  -> emit run summary
+select due sources
+  -> fetch source payload
+  -> parse entries
+  -> normalize source items
+  -> sanitize working text
+  -> persist ingest-layer records
+  -> update source state and run records
 ```
 
 ---
 
-## 3. Due-Source Resolution
+## 4. Failure Expectations
 
-Due logic is based on `schedule_class` and prior successful fetch timestamp.
-
-MVP policy:
-
-- skip sources where `enabled=false`
-- allow manual override to force run a source
-- keep due calculation deterministic for repeatability
+- one source failure must not abort the entire run by default
+- one item-level sanitization problem must be captured without corrupting unrelated items
+- source health state must reflect repeated failures
+- fetch execution must preserve enough evidence for later debugging
 
 ---
 
-## 4. Sharding And Concurrency
+## 5. Out Of Scope
 
-- `fetch_group` defines deterministic execution shards.
-- A run may target all shards or a subset.
-- Global concurrency must be bounded by config/runtime parameter.
-- Failure in one source must not cancel remaining sources by default.
+Fetch execution does not own:
 
-Recommended run-level metrics:
-
-- total due sources
-- attempted/succeeded/failed counts
-- per-shard duration
-
----
-
-## 5. HTTP Behavior
-
-Required behaviors:
-
-- request timeout enforcement
-- retry with bounded attempts
-- backoff between retries
-- response status capture for source health logic
-
-MVP retry defaults:
-
-- retry up to 2 additional attempts for `network_error`, `timeout_error`, and `http_error_5xx`
-- do not retry `http_error_4xx`
-- do not retry `parse_error`
-
-Cache headers:
-
-- persist and reuse `ETag` if provided
-- persist and reuse `Last-Modified` if provided
-- handle `304 Not Modified` as successful poll with no new entries
-
-Failure isolation rule:
-
-- source-level failures should not cancel remaining sources in the same run
-- run-level failures such as `validation_error`, `persistence_error`, or `unexpected_error` should fail the run
-
----
-
-## 6. Parsing And Normalization
-
-Normalization goals:
-
-- deterministic mapping from raw feed to internal fields
-- preserve enough raw material for audit/debug
-- keep nullability explicit (do not silently invent content)
-
-At minimum normalize:
-
-- title
-- link/canonical URL
-- published timestamp (if present)
-- summary/description (if present)
-- source attribution metadata
-
----
-
-## 7. Persistence Guarantees
-
-Each run should persist:
-
-- run-level summary record
-- source-level attempt record
-- source state updates
-- newly ingested items
-
-Write policy must prioritize idempotency:
-
-- repeated run on unchanged feed should not create duplicate logical items
-
----
-
-## 8. Non-Goals (MVP)
-
-- full article body extraction
-- headless browser fallback
-- source-specific plugin framework
-- LLM-based cleanup/enrichment
+- classification retries or batch policy
+- review queue behavior
+- edit workflow behavior
+- publish formatting

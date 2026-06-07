@@ -92,11 +92,12 @@ After ingest and classify contracts stabilize, refresh:
 
 - review queue contracts
 - publish export contracts
-- any future edit workflow notes
+- edit workflow contracts needed for the immediate post-MVP phase
 
 Goal:
 
 - ensure downstream modules inherit the corrected upstream semantics
+- ensure the post-MVP path to edit-assisted publishing is already aligned with the rewritten core pipeline
 
 ---
 
@@ -136,6 +137,8 @@ Only after the new core pipeline stabilizes should the project decide whether to
 - more advanced readability-based extraction
 - shared external content retrieval capability
 - a separate executable `edit` module
+
+This deferral applies to extracting `edit` as a separately executable module, not to recognizing `edit` as a near-term product capability.
 
 ---
 
