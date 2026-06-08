@@ -28,6 +28,7 @@ Finish and review the new top-level docs:
 - `DATA_LIFECYCLE.md`
 - `STORAGE_AND_RETENTION.md`
 - `MODULE_BOUNDARIES.md`
+- `CANONICAL_ENTITY_CONTRACT.md`
 
 Goal:
 

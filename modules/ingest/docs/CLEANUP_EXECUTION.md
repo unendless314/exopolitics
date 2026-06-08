@@ -1,7 +1,7 @@
 # Cleanup Execution
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-06-07
+**Updated:** 2026-06-08
 
 ---
 
@@ -18,7 +18,6 @@ Cleanup is part of ingest operations, but it is not part of the normal fetch exe
 Cleanup owns:
 
 - selecting raw retained records eligible for deletion under retention policy
-- skipping records protected by exception retention or operator freeze
 - deleting expired raw retained records
 - recording cleanup outcomes for auditability
 
@@ -36,7 +35,6 @@ Cleanup does not own:
 ```text
 load retention policy
   -> identify raw retained records eligible for cleanup
-  -> exclude exception-retained or frozen records
   -> delete eligible raw records
   -> record cleanup counts and audit information
 ```
@@ -62,21 +60,15 @@ raw_retention:
   delete_batch_size: 500
   dry_run: false
   audit_log: true
-  exception_classes:
-    - investigation
-    - operator_frozen
-```
-
-Example of a record-level retention override direction:
-
-```yaml
-raw_retention_override:
-  retention_class: investigation
-  expires_at: 2026-07-01T00:00:00Z
 ```
 
 This document does not lock final file names yet.
 It locks the policy shape that cleanup implementation should follow.
+
+Low-frequency exception direction:
+
+- if special backup beyond the default raw-retention window is required, prefer a separate cron job, export script, or manual archive process
+- that backup path should not complicate the MVP cleanup logic unless repeated operational use proves it is necessary
 
 ---
 
@@ -86,7 +78,6 @@ Cleanup must preserve the following invariants:
 
 - deleting raw retained records must not delete normalized source items
 - deleting raw retained records must not delete sanitized working text
-- cleanup must respect exception retention markers
 - cleanup must be safe to run repeatedly
 
 ---
@@ -98,7 +89,6 @@ Cleanup should make it possible to answer:
 - when cleanup ran
 - how many raw records were eligible
 - how many raw records were deleted
-- how many records were skipped due to exception retention
 - which retention window or retention class was applied
 
 The audit trail does not require permanent storage of the deleted payload itself.

@@ -93,6 +93,11 @@ Default direction:
 - successful fetch plus some item-level sanitization failures may still be source-level success if the source payload was processed and anomalies were recorded
 - transport, parse, or persistence failures that prevent meaningful processing should be source-level failures
 
+Observability note:
+
+- item-level sanitization and normalization failure counts are engineering signals for rule coverage and source structure quality
+- those counts should be read as trend indicators, not as rigid business-state judgments
+
 ---
 
 ## 7. Failure Expectations

@@ -107,9 +107,8 @@ Minimum logical fields when raw retention is enabled:
 
 - stable link to the normalized source item
 - raw payload or raw fragment
-- capture kind
-- retained-at timestamp
-- retention class or exception marker when applicable
+- retention class
+- expiration timestamp when cleanup is scheduled by policy
 
 Important rule:
 

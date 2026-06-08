@@ -1,7 +1,7 @@
 # Retention Policy
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-06-07
+**Updated:** 2026-06-08
 
 ---
 
@@ -38,16 +38,19 @@ These records are useful evidence, but they do not define the long-term downstre
 
 ## 4. Retention Classes
 
-The policy shape should support at least:
+The MVP policy shape should support at least:
 
 - default raw retention
-- exception retention
-- operator-frozen retention
 
 Default direction:
 
-- most raw records use the bounded default class
-- special investigations may promote selected records into exception retention
+- most raw records use one bounded default class
+- low-frequency special backup needs should be handled outside the main ingest retention flow when possible
+
+External-ops direction:
+
+- if selected sources or selected items require special backup beyond normal raw retention, prefer a separate cron job, export script, or manual archival step
+- that external backup path does not need to be part of the canonical ingest schema in MVP
 
 ---
 
@@ -57,7 +60,6 @@ Cleanup must support the following rules:
 
 - raw retained records older than the configured retention window may be deleted
 - cleanup must not delete the sanitized working text needed downstream
-- cleanup must respect exception-retained and operator-frozen records
 - cleanup actions should be auditable
 
 ---
@@ -69,7 +71,6 @@ Cleanup should preserve enough auditability to answer:
 - which raw records were deleted
 - when cleanup ran
 - which retention class applied
-- whether any records were skipped due to exception retention
 
 This does not require permanent retention of the deleted payload itself.
 
@@ -80,4 +81,4 @@ This does not require permanent retention of the deleted payload itself.
 - raw retention is allowed but not indefinite by default
 - sanitized working text remains durable even after raw cleanup
 - cleanup is expected operation, not accidental data loss by itself
-- exception retention must exist without turning all raw data into permanent storage
+- low-frequency special backup needs may be handled outside the main ingest retention workflow

@@ -1,7 +1,7 @@
 # Sanitization Strategy
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-06-07
+**Updated:** 2026-06-08
 
 ---
 
@@ -119,12 +119,76 @@ Sanitization may succeed technically while still producing text that is too thin
 
 That outcome should be represented as low-context, not silently treated as a normal success.
 
+MVP direction:
+
+- keep low-context detection simple, deterministic, and easy to tune later
+- prefer rule-based detection over subjective free-text judgment
+- treat low-context as a downstream caution signal, not as an ingest failure by itself
+
 `ingest` may persist:
 
 - low-context flag
-- low-context reason when practical
+- low-context reason code when practical
 
 `ingest` must not turn that into a classification decision.
+
+### 8.1 Recommended MVP Checks
+
+Recommended first-pass checks:
+
+1. no usable body candidate remains after input selection
+2. sanitized text becomes empty after cleanup
+3. sanitized text length falls below a minimum threshold
+4. sanitized text is almost entirely the title or title repetition
+5. sanitized text is dominated by boilerplate or low-information fragments
+
+Recommended implementation order:
+
+1. run sanitization
+2. compute simple metrics
+3. apply fixed rules in priority order
+4. set `is_low_context`
+5. store the first matching reason code
+
+This keeps the initial implementation understandable and testable.
+
+### 8.2 Recommended MVP Metrics
+
+The first implementation does not need advanced NLP.
+
+Simple metrics are enough:
+
+- `sanitized_text_length`
+- whether any body candidate existed before cleanup
+- whether any text remained after cleanup
+- rough title overlap signal
+- simple boilerplate signals such as repeated "read more" or mostly-link text
+
+Thresholds should be config or code constants that can be tuned later after observing real data.
+
+### 8.3 Recommended Reason Codes
+
+Recommended MVP reason-code set:
+
+- `missing_body`
+- `post_cleanup_empty`
+- `too_short`
+- `title_only`
+- `title_heavy`
+- `template_heavy`
+- `mostly_links`
+- `truncated_to_low_context`
+
+Important rule:
+
+- prefer compact stable reason codes over free-form prose in storage
+
+### 8.4 Scope Boundary
+
+- low-context means the cleaned text may be insufficient for stable downstream interpretation
+- low-context does not mean the item should be dropped automatically
+- low-context does not mean sanitization failed technically
+- low-context does not mean `ingest` should make a classification judgment
 
 ---
 

@@ -1,119 +1,95 @@
 # Source Config Contract
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-06-07
+**Updated:** 2026-06-08
 
 ---
 
 ## 1. Purpose
 
-This document defines the active configuration contract for `ingest` sources.
+This document defines the implementation-facing YAML configuration contract for the rewritten `ingest` module.
 
-It separates four concerns:
+It locks:
 
-- source identity
-- fetch scheduling and execution grouping
-- fetch policy
-- sanitization policy
+- configuration file boundaries
+- top-level YAML shape
+- required and optional fields
+- cross-file references
+- validation and merge direction
 
-These concerns must not be silently merged into one overloaded field.
+It does not yet lock:
 
----
-
-## 2. Required Source Fields
-
-Minimum required fields per source:
-
-- `id`
-- `title`
-- `xml_url`
-- `category_id`
-- `fetch_group`
-- `schedule_class`
-- `enabled`
-- `sanitization_profile`
-
-Optional fields:
-
-- `html_url`
-- `notes`
-- `request_headers`
-- `request_timeout_seconds`
-- `sanitization_overrides`
+- the exact loader implementation
+- CLI flag syntax
+- every future policy knob not yet justified by active needs
 
 ---
 
-## 3. Independent Axes
+## 2. Config Design Principles
 
-### 3.1 Source Identity Axis
-
-- `id`
-- `title`
-- `xml_url`
-- `html_url`
-- `category_id`
-
-### 3.2 Execution Axis
-
-- `fetch_group`
-- `schedule_class`
-- `enabled`
-
-### 3.3 Fetch Policy Axis
-
-- request timeout override when formally supported
-- request headers override when formally supported
-- future cache or retry policy knobs when formally introduced
-
-### 3.4 Sanitization Axis
-
-- `sanitization_profile`
-- `sanitization_overrides`
-
-Important rule:
-
-- `category_id`, `fetch_group`, `schedule_class`, and `sanitization_profile` do different jobs and must not substitute for each other
+- source identity, scheduling, fetch behavior, and sanitization behavior must stay separate
+- category labels are semantic only and must not silently control fetch cadence
+- shared definitions should do most of the work; per-source overrides should stay small
+- configuration should express stable policy, not ad hoc code behavior
+- validation must fail fast on broken references or ambiguous settings
 
 ---
 
-## 4. Sanitization Configuration Model
+## 3. Active File Set
 
-Default direction:
+The active `ingest` config set should be split into at least these files under `modules/ingest/config/`:
 
-- most sources should use a shared profile
-- only problematic sources should add small overrides
-- a source should not require a fully custom parser unless repeated evidence justifies it
+1. `sources.yaml`
+2. `categories.yaml`
+3. `retention_policy.yaml`
 
-Recommended config shape:
+Optional future files may be added later if a concern becomes large enough to justify separate ownership.
+
+Current direction:
+
+- keep source definitions, schedule classes, and sanitization profiles in `sources.yaml`
+- keep semantic category definitions in `categories.yaml`
+- keep cleanup and raw-retention policy in `retention_policy.yaml`
+
+This split matches the current module boundaries more cleanly than pushing cleanup policy into per-source configuration.
+
+---
+
+## 4. File Contracts
+
+### 4.1 `sources.yaml`
+
+Purpose:
+
+- define source records
+- define schedule classes referenced by sources
+- define shared sanitization profiles referenced by sources
+
+Required top-level keys:
+
+- `schema_version`
+- `schedule_classes`
+- `sanitization_profiles`
+- `sources`
+
+Recommended shape:
 
 ```yaml
-sources:
-  - id: 71
-    title: Example Source
-    xml_url: https://example.com/feed.xml
-    html_url: https://example.com/
-    category_id: 1
-    fetch_group: 3
-    schedule_class: daily
-    enabled: true
-    sanitization_profile: default_html_article
-    sanitization_overrides:
-      content_selectors:
-        - article
-        - .post-body
-      remove_selectors:
-        - .share-buttons
-        - .related-posts
-      normalize_whitespace: true
-      collapse_blank_lines: true
-      max_length: 12000
-```
+schema_version: 1
 
-Recommended shared-profile shape:
+schedule_classes:
+  hourly:
+    target_interval_minutes: 60
+    description: High-signal sources fetched every hour.
+  daily:
+    target_interval_minutes: 1440
+    description: Default cadence for most sources.
 
-```yaml
 sanitization_profiles:
   default_html_article:
+    input_preference:
+      - summary
+      - content
     decode_entities: true
     content_selectors: []
     remove_selectors:
@@ -124,55 +100,277 @@ sanitization_profiles:
     normalize_whitespace: true
     collapse_blank_lines: true
     max_length: 12000
+
+sources:
+  - id: 71
+    title: Example Source
+    xml_url: https://example.com/feed.xml
+    html_url: https://example.com/
+    category_id: 1
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    request_timeout_seconds: 20
+    sanitization_profile: default_html_article
+    sanitization_overrides:
+      content_selectors:
+        - article
+        - .post-body
+      remove_selectors:
+        - .share-buttons
+        - .related-posts
+      max_length: 10000
+    notes: Stable source with minor HTML boilerplate.
+```
+
+### 4.2 `categories.yaml`
+
+Purpose:
+
+- define semantic category labels referenced by `category_id`
+
+Required top-level keys:
+
+- `schema_version`
+- `categories`
+
+Optional top-level keys:
+
+- `category_policy`
+
+Recommended shape:
+
+```yaml
+schema_version: 1
+
+category_policy:
+  purpose: semantic_label_only
+  scheduling_decoupled: true
+
+categories:
+  1:
+    name: Government Policy & Official Disclosure
+    slug: gov-disclosure
+    enabled: true
+  2:
+    name: Civilian Investigation & Databases
+    slug: civilian-investigation
+    enabled: true
+```
+
+### 4.3 `retention_policy.yaml`
+
+Purpose:
+
+- define raw-retention and cleanup policy used by ingest cleanup operations
+
+Required top-level keys:
+
+- `schema_version`
+- `raw_retention`
+
+Recommended shape:
+
+```yaml
+schema_version: 1
+
+raw_retention:
+  default_days: 14
+  delete_batch_size: 500
+  dry_run: false
+  audit_log: true
+  exception_classes:
+    - investigation
+    - operator_frozen
 ```
 
 Important rule:
 
-- `sanitization_overrides` should use the same field names as the referenced shared profile
-
-Merge direction:
-
-- shared profile provides the default sanitization settings
-- source overrides may replace or extend those defaults depending on the field definition
-- list fields such as selectors must have explicit merge behavior in implementation and tests
-- boolean and scalar fields normally override the shared profile value directly
+- retention policy belongs to module operations, not to individual source records
 
 ---
 
-## 5. Validation Rules
+## 5. `sources.yaml` Detailed Schema
 
-Validation should fail when any of the following occurs:
+### 5.1 Top-Level Key: `schema_version`
 
-- duplicate source `id`
-- malformed or non-absolute `xml_url`
-- missing `category_id` reference
-- invalid `fetch_group`
-- unknown `schedule_class`
-- invalid `enabled` type
-- missing `sanitization_profile`
-- unknown `sanitization_profile`
-- invalid override structure
+- required
+- integer
+- must match the loader-supported contract version
 
-Validation may warn for:
+### 5.2 Top-Level Key: `schedule_classes`
+
+- required
+- mapping keyed by schedule class name
+- must contain at least one class
+
+Each schedule class value must contain:
+
+- `target_interval_minutes`: required positive integer
+- `description`: optional string
+
+Validation rules:
+
+- class names must be unique
+- `target_interval_minutes` must be greater than zero
+- source records may reference only declared class names
+
+### 5.3 Top-Level Key: `sanitization_profiles`
+
+- required
+- mapping keyed by profile name
+- must contain at least one profile
+
+Each profile may contain:
+
+- `input_preference`: optional ordered list of allowed raw field names
+- `decode_entities`: optional boolean
+- `content_selectors`: optional list of strings
+- `remove_selectors`: optional list of strings
+- `normalize_whitespace`: optional boolean
+- `collapse_blank_lines`: optional boolean
+- `max_length`: optional positive integer
+
+Validation rules:
+
+- profile names must be unique
+- list values must contain strings only
+- `max_length` must be positive when provided
+- sources may reference only declared profile names
+
+Input preference direction:
+
+- allowed values should be restricted to feed text sources explicitly supported by parser logic
+- current recommended values are `summary`, `content`, and `title`
+- `title` may be used only as supplemental context, not as a silent replacement for missing body text
+
+### 5.4 Top-Level Key: `sources`
+
+- required
+- non-empty list of source records
+
+Each source record must contain:
+
+- `id`: required integer
+- `title`: required non-empty string
+- `xml_url`: required absolute URL string
+- `category_id`: required integer reference to `categories.yaml`
+- `enabled`: required boolean
+- `fetch_group`: required positive integer
+- `schedule_class`: required string reference to `schedule_classes`
+- `sanitization_profile`: required string reference to `sanitization_profiles`
+
+Each source record may contain:
+
+- `html_url`: optional absolute URL string
+- `notes`: optional string
+- `request_headers`: optional mapping of string keys to string values
+- `request_timeout_seconds`: optional positive integer
+- `sanitization_overrides`: optional mapping using the same field names as the referenced sanitization profile
+
+Validation rules:
+
+- `id` values must be unique
+- `xml_url` values must be absolute URLs
+- `html_url` must be absolute when present and non-empty
+- blank strings should be treated as invalid for required string fields
+- `category_id` must exist in `categories.yaml`
+- `schedule_class` must exist in `schedule_classes`
+- `sanitization_profile` must exist in `sanitization_profiles`
+- `fetch_group` must be greater than zero
+- `request_timeout_seconds` must be greater than zero when present
+- `request_headers` keys and values must be strings
+- `sanitization_overrides` must use known sanitization field names only
+
+Warning-level checks:
 
 - duplicate `xml_url`
+- duplicate non-empty `html_url`
 - missing `html_url`
-- suspiciously empty `title`
-- sources whose overrides are unusually large and look like custom parser logic
+- unusually large selector override lists
+- titles that look suspiciously empty after trimming
 
 ---
 
-## 6. Design Rules
+## 6. `sanitization_overrides` Merge Rules
 
-- source config should express policy, not arbitrary code
-- shared profiles should do most of the work
-- overrides should stay small and reviewable
-- repeated hard-coded exceptions in code should be migrated back into config when stable
+Merge behavior must be deterministic and testable.
+
+Default merge direction:
+
+- scalar fields replace the shared profile value
+- boolean fields replace the shared profile value
+- list fields replace the shared profile value unless the implementation later introduces an explicit append-style field
+
+Important rule:
+
+- do not silently combine selector lists by guesswork
+
+Reason:
+
+- replacement is easier to reason about and avoids duplicated or contradictory selectors
+
+If future evidence shows a need for append semantics, that behavior should be introduced as an explicit new field or rule.
 
 ---
 
-## 7. Decisions Locked By This Rewrite
+## 7. Cross-File Reference Rules
 
-- sanitization policy belongs to `ingest` config ownership
-- the default direction is shared profiles plus limited source overrides
-- source config may influence sanitization behavior without turning every source into a custom implementation
+- every `sources[].category_id` must resolve to `categories.yaml`
+- every `sources[].schedule_class` must resolve within `sources.yaml.schedule_classes`
+- every `sources[].sanitization_profile` must resolve within `sources.yaml.sanitization_profiles`
+- retention policy must not be referenced per source unless a later contract explicitly adds that feature
+
+Cross-file load order direction:
+
+1. load and validate `categories.yaml`
+2. load and validate `sources.yaml`
+3. resolve cross-file references
+4. load and validate `retention_policy.yaml`
+
+The exact implementation order may vary, but validation must produce clear reference errors.
+
+---
+
+## 8. Relationship To Storage Schema
+
+The config contract must map cleanly into ingest storage and execution behavior:
+
+- `sources[].id` maps to `source_state.source_id`, `source_item.source_id`, and `fetch_attempt.source_id`
+- `sources[].schedule_class` affects due-source resolution, not semantic categorization
+- `sources[].fetch_group` affects execution grouping, not category meaning
+- `sources[].sanitization_profile` and `sanitization_overrides` affect how `source_item_text` is produced
+- `retention_policy.yaml` affects creation and cleanup policy for `source_item_raw`
+
+Important rule:
+
+- config fields must not imply hidden storage semantics beyond what module docs already define
+
+---
+
+## 9. Failure And Validation Expectations
+
+Validation should fail before any network or database work when:
+
+- required files are missing
+- required top-level keys are missing
+- source records fail type or reference checks
+- profile overrides use unknown keys
+- schema versions are unsupported
+
+Validation output should be specific enough to identify:
+
+- filename
+- source `id` when applicable
+- offending field name
+- why the value is invalid
+
+---
+
+## 10. Decisions Locked By This Rewrite
+
+- active config is split across `sources.yaml`, `categories.yaml`, and `retention_policy.yaml`
+- `category_id`, `fetch_group`, `schedule_class`, and `sanitization_profile` are independent axes
+- shared sanitization profiles are the default; per-source overrides stay limited
+- retention policy is module-level config, not per-source fetch config
+- config validation must resolve cross-file references before runtime execution
