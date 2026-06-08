@@ -238,6 +238,12 @@ Validation rules:
 - `max_length` must be positive when provided
 - sources may reference only declared profile names
 
+Selector default behavior:
+
+- if `content_selectors` is empty or omitted, the parser must read the entire raw text of the preferred input field by default
+- if `content_selectors` is provided and non-empty, the parser must extract text only from elements matching the specified selectors
+- if `remove_selectors` is empty or omitted, no element-level removal is performed
+
 Input preference direction:
 
 - allowed values should be restricted to feed text sources explicitly supported by parser logic

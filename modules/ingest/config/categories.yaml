@@ -1,0 +1,31 @@
+schema_version: 1
+
+category_policy:
+  purpose: semantic_label_only
+  scheduling_decoupled: true
+
+categories:
+  0:
+    name: "Disabled & Unrelated"
+    slug: "disabled-unrelated"
+    enabled: false
+  1:
+    name: "Government Policy & Official Disclosure"
+    slug: "gov-disclosure"
+    enabled: true
+  2:
+    name: "Civilian Investigation & Databases"
+    slug: "civilian-investigation"
+    enabled: true
+  3:
+    name: "Scientific Verification & Frontier Research"
+    slug: "scientific-verification"
+    enabled: true
+  4:
+    name: "Public Sightings & Community Discussion"
+    slug: "public-sightings"
+    enabled: true
+  5:
+    name: "Speculative Hypotheses & Editorial Commentaries"
+    slug: "speculative-hypotheses"
+    enabled: true
