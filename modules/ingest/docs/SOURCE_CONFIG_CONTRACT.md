@@ -322,7 +322,7 @@ If future evidence shows a need for append semantics, that behavior should be in
 
 ## 7. Cross-File Reference Rules
 
-- every `sources[].category_id` must resolve to `categories.yaml`
+- every `sources[].category_id` must resolve to `categories.yaml` and the referenced category must be enabled (`enabled: true`). Referencing a disabled category constitutes a validation error.
 - every `sources[].schedule_class` must resolve within `sources.yaml.schedule_classes`
 - every `sources[].sanitization_profile` must resolve within `sources.yaml.sanitization_profiles`
 - retention policy must not be referenced per source unless a later contract explicitly adds that feature

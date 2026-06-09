@@ -152,6 +152,10 @@ Minimum logical fields:
 - stable link to the normalized source item
 - created timestamp
 
+**Implementation Note:** Deduplication key scope rules are defined as:
+- `guid`, `tp`, and `fh` rules encode the `source_id` within the `dedup_key` (source-scoped) to prevent cross-source identity collisions from conflicting feed schemas.
+- The `url` rule is cross-source (global) to avoid duplicate article ingestion when multiple feeds share identical canonical links.
+
 ---
 
 ## 5. Boundary Rules
