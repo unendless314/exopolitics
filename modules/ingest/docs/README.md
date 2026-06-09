@@ -7,6 +7,8 @@ Status:
 - these docs replace the pre-reset ingest plan for new implementation work
 - prior drafts now live under `modules/ingest/docs/backup/` and `modules_archive/ingest/`
 - this set is intended to be implementation-facing, not just directional
+- `STORAGE_SCHEMA.md` includes the minimum DDL-facing decisions needed for the first migration; a separate DDL doc is not required for MVP
+- cleanup remains a documented later-stage ingest operation and does not block the first rebuild
 
 Read order:
 

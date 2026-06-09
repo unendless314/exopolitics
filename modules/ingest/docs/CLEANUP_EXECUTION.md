@@ -115,6 +115,12 @@ The audit trail does not require permanent storage of the deleted payload itself
 
 Cleanup does not need to block initial ingest rebuild work.
 
+Current rewrite decision:
+
+- cleanup contracts remain documented now so retention metadata can be written correctly during ingest
+- cleanup code, cleanup scheduling, and cleanup audit-table design are intentionally deferred
+- the first ingest implementation should focus on fetch, sanitization, persistence, source state, run history, and dedup state
+
 Recommended staging:
 
 1. implement fetch, sanitization, and persistence first

@@ -50,8 +50,22 @@ Recommended baseline direction:
 - timestamps use one normalized UTC representation consistently across the module
 - bounded enums may be stored as text with application validation and database checks where practical
 
+MVP physical-direction rules for the first implementation:
+
+- surrogate keys should use one consistent integer primary-key type across all ingest tables
+- `source_id` should use the same integer type used by config validation and runtime models
+- enum-like fields should use text storage in MVP with application validation and database checks where practical
+- boolean-style flags should use one engine-native boolean representation consistently across all ingest tables
+- text payload fields such as `title`, `sanitized_text`, `raw_payload`, `error_detail`, and `error_summary` should use unconstrained text-capable column types unless a proven engine-specific limit is required
+
 This document locks the logical meaning of fields first.
 The exact SQL type names may vary slightly by engine.
+
+Timestamp direction for the first migration:
+
+- all stored timestamps should be UTC
+- all timestamps should use the same physical database type and precision across ingest tables
+- `published_at` may be null when the source value is missing or unparseable, but when stored it must use the same UTC-normalized representation as other ingest timestamps
 
 ---
 
@@ -371,6 +385,14 @@ Delete and retention direction:
 - deleting expired `source_item_raw` rows must not cascade to `source_item` or `source_item_text`
 - `source_item` and `source_item_text` are durable canonical records and must not be tied to raw-retention cleanup
 
+Foreign-key action direction for the first migration:
+
+- deleting `source_item` must not be part of normal MVP operations
+- `source_item_text.source_item_id -> source_item(source_item_id)` should use a restrictive delete action so canonical text cannot be orphaned silently
+- `source_item_raw.source_item_id -> source_item(source_item_id)` should use a restrictive delete action; raw retention is handled by deleting raw rows directly, not by deleting the parent item
+- `ingest_dedup_marker.source_item_id -> source_item(source_item_id)` should use a restrictive delete action so dedup state is not removed implicitly during ad hoc data changes
+- `fetch_attempt.fetch_run_id -> fetch_run(fetch_run_id)` may use cascade delete because attempt rows are pure child execution history
+
 ---
 
 ## 6. Query And Read Path Direction
@@ -418,6 +440,22 @@ When this logical design is translated into SQL migrations:
 - foreign keys should protect canonical relationships without blocking raw-retention cleanup
 - boolean-style flags may use engine-appropriate representations, but their semantic meaning must remain explicit
 - timestamp precision and formatting should be normalized consistently across all ingest tables
+
+Minimum bounded-value sets for first-migration checks:
+
+- `source_item.ingest_status`: `ingested`
+- `source_state.health_status`: `healthy`, `degraded`, `quarantined`
+- `fetch_run.trigger_type`: `scheduled`, `manual`, `recovery`
+- `fetch_run.run_status`: `running`, `success`, `partial_failure`, `failed`
+- `fetch_attempt.outcome`: `success`, `failed`
+- `source_item_text.low_context_reason`: nullable, but when present should be limited to the reason-code set defined in `SANITIZATION_STRATEGY.md`
+
+First-migration scope direction:
+
+- the first migration should create only the tables required for fetch, sanitization, persistence, source health tracking, run tracking, and dedup lookup
+- the first migration should include the indexes listed in this document unless the chosen engine provides an equivalent primary-key or unique-index structure automatically
+- cleanup-specific audit tables are not part of the first migration
+- cleanup execution is intentionally deferred until operational data exists to justify retention windows, delete batch behavior, and audit shape
 
 The DDL must preserve the separation defined here even if final physical column names change slightly.
 
