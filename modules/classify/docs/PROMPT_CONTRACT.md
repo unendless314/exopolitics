@@ -1,7 +1,7 @@
 # Classification Prompt Contract
 
-**Document version:** v3.2  
-**Updated:** 2026-06-12  
+**Document version:** v3.3  
+**Updated:** 2026-06-13  
 **Status:** Planning & Active rewrite draft
 
 ---
@@ -118,7 +118,38 @@ Title: {title}
 Sanitized Text: {sanitized_text}
 ---
 
-Return a JSON response matching the required schema. Ensure classification_reason is a concise single sentence.
+Return a JSON response matching the required schema. Ensure classification_reason is a concise single sentence. You may optionally include the experimental "content_timeliness" and "primary_evidence_type" keys in your JSON response if they are clear.
 ```
 
-*Note on experimental metadata*: The orchestrator parser will filter model outputs and capture only explicitly allowlisted experimental keys (e.g., `geographic_focus` or `has_primary_evidence`), storing them in the `additional_signals` JSON column for sandbox research. Any unlisted or arbitrary keys returned by the model will be discarded. Downstream modules must not consume these experimental keys.
+*Note on experimental metadata*: The orchestrator parser will filter model outputs and capture only explicitly allowlisted experimental keys (e.g., `content_timeliness` or `primary_evidence_type`), storing them in the `additional_signals` JSON column for sandbox research. Any unlisted or arbitrary keys returned by the model will be discarded. Downstream modules must not consume these experimental keys.
+
+---
+
+## 5. Optional Experimental Schema (Sandbox)
+
+To support downstream triage research, the orchestrator allowlists specific experimental keys. These keys must **not** be added to the stable schema `required` array, but if returned by the model, they will be captured and saved in `additional_signals`.
+
+### Allowed Experimental Key: `content_timeliness`
+*   **Type**: `string`
+*   **Enum**: `["current", "evergreen", "historical", "unclear"]`
+*   **Temporal Inference Rule**: The model MUST NOT infer this field from any publication date or external timestamp (which are not provided in the input). It must evaluate only the semantic time-orientation of the discussed subject matter (e.g., Roswell = `historical`, a new hearing = `current`, theoretical research = `evergreen`).
+
+### Allowed Experimental Key: `primary_evidence_type`
+*   **Type**: `string`
+*   **Enum**: `["physical_material", "radar_sensor", "video_photo", "eyewitness", "official_document", "scientific_paper", "media_report", "none"]`
+*   **Authenticity Rule**: This field MUST strictly describe the type of evidence claimed or discussed in the text. The model MUST NOT attempt to judge or verify if the evidence is authentic, reliable, or true. It is a descriptive categorizer of the text's subject matter (e.g., pilot eyewitness account = `eyewitness`, declassified radar tracking = `radar_sensor`, recovered metal wreckage = `physical_material`).
+*   **Precedence Rule**: If multiple evidence types are discussed, return the most prominent or highest-priority source, prioritizing physical wreckage/materials (`physical_material`) and sensor/instrument data (`radar_sensor`, `video_photo`) over testimonials (`eyewitness`) or secondary news summaries.
+
+### Future Candidate Keys
+The following keys are intentionally not allowlisted in the current phase. They are documented here as future research candidates only and must not be requested or persisted by the current classify runs.
+
+*   `subject_nature`
+    *   **Type**: `string`
+    *   **Enum**: `["encounter_case", "legislative_policy", "scientific_analysis", "disclosure_advocacy"]`
+    *   **Role**: Serves as a sub-topic classifier for relevant items (where `topic_class` is the primary relevance gate).
+
+*   `sensationalism_level`
+    *   **Type**: `string`
+    *   **Enum**: `["low", "medium", "high"]`
+    *   **Stylistic Focus Rule**: This field MUST measure the level of stylistic exaggeration and clickbait features (capitalization, exclamation points, hyperbole). It MUST NOT evaluate the factuality or scale of the physical anomaly reported.
+

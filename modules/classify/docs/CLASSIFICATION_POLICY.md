@@ -1,7 +1,7 @@
 # Classification Policy
 
-**Document version:** v3.2  
-**Updated:** 2026-06-12  
+**Document version:** v3.3  
+**Updated:** 2026-06-13  
 **Status:** Planning & Active rewrite draft
 
 ---
@@ -83,5 +83,35 @@ Instead of deciding prescriptive editorial workflows, `classify` generates struc
 *   `0`: The text does not mention material governmental or official agency involvement.
 
 ### 4.5 Sandbox Metadata (`additional_signals`)
-*   An optional JSON field for experimental metadata (e.g., `geographic_focus` or `has_primary_evidence`).
+*   An optional JSON field for experimental metadata (e.g., `content_timeliness` or `primary_evidence_type`).
+*   **Active Experimental Keys**:
+    *   `content_timeliness`: Describes the time-orientation of the subject matter discussed in the content, not the recency of the article's publication timestamp.
+        *   `current`: The content discusses a recent, ongoing, or upcoming current event (e.g., a congressional hearing held yesterday, a planned press briefing next week).
+        *   `evergreen`: The content is a timeless research paper, deep analysis, or theoretical/scientific discussion that is not tied to a specific transient event.
+        *   `historical`: The content discusses a historical case, past event, or archival record (e.g., a blog post analyzing the 1947 Roswell incident or the 2004 Nimitz encounter).
+        *   `unclear`: The subject matter's time-orientation cannot be clearly determined from the text.
+    *   `primary_evidence_type`: Describes the primary evidence form presented or discussed in the content. This is a descriptive metadata key indicating the claimed/discussed evidence type, and does not imply or judge whether the evidence is authentic or factually accurate.
+        *   `physical_material`: The text discusses recovered physical wreckage, debris/meta-material samples, physical landing site traces (e.g., ground indentations, radiation traces, soil anomalies), or biological specimens.
+        *   `radar_sensor`: The text discusses military/official radar, sonar, or other physical sensor detection data.
+        *   `video_photo`: The text discusses visual captures (e.g., photographs, declassified FLIR/sensor video recordings, cockpit footage).
+        *   `eyewitness`: The text relies on direct observer reports (e.g., commercial or military pilot encounter descriptions, civilian eyewitness testimony).
+        *   `official_document`: The text discusses or extracts official agency records, congressional testimony transcripts, declassified reports, or government briefings.
+        *   `scientific_paper`: The text is or discusses a theoretical physics study, peer-reviewed scientific paper, or data analysis report.
+        *   `media_report`: The text is a general news summary or media compilation without a specific primary source record focus.
+        *   `none`: No specific primary evidence form or official source record is presented or discussed (e.g., speculative opinion piece, blog discussion).
+    *   *Examples & Boundary Cases*:
+        *   *Example 1 (Historical)*: A blog article published today detailing a declassified document from 1960. It is classified as `historical` because the subject matter discussed is historical, regardless of the publication timestamp.
+        *   *Example 2 (Current)*: A news report about a congressional representative discussing a past event (e.g., the 2004 Nimitz case) in a hearing held yesterday. It is classified as `current` because the primary event being reported is the active political/congressional hearing, not just a historical retrospective.
+        *   *Example 3 (Evergreen)*: A physics preprint analyzing the theoretical mechanics of warp drives or anomalous acceleration. It is classified as `evergreen`.
+        *   *Example 4 (Evidence Type - Precedence)*: A news story reports on a military pilot who described a visual encounter and confirmed the object was tracked on radar. Because radar/sensor data is mentioned, the primary evidence type is classified as `radar_sensor` (prioritizing hard instrument/sensor data over eyewitness testimony or news summary).
+*   **Future Candidate Keys (Not currently allowlisted)**:
+    *   `subject_nature`: Intended to describe the within-topic content subtype once an item is classified as relevant (relevance gate: `topic_class`).
+        *   `encounter_case`: The text primarily describes military, civilian, or historical UFO/UAP sightings, sensor encounters, or cockpit observations.
+        *   `legislative_policy`: The text primarily discusses government legislation (e.g., NDAA amendments), congressional briefings/hearings, or whistleblower protection reforms.
+        *   `scientific_analysis`: The text focuses on scientific studies, physics modeling, radar propagation theory, or SETI aerospace research.
+        *   `disclosure_advocacy`: The text focuses on civilian advocacy campaigns, public whistleblower declarations, activist press conferences, or general public discourse.
+    *   `sensationalism_level`: Intended to measure stylistic exaggeration and clickbait nature of the text, NOT the severity or physical scale of the described event.
+        *   `low`: The style is objective, sober, factual, and analytical (e.g., standard scientific preprints or formal military incident reports).
+        *   `medium`: The style features moderate speculation, dramatic phrasing, or mild clickbait headlines.
+        *   `high`: The style is highly sensationalist, featuring excessive capitalization (ALL CAPS), multiple exclamation marks, or conspiracy-style alarmist phrasing.
 *   **Guardrail**: Downstream consumer modules must not query or depend on any key within `additional_signals`. Any signal promoted to stable usage must be migrated to a first-class, typed database column.
