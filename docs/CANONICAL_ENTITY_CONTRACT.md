@@ -159,12 +159,14 @@ Minimum semantic contents:
 - topic class
 - confidence
 - rationale or reason
+- structured descriptive signals (such as content density, text quality, language, and official involvement)
+- optional experimental metadata sandbox signals
 - classifier metadata needed for auditability
 
 Ownership:
 
 - written by `classify`
-- readable by `review` and `publish`
+- readable by `review`
 
 ### 4.7 Review Decision
 
@@ -174,6 +176,7 @@ Minimum semantic contents:
 
 - stable link to the reviewed canonical record
 - decision outcome
+- action semantics when applicable
 - responsible actor metadata
 - decision timestamp
 - optional notes or governance context

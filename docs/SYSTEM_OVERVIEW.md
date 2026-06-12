@@ -113,13 +113,13 @@ Owns:
 - pending item selection
 - initial topic classification
 - confidence and rationale persistence
-- edit-candidate signaling when needed
+- generating descriptive signals (descriptors) for downstream review triage
 
 ### 6.3 `review`
 
 Owns:
 
-- approval and rejection decisions
+- approval, rejection, and editorial action decisions
 - queue governance
 - final human responsibility over public exposure
 

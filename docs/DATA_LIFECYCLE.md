@@ -206,3 +206,20 @@ That means:
 - sanitized text is created before classification
 - raw cleanup is allowed and expected by default
 - canonical downstream flow must not depend on indefinite raw retention
+
+---
+
+## 11. Temporal Policy and Historical Data
+
+### 11.1 State-Driven Processing Pipeline
+The system processes and stores all fetched items regardless of their publication date (`published_at`). There is no temporal filtering in the upstream ingestion, classification, or review workflows.
+- **Ingestion**: Ingest fetches all available feed data. De-duplication rules prevent duplicates, but any novel historical item (e.g. published years ago but fetched for the first time) is stored as a valid `source_item`.
+- **Classification**: All newly ingested items are classified using the same content-based rules and LLM models.
+- **Review**: The review queue processes all classified items based on state transitions, ensuring historical records are verified and enriched.
+
+### 11.2 Downstream UI-Level Filtering
+The responsibility of managing the user-facing temporal experience is deferred entirely to the downstream **site** (or publish-export) layer:
+- **Breaking/Latest News Feed**: The front page or feed views should filter items by publication date (e.g., displaying only items with `published_at` in the last 7 days).
+- **Search & Archives**: Users can query the complete, curated database containing all historical records.
+- **Rationale**: This separates semantic relevance (content evaluation) from transient presentation guidelines (news age), ensuring the system builds a complete historical UAP database without cluttering the homepage UI.
+

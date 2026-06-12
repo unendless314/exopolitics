@@ -65,7 +65,7 @@ Owns:
 - pending queue selection for unclassified items
 - topic classification results
 - classification rationale and confidence
-- edit-candidate signaling if required by policy
+- machine-generated descriptive signals for downstream review triage
 
 May read:
 
@@ -79,6 +79,7 @@ Must not own:
 - feed fetching
 - manual review decisions
 - publish-layer output structure
+- editorial action selection (e.g. translation, rewrite, or research decisions)
 
 Important boundary:
 
@@ -89,7 +90,7 @@ Important boundary:
 Owns:
 
 - review queue behavior
-- approval, rejection, and deletion decisions
+- approval, rejection, deletion, and downstream action selection under editorial policy
 - queue aging and SLA policy
 - final human responsibility over public exposure
 
