@@ -45,6 +45,8 @@ In this rewrite, `classify` is decoupled from text cleanup and raw data parsing:
   Defines model instruction templates, prompt variables, and JSON response schema guidelines.
 * [EXECUTION_POLICY.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/EXECUTION_POLICY.md)  
   Defines execution controls including batch size, rate limits, retry policies, and transaction boundaries.
+* [IMPLEMENTATION_PLAN.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/IMPLEMENTATION_PLAN.md)  
+  Defines the development plan broken down into epics, stories, and tasks, including contract requirements and MVP choices.
 
 ## 4. Config Map
 
@@ -52,3 +54,31 @@ In this rewrite, `classify` is decoupled from text cleanup and raw data parsing:
   Stores the active prompt template registry used by the classify module.
 * `config/model_settings.yaml`  
   Stores provider selection, request defaults, execution defaults, and deterministic classification metadata.
+
+---
+
+## 5. Minimal CLI Usage
+
+Validate configuration:
+
+```text
+python -m modules.classify.src.cli validate
+```
+
+Run classify migrations:
+
+```text
+python -m modules.classify.src.cli migrate --db-path data/canonical.db
+```
+
+Preview pending prompts without calling the model:
+
+```text
+python -m modules.classify.src.cli run --db-path data/canonical.db --preview-prompts --batch-size 2
+```
+
+Run one live batch:
+
+```text
+python -m modules.classify.src.cli run --db-path data/canonical.db --batch-size 20
+```
