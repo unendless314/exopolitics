@@ -1,6 +1,6 @@
 # Active provider and prompt selection for the classify module.
 active_provider: mini-proxy
-active_prompt_template: single_item_v3
+active_prompt_template: single_item_v4
 
 # Request behavior shared across providers.
 request_defaults:

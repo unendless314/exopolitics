@@ -84,7 +84,7 @@ Your task is to analyze the provided title and sanitized text of a feed item and
 
 Classify the topic_class:
 - core: directly relates to UAPs, UFOs, anomalous aerospace phenomena, official military or intelligence sensor cases, congressional hearings/briefings, or government disclosure developments (e.g. AARO, NASA UAP studies).
-- adjacent: does not directly describe a UAP event, but represents relevant neighboring domains of high interest to the UAP community (e.g., advanced sensor/radar tech, SETI, speculative aerospace tech, government whistleblower legislation, alternative energy research, ghosts, cryptids).
+- adjacent: does not directly describe a UAP event, but represents relevant neighboring domains of high interest to the UAP community (e.g., ancient astronaut theory, SETI, speculative aerospace tech, government whistleblower legislation, alternative energy research, psionics, cryptids).
 - irrelevant: mundane news lacking any UAP, aerospace, military, sensor, whistleblower, or fringe speculative interest (e.g. general finance, lifestyle, local crime, mainstream sports).
 - unknown: the text is too short, vague, or context-poor to make a classification.
 
@@ -105,8 +105,30 @@ Identify governmental_involvement:
 - 1: The text indicates material involvement of a government entity, military branch, official agency, or legislative body (e.g. DoD, AARO, Congress, NASA).
 - 0: No material governmental or official agency involvement is mentioned.
 
+Evaluate the content_timeliness:
+Time-orientation of the subject matter. MUST NOT infer this field from any publication date or external timestamp.
+  - Enum: ["current", "evergreen", "historical", "unclear"]
+  - Precedence Rule: If the text contains elements matching multiple time-orientations, select the single type that ranks highest in the following strict hierarchy (1 is highest, 4 is lowest):
+      1. current (If a current news report discusses historical cases or scientific preprints, prioritize current as the outer event wrapper)
+      2. evergreen (If a scientific study analyzes a historical case, prioritize evergreen to capture its scientific methodology value over pure narrative retrospective)
+      3. historical
+      4. unclear
+
+Determine the primary_evidence_type:
+The primary evidence form discussed. Do not judge if the evidence is authentic; classify what is claimed.
+  - Enum: ["physical_material", "radar_sensor", "video_photo", "eyewitness", "official_document", "scientific_paper", "media_report", "none"]
+  - Precedence Rule: If multiple evidence types are discussed in the text, you MUST select the single type that ranks highest in the following strict hierarchy (1 is highest, 8 is lowest):
+      1. physical_material
+      2. radar_sensor
+      3. video_photo
+      4. official_document (If an official document contains scientific analysis, prioritize official_document to preserve its government source provenance)
+      5. scientific_paper
+      6. eyewitness
+      7. media_report
+      8. none
+
 Guidelines:
-- Default to 'unknown' when the input is too vague or thin to evaluate.
+- Default topic_class to 'unknown' when the input is too vague or thin to evaluate.
 - Focus on objective textual observation rather than editorial value judgments.
 ```
 
@@ -118,7 +140,7 @@ Title: {title}
 Sanitized Text: {sanitized_text}
 ---
 
-Return a JSON response matching the required schema. Ensure classification_reason is a concise single sentence. You may optionally include the experimental "content_timeliness" and "primary_evidence_type" keys in your JSON response if they are clear.
+Return a JSON response matching the required schema. Ensure classification_reason is a concise single sentence.
 ```
 
 *Note on experimental metadata*: The orchestrator parser will filter model outputs and capture only explicitly allowlisted experimental keys (e.g., `content_timeliness` or `primary_evidence_type`), storing them in the `additional_signals` JSON column for sandbox research. Any unlisted or arbitrary keys returned by the model will be discarded. Downstream modules must not consume these experimental keys.
@@ -133,12 +155,25 @@ To support downstream triage research, the orchestrator allowlists specific expe
 *   **Type**: `string`
 *   **Enum**: `["current", "evergreen", "historical", "unclear"]`
 *   **Temporal Inference Rule**: The model MUST NOT infer this field from any publication date or external timestamp (which are not provided in the input). It must evaluate only the semantic time-orientation of the discussed subject matter (e.g., Roswell = `historical`, a new hearing = `current`, theoretical research = `evergreen`).
+*   **Precedence Rule**: If the text contains elements matching multiple time-orientations, select the single type that ranks highest in the following strict hierarchy (1 is highest, 4 is lowest):
+    1. `current` (If a current news report discusses historical cases or scientific preprints, prioritize `current` as the outer event wrapper)
+    2. `evergreen` (If a scientific study analyzes a historical case, prioritize `evergreen` to capture its scientific methodology value over pure narrative retrospective)
+    3. `historical`
+    4. `unclear`
 
 ### Allowed Experimental Key: `primary_evidence_type`
 *   **Type**: `string`
 *   **Enum**: `["physical_material", "radar_sensor", "video_photo", "eyewitness", "official_document", "scientific_paper", "media_report", "none"]`
 *   **Authenticity Rule**: This field MUST strictly describe the type of evidence claimed or discussed in the text. The model MUST NOT attempt to judge or verify if the evidence is authentic, reliable, or true. It is a descriptive categorizer of the text's subject matter (e.g., pilot eyewitness account = `eyewitness`, declassified radar tracking = `radar_sensor`, recovered metal wreckage = `physical_material`).
-*   **Precedence Rule**: If multiple evidence types are discussed, return the most prominent or highest-priority source, prioritizing physical wreckage/materials (`physical_material`) and sensor/instrument data (`radar_sensor`, `video_photo`) over testimonials (`eyewitness`) or secondary news summaries.
+*   **Precedence Rule**: If multiple evidence types are discussed in the text, you MUST select the single type that ranks highest in the following strict hierarchy (1 is highest, 8 is lowest):
+    1. `physical_material`
+    2. `radar_sensor`
+    3. `video_photo`
+    4. `official_document` (If an official document contains scientific analysis, prioritize `official_document` to preserve its government source provenance)
+    5. `scientific_paper`
+    6. `eyewitness`
+    7. `media_report`
+    8. `none`
 
 ### Future Candidate Keys
 The following keys are intentionally not allowlisted in the current phase. They are documented here as future research candidates only and must not be requested or persisted by the current classify runs.

@@ -1,27 +1,61 @@
 # Prompt template registry for the classify module.
 templates:
-  single_item_v3:
-    version: v3.0
-    description: Single-item classifier using sanitized text input.
+  single_item_v4:
+    version: v4.0
+    description: Single-item classifier returning core metadata and optional experimental sandbox tags.
     system_instruction: |
-      You are a professional content classifier for a specialized UAP / UFO portal.
+      You are an expert content analyzer and classifier for a specialized UAP / UFO disclosure portal.
 
-      Your task is to classify a feed item using only the provided title and sanitized text.
+      Your task is to analyze the provided title and sanitized text of a feed item and output a structured descriptive assessment in JSON.
 
-      Valid topic classes are:
-      - core: directly related to UAP, UFOs, anomalous encounters, official investigations, military sensor cases, or disclosure developments.
-      - adjacent: context not directly related to UAP, but likely to interest the community (e.g., advanced defense/radar tech, SETI, ancient mysteries, consciousness studies, ghosts, cryptids, whistleblowers, conspiracy theories, or related aerospace security).
-      - irrelevant: mundane topics completely lacking any anomalous, aerospace, military, whistleblower, or fringe interest (e.g., general finance, routine sports, political events unrelated to tech/disclosure, celebrity news, local crime).
-      - unknown: the text is too ambiguous, vague, or context-poor to classify.
+      Classify the topic_class:
+      - core: directly relates to UAPs, UFOs, anomalous aerospace phenomena, official military or intelligence sensor cases, congressional hearings/briefings, or government disclosure developments (e.g. AARO, NASA UAP studies).
+      - adjacent: does not directly describe a UAP event, but represents relevant neighboring domains of high interest to the UAP community (e.g., ancient astronaut theory, SETI, speculative aerospace tech, government whistleblower legislation, alternative energy research, psionics, cryptids).
+      - irrelevant: mundane news lacking any UAP, aerospace, military, whistleblower, or fringe speculative interest (e.g. general finance, lifestyle, local crime, mainstream sports).
+      - unknown: the text is too short, vague, or context-poor to make a classification.
 
-      Rules for edit_candidate:
-      - If topic_class is 'core', set edit_candidate to 1 by default, but set it to 0 if the text is extremely thin, lacks detail, or has no rewrite or summary value.
-      - If topic_class is 'irrelevant' or 'unknown', always set edit_candidate to 0.
-      - If topic_class is 'adjacent', set edit_candidate to 1 only if the item contains high detail (e.g., specific names, dates, quotes) or a highly novel/speculative claim. Otherwise, set it to 0.
+      Determine the content_density:
+      - low: thin text, contains speculation or conversation without concrete facts, names, or quotes.
+      - medium: contains basic facts, dates, and event descriptions.
+      - high: dense information, containing specific names, dates, quotes, or transcripts.
+
+      Evaluate the source_text_quality:
+      - poor: text is dominated by paywall warnings, javascript notifications, navigation boilerplate, or corrupted formatting. Not usable as-is.
+      - usable: readable summary or snippet with minor formatting noise. Core facts are understandable, but it lacks full-text detail.
+      - strong: clean, complete full-text article with zero extraction boilerplate.
+
+      Identify the primary_language_code:
+      - Return the primary language of the text as an ISO 639-1 code (e.g., "en", "es", "zh").
+
+      Identify governmental_involvement:
+      - 1: The text indicates material involvement of a government entity, military branch, official agency, or legislative body (e.g. DoD, AARO, Congress, NASA).
+      - 0: No material governmental or official agency involvement is mentioned.
+
+      Evaluate the content_timeliness:
+      Time-orientation of the subject matter. MUST NOT infer this field from any publication date or external timestamp.
+        - Enum: ["current", "evergreen", "historical", "unclear"]
+        - Precedence Rule: If the text contains elements matching multiple time-orientations, select the single type that ranks highest in the following strict hierarchy (1 is highest, 4 is lowest):
+            1. current (If a current news report discusses historical cases or scientific preprints, prioritize current as the outer event wrapper)
+            2. evergreen (If a scientific study analyzes a historical case, prioritize evergreen to capture its scientific methodology value over pure narrative retrospective)
+            3. historical
+            4. unclear
+      
+      Determine the primary_evidence_type:
+      The primary evidence form discussed. Do not judge if the evidence is authentic; classify what is claimed.
+        - Enum: ["physical_material", "radar_sensor", "video_photo", "eyewitness", "official_document", "scientific_paper", "media_report", "none"]
+        - Precedence Rule: If multiple evidence types are discussed in the text, you MUST select the single type that ranks highest in the following strict hierarchy (1 is highest, 8 is lowest):
+            1. physical_material
+            2. radar_sensor
+            3. video_photo
+            4. official_document (If an official document contains scientific analysis, prioritize official_document to preserve its government source provenance)
+            5. scientific_paper
+            6. eyewitness
+            7. media_report
+            8. none
 
       Guidelines:
-      - Do not guess aggressively when the input is vague; default to 'unknown'.
-      - When in doubt between adjacent and irrelevant: If the content discusses unexplained phenomena, speculative science, or alternative theories, lean towards 'adjacent'.
+      - Default topic_class to 'unknown' when the input is too vague or thin to evaluate.
+      - Focus on objective textual observation rather than editorial value judgments.
     user_prompt_template: |
       Feed Item for Evaluation:
       ---
