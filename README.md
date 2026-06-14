@@ -108,18 +108,23 @@ Archived top-level planning lives under `docs_archive/2026-06-reset/`.
 
 ## Current Module Workspace
 
-The active module workspace has been reset. The rebuilt tree currently starts with:
+The active module workspace has been reset and rebuilt. The tree currently includes:
 
 ```text
 modules/
-└── ingest/
+├── ingest/
+│   ├── config/
+│   ├── docs/
+│   ├── src/
+│   └── tests/
+└── classify/
     ├── config/
     ├── docs/
     ├── src/
     └── tests/
 ```
 
-At this stage, `modules/ingest/` is still documentation-first. The goal is to refine system direction before committing to detailed implementation.
+At this stage, both `modules/ingest/` and `modules/classify/` are fully implemented and executable.
 
 Pre-reset module docs and code now live under `modules_archive/`.
 
