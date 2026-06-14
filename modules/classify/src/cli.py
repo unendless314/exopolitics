@@ -4,6 +4,8 @@ import pathlib
 import sys
 from typing import List, Optional
 
+from dotenv import load_dotenv
+
 from .config import validate_and_load_config
 from .database import run_migrations
 from .orchestrator import orchestrate_run
@@ -149,6 +151,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         sys.stderr.reconfigure(encoding='utf-8')
     except (AttributeError, ValueError):
         pass
+    
+    # Load .env variables from workspace root for local development/execution
+    load_dotenv(dotenv_path=DEFAULT_WORKSPACE_ROOT / ".env", override=False)
+    
     parser = get_args_parser()
     args = parser.parse_args(argv)
 

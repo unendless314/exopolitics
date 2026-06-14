@@ -63,4 +63,16 @@ templates:
       Sanitized Text: {sanitized_text}
       ---
 
-      Return a JSON response matching the required schema. Ensure classification_reason is a concise single sentence.
+      Return a JSON response matching the required schema as below. Ensure classification_reason is a concise single sentence.
+
+      {{
+        "topic_class": "core/adjacent/irrelevant/unknown",
+        "classification_confidence": 0.95,
+        "classification_reason": "concise single sentence reason",
+        "content_density": "low/medium/high",
+        "source_text_quality": "poor/usable/strong",
+        "primary_language_code": "en",
+        "governmental_involvement": 0,
+        "content_timeliness": "current/evergreen/historical/unclear",
+        "primary_evidence_type": "physical_material/.../none"
+      }}
