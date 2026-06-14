@@ -117,14 +117,19 @@ modules/
 │   ├── docs/
 │   ├── src/
 │   └── tests/
-└── classify/
+├── classify/
+│   ├── config/
+│   ├── docs/
+│   ├── src/
+│   └── tests/
+└── review/
     ├── config/
     ├── docs/
     ├── src/
     └── tests/
 ```
 
-At this stage, both `modules/ingest/` and `modules/classify/` are fully implemented and executable.
+At this stage, `modules/ingest/` and `modules/classify/` are fully implemented and executable, and the `modules/review/` scaffold and technical proposal have been initialized.
 
 Pre-reset module docs and code now live under `modules_archive/`.
 
