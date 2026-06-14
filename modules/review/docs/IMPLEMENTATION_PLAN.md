@@ -1,0 +1,99 @@
+# Review Module Implementation Plan
+
+**Document version:** v1.2  
+**Updated:** 2026-06-15  
+**Status:** Planning & Active rewrite draft
+
+---
+
+## 1. Project Directory Structure
+
+The initial module structure will reside under `modules/review/`:
+
+```text
+modules/review/
+├── config/
+│   ├── model_settings.yaml
+│   └── prompt_templates.yaml
+├── docs/
+│   ├── DATA_CONTRACT.md
+│   ├── EXECUTION_POLICY.md
+│   ├── IMPLEMENTATION_PLAN.md
+│   ├── README.md
+│   └── REVIEW_POLICY.md
+├── src/
+│   ├── migrations/
+│   │   └── v001_initial_review_tables.sql
+│   ├── __init__.py
+│   ├── cli.py
+│   ├── config.py
+│   ├── database.py
+│   └── orchestrator.py
+└── tests/
+    ├── __init__.py
+    ├── test_database.py
+    └── test_orchestrator.py
+```
+
+---
+
+## 2. Implementation Epics
+
+The implementation is divided into four main epics:
+
+### Epic 1: Database Schema & Migration
+* **Goal:** Create the durable review tables and set up the repository pattern.
+* **Tasks:**
+  * Write `v001_initial_review_tables.sql` DDL migration script incorporating the `retry_count` column and the `CHECK` constraint validating `downstream_action` nullability against `review_status`.
+  * Create `src/database.py` containing:
+    * `ReviewRepository`: Methods for `get_pending_items()`, `upsert_review_decision()`, `upsert_editor_brief()`, and `upsert_review_output()`.
+    * Ensure the repository updates/resets `retry_count` on successful model outputs and writes `downstream_action = NULL` on runner failures.
+    * Integration with the database runner (`run_migrations`).
+
+### Epic 2: Core Orchestrator & LLM Client
+* **Goal:** Implement the LLM call, structured output parser, and execution logic.
+* **Tasks:**
+  * Create `config/prompt_templates.yaml` and `config/model_settings.yaml`.
+  * Create `src/config.py` to parse and load these settings.
+  * Create `src/orchestrator.py` containing:
+    * Prompt builder.
+    * LLM client wrapper (calling Gemini API with schema enforcement).
+    * Exception handlers that catch model schema mismatch or rate-limits, incrementing `retry_count` and persisting a `'failed'` status with `downstream_action = None`.
+    * Batch loop logic that locks transactions, runs the review process, and persists results.
+
+### Epic 3: CLI Interface
+* **Goal:** Expose commands to run migrations, trigger batch runs, preview prompts, and view stats.
+* **Tasks:**
+  * Create `src/cli.py` using `click` (matching `classify/src/cli.py` style).
+  * Expose commands:
+    * `migrate`: Apply the schema DDL.
+    * `run`: Run automated reviews with `--batch-size` and `--preview-prompts` options.
+    * `status`: Print counts of pending, approved, rejected, and failed items.
+
+### Epic 4: Verification & Testing
+* **Goal:** Ensure unit test coverage and validate the pipeline end-to-end.
+* **Tasks:**
+  * Write `tests/test_database.py` using a mock SQLite database to verify table constraints, cascading deletes, repository retry logic, and the `CHECK` constraint for `downstream_action`.
+  * Write `tests/test_orchestrator.py` mocking the Gemini API to verify correct routing, retry selection, and parsing of output JSON.
+
+---
+
+## 3. Testing Strategy
+
+* **Local Mock Databases:** Run tests against a temporary `:memory:` or local SQLite mock DB to ensure cascading deletes (`ON DELETE CASCADE`) and unique constraints work.
+* **Gemini Mocking:** Mock the LLM client call response during orchestrator tests. Ensure the parser handles:
+  * Missing bullet points on `publish_link` (bullets should map to `NULL` in the DB, while `summary_short` is properly populated as the excerpt).
+  * Incomplete JSON responses (must catch exception, write `failed` status to DB, increment `retry_count` by `1`, and verify `downstream_action` is written as `NULL`).
+  * Automatic retries of items with `status = 'failed'` and `retry_count < 3`.
+  * Proper exclusion of `additional_signals` from upstream data selection.
+
+---
+
+## 4. Key Architectural Assumptions & Decisions
+
+During planning, the following decisions were resolved:
+1. **Runner-Generated Failed State:** The status `'failed'` is purely a runner-side persistence state. The model schema contract only allows it to return `'approved'` or `'rejected'`.
+2. **Downstream Action Nullability:** To keep the database contract clean, `downstream_action` is nullable. It must be `NULL` for `review_status = 'failed'`, and `NOT NULL` for approved/rejected records. This is enforced at the database level.
+3. **Auto-Retry Limit:** Failed items will auto-retry in the queue up to 3 times before locking, preventing infinite loop token waste.
+4. **No Mock Renderers inside Review:** Downstream rendering is completely out of scope for the `review` module. Any temporary `publish mock` scripts are documented purely as external validation consumers.
+5. **Summary Short Constraint:** `summary_short` is defined as `NOT NULL` across all presentation outputs. For `publish_link` items, the reviewer is explicitly instructed to generate a single-sentence excerpt to satisfy this constraint.
