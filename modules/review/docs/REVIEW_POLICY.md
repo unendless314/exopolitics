@@ -1,6 +1,6 @@
 # Review Policy
 
-**Document version:** v1.1  
+**Document version:** v1.3  
 **Updated:** 2026-06-15  
 **Status:** Planning & Active rewrite draft
 
@@ -20,7 +20,7 @@ Every item is evaluated against five main criteria to determine its review statu
 
 ### 2.1 Relevance Validation
 * Re-validate the upstream classification. 
-* If the upstream module misclassified an item (e.g. general technology news classified as `adjacent`), the reviewer must downgrade the decision to `reject` and set `downstream_action = 'reject'`.
+* If the upstream module misclassified an item (e.g. general technology news classified as `adjacent`), the reviewer must downgrade the decision to `rejected` and set `downstream_action = 'reject_discard'`.
 
 ### 2.2 Evidence Density & Quality
 * Evaluate the level of evidence claimed. 
@@ -44,15 +44,17 @@ Every item is evaluated against five main criteria to determine its review statu
 
 ## 3. Downstream Routing Rules
 
-The reviewer must choose exactly one of three routing outcomes based on these policies:
+The reviewer must choose exactly one of four routing outcomes based on these policies:
 
 ```mermaid
 graph TD
     A[Incoming Classified Item] --> B{Relevance & Quality Check}
-    B -- Rejection Criteria Met --> C[action: reject]
     B -- Passes Criteria --> D{Announcements/Short/Events?}
     D -- Yes --> E[action: publish_link]
     D -- No --> F[action: publish_summary]
+    B -- Fails Criteria --> G{Worth Human Rewriting/Editing?}
+    G -- Yes --> H[action: edit_rewrite]
+    G -- No --> I[action: reject_discard]
 ```
 
 ### 3.1 `publish_link` (Bookmark Mode)
@@ -62,6 +64,7 @@ graph TD
   * A normalized de-sensationalized display title.
   * A short, single-sentence excerpt framing the target URL (persisted under `summary_short`).
   * **Skip bullet points (bullet_1, bullet_2, and bullet_3 MUST be returned as null).**
+  * **An `editor_brief` is required** to provide risk flags, target format (set to `'link_card'`), and tone guidance.
 * **Rationale:** A short sentence excerpt ensures link cards always have consistent editorial framing on the frontend while avoiding the token cost and visual clutter of three bullet points.
 
 ### 3.2 `publish_summary` (Full Summary Mode)
@@ -74,10 +77,21 @@ graph TD
     1. `claim`: The primary UAP/official claim (persisted under `bullet_1`).
     2. `evidence`: The evidence level cited (persisted under `bullet_2`).
     3. `context`: The official or congressional entities involved (persisted under `bullet_3`).
+  * **An `editor_brief` is required** to provide risk flags, target format (set to `'structured_summary'`), and tone guidance.
 
-### 3.3 `reject` (Triage Filter)
+### 3.3 `edit_rewrite` (Soft Reject / Request Revision Mode)
+* **Target:** Items that contain valuable or high-density claims/evidence but are written poorly, require deep fact-checking/re-contextualization, or need substantial human rewriting before publishing.
+* **Action:** Reject.
+* **Required Content:**
+  * **An `editor_brief` is required** to explain the rewrite goals, target formats (representing the *intended final publication format* to rewrite into, e.g., `'link_card'` or `'structured_summary'`), risk flags, and tone guidance.
+  * **No public-facing output (review_output MUST be returned as null).**
+
+### 3.4 `reject_discard` (Hard Reject / Trash Mode)
 * **Target:** Irrelevant items, severe clickbait, general speculative opinion pieces, duplicate news stories, or heavily broken text extractions.
-* **Action:** Reject. Persist decision with a clear `decision_reason` (e.g., `'duplicate'`, `'low_quality'`, `'opinionated'`).
+* **Action:** Reject.
+* **Required Content:**
+  * A clear `decision_reason` (e.g., `'duplicate'`, `'low_quality'`, `'opinionated'`).
+  * **No editor_brief and no review_output (both MUST be returned as null).**
 
 ---
 

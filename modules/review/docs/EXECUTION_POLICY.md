@@ -1,6 +1,6 @@
 # Review Execution Policy
 
-**Document version:** v1.2  
+**Document version:** v1.4  
 **Updated:** 2026-06-15  
 **Status:** Planning & Active rewrite draft
 
@@ -27,7 +27,10 @@ This document defines execution controls, transaction boundaries, rate-limiting,
 * **Strict Transaction Boundaries:** All database operations (fetching, locking, writing) must run within a strict transaction block using SQLite's `BEGIN IMMEDIATE` to prevent concurrency issues.
 * **Isolation of Writes:** For each item evaluated:
   * Write the `review_decision` row. If the item was previously in a `'failed'` state, update the row and preserve or increment the `retry_count` depending on the outcome.
-  * If the decision is `approved`, write matching records into `editor_brief` and `review_output` tables.
+  * Depending on the resolved `downstream_action`, conditionally write matching records:
+    * For `'publish_link'` and `'publish_summary'`: write matching records to both `editor_brief` and `review_output` tables.
+    * For `'edit_rewrite'`: write to the `editor_brief` table, and do not write to the `review_output` table.
+    * For `'reject_discard'`: do not write to either `editor_brief` or `review_output` tables.
   * Commit the transaction only when all writes succeed. If any write fails, roll back the transaction for that item.
 * **Idempotency:** Re-running the queue must not duplicate rows. The repository must use `ON CONFLICT(source_item_id) DO UPDATE` constraints to ensure safe, repeatable updates.
 
@@ -39,7 +42,7 @@ This document defines execution controls, transaction boundaries, rate-limiting,
 * **Failed State Persistence:**
   * When the LLM client or parsing schema validation raises an exception, the runner must trap the exception and persist a `'failed'` status in `review_decision` for that `source_item_id`.
   * **Important Downstream Action Value:** When writing a `'failed'` status, the runner must set `downstream_action` to **`NULL`**. This satisfies the database CHECK constraint:
-    `CHECK ((review_status = 'failed' AND downstream_action IS NULL) OR (review_status IN ('approved', 'rejected') AND downstream_action IS NOT NULL))`
+    `CHECK ((review_status = 'failed' AND downstream_action IS NULL) OR (review_status = 'approved' AND downstream_action IN ('publish_link', 'publish_summary')) OR (review_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard')))`
   * The runner must write a clear error message or traceback snippet to `decision_reason` and **increment** the `retry_count` by `1` (or set to `1` on first failure).
   * If an item's `retry_count` reaches `3`, it is locked out of the automatic queue and will no longer be selected, requiring manual intervention or an admin override.
 * **Graceful Backoff:** Implement an exponential backoff delay (e.g. 2s, 4s, 8s) between retries during API execution to respect the provider's rate limits.

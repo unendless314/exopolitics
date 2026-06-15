@@ -1,6 +1,6 @@
 # Review Module
 
-**Document version:** v1.1  
+**Document version:** v1.3  
 **Updated:** 2026-06-15  
 **Status:** Planning & Active rewrite draft
 
@@ -12,7 +12,7 @@
 
 `ingest -> classify -> review -> edit (when needed) -> publish -> site`
 
-The module reads `classification_result` records that have been classified as `core` or `adjacent`, evaluates their content via an LLM-driven reviewer prompt, and persists the review decisions, editor handoff briefs, and immediately publishable summary outputs in the canonical database.
+The module reads `classification_result` records that have been classified as `core` or `adjacent`, evaluates their content via an LLM-driven reviewer prompt, and persists the review decisions, editor handoff briefs (required for all non-discarded items), and immediately publishable summary outputs (required only for approved items) in the canonical database.
 
 ### Core Architectural Separation (Post-Rewrite V2)
 In this revised MVP rewrite:
@@ -32,7 +32,7 @@ In this revised MVP rewrite:
 2. **LLM Triage & Evaluation:** Evaluate items by executing a local runner that satisfies the prompt contract to determine eligibility for publication based on content quality, sensationalism, and noise.
 3. **Structured Handoff & Output Generation:** Generate structured outputs representing the review decision, editorial guidance, and clean normalized text representation.
 4. **Link-Only Publishing Support (`publish_link`):** Allow announcements or short-context items to bypass bullet-point summary generation, providing display title normalization, time metadata, a short summary paragraph (excerpt), and source attribution framing to save token costs.
-5. **Persistence:** Write structured results to `review_decision`, `editor_brief`, and `review_output` tables in the canonical database.
+5. **Conditional Persistence:** Persist review decisions for all items, editor briefs for non-discarded items (`publish_link`, `publish_summary`, `edit_rewrite`), and publishable outputs only for approved items (`publish_link`, `publish_summary`).
 
 ---
 

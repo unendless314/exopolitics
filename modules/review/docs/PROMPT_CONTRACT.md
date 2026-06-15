@@ -1,6 +1,6 @@
 # Reviewer Prompt Contract
 
-**Document version:** v1.2  
+**Document version:** v1.5  
 **Updated:** 2026-06-15  
 **Status:** Planning & Active rewrite draft
 
@@ -47,7 +47,7 @@ The model is expected to return a valid JSON object matching the following struc
         },
         "downstream_action": {
           "type": "string",
-          "enum": ["publish_link", "publish_summary", "reject"]
+          "enum": ["publish_link", "publish_summary", "edit_rewrite", "reject_discard"]
         },
         "decision_reason": {
           "type": "string",
@@ -57,7 +57,7 @@ The model is expected to return a valid JSON object matching the following struc
       "required": ["review_status", "downstream_action", "decision_reason"]
     },
     "editor_brief": {
-      "type": "object",
+      "type": ["object", "null"],
       "properties": {
         "brief_goal": {
           "type": "string"
@@ -88,7 +88,7 @@ The model is expected to return a valid JSON object matching the following struc
       "required": ["brief_goal", "target_format", "risk_flags", "tone_guidance"]
     },
     "review_output": {
-      "type": "object",
+      "type": ["object", "null"],
       "properties": {
         "display_title": {
           "type": "string",
@@ -132,24 +132,38 @@ You are an expert UAP/UFO research editor. Your job is to review the title and s
 
 You MUST enforce a strict quality control policy.
 
-Triage Rules:
-1. REJECT general speculative opinion pieces without verified sources, clickbait, duplicates, forum rants, or severely broken text extractions.
-2. If the text does not fit the UAP/UFO or adjacent aerospace whistleblower criteria, reject it (even if classified as relevant upstream).
-3. If approved, choose downstream_action:
+Triage & Routing Rules:
+1. If the item is irrelevant, speculative opinion without verified sources, clickbait, duplicate, or severely broken text extraction, set review_status to 'rejected'.
+2. If the text has no value and should be discarded, set downstream_action = 'reject_discard'.
+3. If the text has value but is poorly written, requires substantial editing/fact-checking, or needs human rewrite, set downstream_action = 'edit_rewrite'.
+4. If approved (review_status = 'approved'), choose downstream_action:
    - publish_link: Use for short updates, event announcements, conference links, or brief video uploads.
    - publish_summary: Use for long-form reporting, congressional statements, declassified reports, or scientific papers.
 
-Drafting Guidelines:
-- review_output.display_title: Rewrite the raw title to be completely calm, objective, factual, and de-sensationalized (no clickbait words, no exclamation marks, normalized casing).
-- review_output.summary_short: Write a single concise, neutral paragraph (maximum 60 words) describing the item. For 'publish_link', this serves as a brief excerpt framing the link.
+Conditional Output Requirements:
+- For downstream_action = 'reject_discard':
+  - Both 'editor_brief' and 'review_output' MUST be returned as null.
+- For downstream_action = 'edit_rewrite':
+  - 'editor_brief' MUST be a valid object (with brief_goal, target_format representing the intended rewrite goal format, tone_guidance, etc.).
+  - 'review_output' MUST be returned as null.
+- For downstream_action IN ('publish_link', 'publish_summary'):
+  - Both 'editor_brief' and 'review_output' MUST be valid objects.
+  
+Drafting Guidelines (when output is not null):
+- review_decision.decision_reason: Write a concise reason for the routing decision (maximum 200 characters).
+  - For publish_link / publish_summary: Write a brief approval justification (e.g. 'official_announcement', 'high_evidence_report', 'scientific_preprint').
+  - For edit_rewrite: Write the reason editing is needed (e.g. 'needs_rewrite_cleanup', 'insufficient_context', 'translation_required').
+  - For reject_discard: Write the rejection reason (e.g. 'duplicate', 'low_quality', 'opinionated', 'clickbait').
+- review_output.display_title: Rewrite the raw title to be completely calm, objective, factual, and de-sensationalized (no clickbait words, no exclamation marks, normalized casing, maximum 100 characters).
+- review_output.summary_short: Write a single concise, neutral paragraph (maximum 300 characters) describing the item. For 'publish_link', this serves as a brief excerpt framing the link.
 - For downstream_action = 'publish_summary':
   - Output exactly three bullet points (bullet_1, bullet_2, bullet_3):
-    1. bullet_1 (claim): Describe the primary factual claim (max 30 words).
-    2. bullet_2 (evidence): Detail the evidence level cited (e.g. radar log, eyewitness, official document, NASA report) without judging its truth (max 30 words).
-    3. bullet_3 (context): Note government, legislative, NASA, or official agency involvement (max 30 words).
+    1. bullet_1 (claim): Describe the primary factual claim (maximum 150 characters).
+    2. bullet_2 (evidence): Detail the evidence level cited (e.g. radar log, eyewitness, official document, NASA report) without judging its truth (maximum 150 characters).
+    3. bullet_3 (context): Note government, legislative, NASA, or official agency involvement (maximum 150 characters).
 - For downstream_action = 'publish_link':
   - bullet_1, bullet_2, and bullet_3 MUST be returned as null.
-- editor_brief: Provide internal guidance. List key risks (e.g. ['hearsay', 'unverified_video', 'opinionated']) in risk_flags, and outline the primary editorial goals and tone.
+- editor_brief: Provide internal guidance. List key risks (e.g. ['hearsay', 'unverified_video', 'opinionated']) in risk_flags, target_format (set to the intended final format, e.g., 'link_card' or 'structured_summary'), and outline the primary editorial goals and tone.
 ```
 
 ### User Prompt Template
