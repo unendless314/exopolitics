@@ -58,7 +58,7 @@ The implementation is divided into four main epics:
   * Create `src/config.py` to parse and load these settings.
   * Create `src/orchestrator.py` containing:
     * Prompt builder.
-    * LLM client wrapper (calling Gemini API with schema enforcement).
+    * LLM client wrapper (calling OpenAI/compatible API with schema enforcement).
     * Exception handlers that catch model schema mismatch or rate-limits, incrementing `retry_count` and persisting a `'failed'` status with `downstream_action = None`.
     * Batch loop logic that locks transactions, runs the curation process, and persists results.
 
@@ -75,14 +75,14 @@ The implementation is divided into four main epics:
 * **Goal:** Ensure unit test coverage and validate the pipeline end-to-end.
 * **Tasks:**
   * Write `tests/test_database.py` using a mock SQLite database to verify table constraints, cascading deletes, repository retry logic, and the `CHECK` constraint for `downstream_action`.
-  * Write `tests/test_orchestrator.py` mocking the Gemini API to verify correct routing, retry selection, and parsing of output JSON.
+  * Write `tests/test_orchestrator.py` mocking the LLM API to verify correct routing, retry selection, and parsing of output JSON.
 
 ---
 
 ## 3. Testing Strategy
 
 * **Local Mock Databases:** Run tests against a temporary `:memory:` or local SQLite mock DB to ensure cascading deletes (`ON DELETE CASCADE`) and unique constraints work.
-* **Gemini Mocking:** Mock the LLM client call response during orchestrator tests. Ensure the parser handles:
+* **LLM Mocking:** Mock the LLM client call response during orchestrator tests. Ensure the parser handles:
   * Missing bullet points on `publish_link` (bullets should map to `NULL` in the DB, while `summary_short` is properly populated as the excerpt).
   * Incomplete JSON responses (must catch exception, write `failed` status to DB, increment `retry_count` by `1`, and verify `downstream_action` is written as `NULL`).
   * Automatic retries of items with `status = 'failed'` and `retry_count < 3`.

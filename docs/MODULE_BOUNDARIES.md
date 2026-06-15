@@ -114,6 +114,7 @@ Owns:
 - site-owned draft content
 - source linking for edited content
 - edit-specific metadata and responsibility fields
+- content review and revision
 
 Must not own:
 

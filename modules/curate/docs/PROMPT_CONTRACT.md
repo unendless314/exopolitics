@@ -8,7 +8,7 @@
 
 ## 1. Purpose
 
-This document defines the interface contract between the `curate` orchestrator and the LLM provider (Gemini).
+This document defines the interface contract between the `curate` orchestrator and the LLM provider (Gemini/OpenAI).
 
 To maximize performance, efficiency, and cost-effectiveness, the triage decision, editor brief analysis, and final publishable outputs are generated in **a single, structured LLM API call** per item.
 
@@ -96,7 +96,7 @@ The model is expected to return a valid JSON object matching the following struc
         },
         "summary_short": {
           "type": "string",
-          "maxLength": 300
+          "maxLength": 400
         },
         "bullet_1": {
           "type": ["string", "null"],
@@ -133,12 +133,11 @@ You are an expert UAP/UFO research editor. Your job is to review the title and s
 You MUST enforce a strict quality control policy.
 
 Triage & Routing Rules:
-1. If the item is irrelevant, speculative opinion without verified sources, clickbait, duplicate, or severely broken text extraction, set curate_status to 'rejected'.
-2. If the text has no value and should be discarded, set downstream_action = 'reject_discard'.
-3. If the text has value but is poorly written, requires substantial editing/fact-checking, or needs human rewrite, set downstream_action = 'edit_rewrite'.
-4. If approved (curate_status = 'approved'), choose downstream_action:
-   - publish_link: Use for short updates, event announcements, conference links, or brief video uploads.
-   - publish_summary: Use for long-form reporting, congressional statements, declassified reports, or scientific papers.
+You MUST classify each item into one of the following four routing targets, ensuring curate_status matches downstream_action exactly:
+1. Set curate_status = 'approved' AND downstream_action = 'publish_link' (For short updates, event announcements, conference links, or brief video uploads).
+2. Set curate_status = 'approved' AND downstream_action = 'publish_summary' (For long-form reporting, congressional statements, declassified reports, or scientific papers).
+3. Set curate_status = 'rejected' AND downstream_action = 'edit_rewrite' (If the text has value but is poorly written, requires translation, substantial editing/fact-checking, or needs human rewrite).
+4. Set curate_status = 'rejected' AND downstream_action = 'reject_discard' (If the item is irrelevant, speculative opinion without verified sources, clickbait, duplicate, or severely broken text extraction).
 
 Conditional Output Requirements:
 - For downstream_action = 'reject_discard':
@@ -155,7 +154,7 @@ Drafting Guidelines (when output is not null):
   - For edit_rewrite: Write the reason editing is needed (e.g. 'needs_rewrite_cleanup', 'insufficient_context', 'translation_required').
   - For reject_discard: Write the rejection reason (e.g. 'duplicate', 'low_quality', 'opinionated', 'clickbait').
 - curation_output.display_title: Rewrite the raw title to be completely calm, objective, factual, and de-sensationalized (no clickbait words, no exclamation marks, normalized casing, maximum 100 characters).
-- curation_output.summary_short: Write a single concise, neutral paragraph (maximum 300 characters) describing the item. For 'publish_link', this serves as a brief excerpt framing the link.
+- curation_output.summary_short: Write a single concise, neutral paragraph (maximum 400 characters) describing the item. For 'publish_link', this serves as a brief excerpt framing the link.
 - For downstream_action = 'publish_summary':
   - Output exactly three bullet points (bullet_1, bullet_2, bullet_3):
     1. bullet_1 (claim): Describe the primary factual claim (maximum 150 characters).

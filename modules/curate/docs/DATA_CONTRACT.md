@@ -41,7 +41,7 @@ Stores workflow-level metadata indicating whether a feed item is approved and it
 | `downstream_action` | `TEXT` | `NULL` | Routing target: `'publish_link'`, `'publish_summary'`, `'edit_rewrite'`, or `'reject_discard'`. Must be `NULL` if `curate_status = 'failed'`, and `NOT NULL` otherwise. |
 | `decision_reason` | `TEXT` | `NULL` | Concise reason behind the curation decision or runner exception message. |
 | `retry_count` | `INTEGER` | `NOT NULL` | Number of times this curation has failed to complete (default `0`). |
-| `model_name` | `TEXT` | `NOT NULL` | Curation LLM model name (e.g., `'gemini-3.5-flash'`). |
+| `model_name` | `TEXT` | `NOT NULL` | Curation LLM model name (e.g., `'gpt-5.4-mini'`). |
 | `prompt_version` | `TEXT` | `NOT NULL` | Active curation prompt version. |
 | `curated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SSZ`). |
 | `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SSZ`). |

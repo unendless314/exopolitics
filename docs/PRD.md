@@ -44,7 +44,7 @@ Primary readers:
 Primary operators:
 
 - the site owner or editor running the pipeline
-- future human reviewers responsible for approval and rejection decisions
+- future human curators/reviewers responsible for approval and rejection decisions
 
 ---
 
@@ -88,7 +88,7 @@ The system must distinguish between:
 
 - raw feed input
 - sanitized downstream text
-- curation, review, and publish decisions
+- curation, edit, review, and publish decisions
 
 This distinction exists because raw feed metadata is often noisy, HTML-heavy, and unsuitable for direct downstream classification.
 
@@ -108,7 +108,7 @@ MVP includes:
 - deduplication and canonical storage of normalized source items
 - sanitized text generation for downstream classification
 - initial classification pipeline
-- curation and review workflows
+- curation, edit, and review workflows
 - publish export for approved content
 - static site consumption of publish outputs
 
@@ -130,7 +130,7 @@ This does not mean `edit` is optional as a product capability. It means only tha
 The MVP is successful when:
 
 - ingest runs reliably enough to keep source coverage current
-- classification reduces human curation and review burden without destroying topic precision
+- classification reduces human curation, edit, and review burden without destroying topic precision
 - reviewers and operators can inspect and decide on pending content with clear provenance
 - the public site only depends on approved publish outputs
 - raw-versus-sanitized handling is explicit and no longer ambiguous in contracts

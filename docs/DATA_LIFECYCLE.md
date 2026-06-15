@@ -129,7 +129,7 @@ Classification produces:
 - topic class
 - reason
 - confidence
-- optional edit-candidate signal
+- optional attributes and signals
 
 ### 6.3 Failure Semantics
 

@@ -56,7 +56,7 @@ In this revised MVP rewrite:
 * `modules/curate/config/prompt_templates.yaml`  
   Stores the active curation prompt templates.
 * `modules/curate/config/model_settings.yaml`  
-  Stores Gemini model selection, parameters, and batch execution configs.
+  Stores LLM provider model selection, parameters, and batch execution configs.
 
 ---
 
