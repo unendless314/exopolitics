@@ -44,7 +44,7 @@ The rewritten system must recognize at least these canonical entity families:
 4. source state and fetch execution history
 5. ingest deduplication state
 6. classification result
-7. review decision
+7. curation decision
 8. edit-owned draft or edited content when that workflow is active
 9. publishable record or publish reference
 
@@ -70,7 +70,7 @@ Minimum semantic contents:
 Ownership:
 
 - written by `ingest`
-- readable by `classify`, `review`, and `publish`
+- readable by `classify`, `curate`, and `publish`
 
 Important rule:
 
@@ -91,7 +91,7 @@ Minimum semantic contents:
 Ownership:
 
 - written by `ingest`
-- readable by `classify` and `review`
+- readable by `classify` and `curate`
 
 Important rule:
 
@@ -166,15 +166,15 @@ Minimum semantic contents:
 Ownership:
 
 - written by `classify`
-- readable by `review`
+- readable by `curate`
 
-### 4.7 Review Decision
+### 4.7 Curation Decision
 
-This entity family represents human approval, rejection, deletion, or edit-routing decisions.
+This entity family represents automated editorial curation, triage, formatting, and routing decisions.
 
 Minimum semantic contents:
 
-- stable link to the reviewed canonical record
+- stable link to the curated canonical record
 - decision outcome
 - action semantics when applicable
 - responsible actor metadata
@@ -183,7 +183,7 @@ Minimum semantic contents:
 
 Ownership:
 
-- written by `review`
+- written by `curate`
 - readable by `publish`
 
 ### 4.8 Edit-Owned Draft Or Edited Content
@@ -199,7 +199,7 @@ Minimum semantic contents:
 Ownership:
 
 - written by `edit`
-- readable by `review` and `publish`
+- readable by human review and `publish`
 
 ### 4.9 Publishable Record Or Publish Reference
 
@@ -229,7 +229,7 @@ The top-level canonical model recognizes three non-interchangeable content repre
 Boundary rules:
 
 - `classify` reads sanitized working text, not raw retained evidence by default
-- `review` may inspect sanitized working text by default and raw retained evidence only when needed
+- `curate` may inspect sanitized working text by default and raw retained evidence only when needed
 - `site` reads publish-layer outputs only
 - cleanup of raw retained evidence must not invalidate the source item record or sanitized working text record
 
@@ -239,7 +239,7 @@ Boundary rules:
 
 - `ingest` owns source item identity, sanitized working text, raw retained evidence, source state, fetch history, and dedup state
 - `classify` owns classification result
-- `review` owns review decision
+- `curate` owns curation decision
 - `edit` owns edited content records when active in workflow
 - `publish` owns publish-layer records or references
 - `site` does not own canonical database writes

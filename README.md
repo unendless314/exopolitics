@@ -15,7 +15,7 @@ This repository is currently in a documentation reset phase:
 - define the top-level product and architecture direction
 - preserve RSS source research and category definitions
 - establish module boundaries before implementation expands
-- document the development order for `ingest`, `classify`, `review`, `edit`, `publish`, and `site`
+- document the development order for `ingest`, `classify`, `curate`, `edit`, `publish`, and `site`
 - reserve a compliant path for future edit content with source attribution and AI disclosure
 
 ## Architecture Summary
@@ -26,11 +26,11 @@ The current system direction is:
   - fetch RSS/feed sources, deduplicate, persist canonical records, and generate sanitized working text
 - `classify`
   - run initial topic classification against sanitized working text, including `unknown`, and candidate tagging
-- `review`
-  - perform human review and state transitions
+- `curate`
+  - perform editorial curation, triage, formatting, and routing decisions
 - `edit`
   - reserved for near-term site-native drafts, summaries, rewrites, and synthesis
-  - in early stages, low-volume edit flow can remain inside `review` before separate extraction
+  - in early stages, low-volume edit flow can remain inside `curate` before separate extraction
 - `publish`
   - export approved content into a publish layer
 - `site`
@@ -40,12 +40,12 @@ The current system direction is:
 
 1. `ingest`
 2. `classify`
-3. `review`
+3. `curate`
 4. `edit` (only when the workflow becomes stable)
 5. `publish`
 6. `site`
 
-This order is intentional. The project should first stabilize data ingestion and review before introducing a dedicated standalone edit workflow.
+This order is intentional. The project should first stabilize data ingestion and curation before introducing a dedicated standalone edit workflow.
 
 ## Content Model Direction
 
@@ -122,14 +122,14 @@ modules/
 │   ├── docs/
 │   ├── src/
 │   └── tests/
-└── review/
+└── curate/
     ├── config/
     ├── docs/
     ├── src/
     └── tests/
 ```
 
-At this stage, `modules/ingest/` and `modules/classify/` are fully implemented and executable, and the `modules/review/` scaffold and technical proposal have been initialized.
+At this stage, `modules/ingest/` and `modules/classify/` are fully implemented and executable, and the `modules/curate/` scaffold and technical proposal have been initialized.
 
 Pre-reset module docs and code now live under `modules_archive/`.
 

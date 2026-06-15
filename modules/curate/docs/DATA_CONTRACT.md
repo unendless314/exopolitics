@@ -1,4 +1,4 @@
-# Review Data Contract
+# Curate Data Contract
 
 **Document version:** v1.3  
 **Updated:** 2026-06-15  
@@ -8,42 +8,42 @@
 
 ## 1. Purpose
 
-The `review` module records its outputs in three distinct tables in `data/canonical.db` to maintain strict boundaries and flexibility:
-1. **`review_decision`**: Stores the workflow-specific outcome of the review run.
+The `curate` module records its outputs in three distinct tables in `data/canonical.db` to maintain strict boundaries and flexibility:
+1. **`curation_decision`**: Stores the workflow-specific outcome of the curation run.
 2. **`editor_brief`**: Stores non-public editorial analysis and caution notes (handoff data for a future human editor or rewrite module).
-3. **`review_output`**: Stores immediately publishable metadata and summaries (safe for the site or export layers to consume).
+3. **`curation_output`**: Stores immediately publishable metadata and summaries (safe for the site or export layers to consume).
 
 ### Design Constraints
 * **One-to-One Relationships:** For each `source_item`, there is at most one record in each of the three tables.
 * **Conditional Row Creation:** 
-  * `review_decision` is created for every attempted item.
+  * `curation_decision` is created for every attempted item.
   * `editor_brief` is required and generated for any item with `downstream_action` equal to `'publish_link'`, `'publish_summary'`, or `'edit_rewrite'`. For `'reject_discard'` or `'failed'` items, it is omitted.
-  * `review_output` is required and generated for any item with `downstream_action` equal to `'publish_link'` or `'publish_summary'`. For `'edit_rewrite'`, `'reject_discard'`, or `'failed'` items, it is omitted.
+  * `curation_output` is required and generated for any item with `downstream_action` equal to `'publish_link'` or `'publish_summary'`. For `'edit_rewrite'`, `'reject_discard'`, or `'failed'` items, it is omitted.
 * **Cascading Deletions:** All tables must have a foreign key to `source_item(source_item_id)` with `ON DELETE CASCADE`.
-* **Zero Modification on Upstream:** `review` must not write to or alter the `source_item` or `classification_result` tables.
-* **Separation from Edit module:** `review` does not write directly to `edit_draft`. The `editor_brief` serves as the interface boundary.
-* **Runner-Generated Failed State:** The `failed` status in `review_decision` is generated strictly by the runner/orchestrator upon catching transient API or parser errors, never by the model.
-* **Downstream Action Nullability:** If `review_status = 'failed'`, the `downstream_action` column **must be `NULL`** since no decision could be reached. If `review_status` is `'approved'` or `'rejected'`, `downstream_action` **must be `NOT NULL`**.
+* **Zero Modification on Upstream:** `curate` must not write to or alter the `source_item` or `classification_result` tables.
+* **Separation from Edit module:** `curate` does not write directly to `edit_draft`. The `editor_brief` serves as the interface boundary.
+* **Runner-Generated Failed State:** The `failed` status in `curate_status` is generated strictly by the runner/orchestrator upon catching transient API or parser errors, never by the model.
+* **Downstream Action Nullability:** If `curate_status = 'failed'`, the `downstream_action` column **must be `NULL`** since no decision could be reached. If `curate_status` is `'approved'` or `'rejected'`, `downstream_action` **must be `NOT NULL`**.
 * **Retry Counter:** Failed items can be retried up to 3 times before requiring manual operator intervention. This is tracked via `retry_count`.
 
 ---
 
 ## 2. Database Schema
 
-### 2.1 `review_decision`
+### 2.1 `curation_decision`
 Stores workflow-level metadata indicating whether a feed item is approved and its downstream routing.
 
 | Field Name | SQLite Type | Nullability | Description / Constraint |
 | :--- | :--- | :--- | :--- |
-| `review_decision_id` | `INTEGER` | `NOT NULL PRIMARY KEY AUTOINCREMENT` | Surrogate key. |
+| `curation_decision_id` | `INTEGER` | `NOT NULL PRIMARY KEY AUTOINCREMENT` | Surrogate key. |
 | `source_item_id` | `INTEGER` | `NOT NULL UNIQUE` | FK to `source_item(source_item_id) ON DELETE CASCADE`. |
-| `review_status` | `TEXT` | `NOT NULL` | Outcome state: `'approved'`, `'rejected'`, or `'failed'`. |
-| `downstream_action` | `TEXT` | `NULL` | Routing target: `'publish_link'`, `'publish_summary'`, `'edit_rewrite'`, or `'reject_discard'`. Must be `NULL` if `review_status = 'failed'`, and `NOT NULL` otherwise. |
-| `decision_reason` | `TEXT` | `NULL` | Concise reason behind the review decision or runner exception message. |
-| `retry_count` | `INTEGER` | `NOT NULL` | Number of times this review has failed to complete (default `0`). |
-| `model_name` | `TEXT` | `NOT NULL` | Reviewer LLM model name (e.g., `'gemini-3.5-flash'`). |
-| `prompt_version` | `TEXT` | `NOT NULL` | Active reviewer prompt version. |
-| `reviewed_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SSZ`). |
+| `curate_status` | `TEXT` | `NOT NULL` | Outcome state: `'approved'`, `'rejected'`, or `'failed'`. |
+| `downstream_action` | `TEXT` | `NULL` | Routing target: `'publish_link'`, `'publish_summary'`, `'edit_rewrite'`, or `'reject_discard'`. Must be `NULL` if `curate_status = 'failed'`, and `NOT NULL` otherwise. |
+| `decision_reason` | `TEXT` | `NULL` | Concise reason behind the curation decision or runner exception message. |
+| `retry_count` | `INTEGER` | `NOT NULL` | Number of times this curation has failed to complete (default `0`). |
+| `model_name` | `TEXT` | `NOT NULL` | Curation LLM model name (e.g., `'gemini-3.5-flash'`). |
+| `prompt_version` | `TEXT` | `NOT NULL` | Active curation prompt version. |
+| `curated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SSZ`). |
 | `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SSZ`). |
 
 ### 2.2 `editor_brief`
@@ -63,12 +63,12 @@ Stores editorial analysis and guidelines that describe the item's core parameter
 | `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp. |
 | `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp. |
 
-### 2.3 `review_output`
-Stores structured publishable items generated by the automated reviewer, ready to be read by the downstream mock-publish or publish modules. Required and created for any item where `downstream_action IN ('publish_link', 'publish_summary')`.
+### 2.3 `curation_output`
+Stores structured publishable items generated by the automated curation pipeline, ready to be read by the downstream mock-publish or publish modules. Required and created for any item where `downstream_action IN ('publish_link', 'publish_summary')`.
 
 | Field Name | SQLite Type | Nullability | Description / Constraint |
 | :--- | :--- | :--- | :--- |
-| `review_output_id` | `INTEGER` | `NOT NULL PRIMARY KEY AUTOINCREMENT` | Surrogate key. |
+| `curation_output_id` | `INTEGER` | `NOT NULL PRIMARY KEY AUTOINCREMENT` | Surrogate key. |
 | `source_item_id` | `INTEGER` | `NOT NULL UNIQUE` | FK to `source_item(source_item_id) ON DELETE CASCADE`. |
 | `display_title` | `TEXT` | `NOT NULL` | De-sensationalized, cleaned title for display. |
 | `summary_short` | `TEXT` | `NOT NULL` | One-paragraph summary. For `publish_link` items, this acts as the required excerpt text. |
@@ -83,36 +83,36 @@ Stores structured publishable items generated by the automated reviewer, ready t
 
 ## 3. SQLite DDL
 
-This migration script will reside in `modules/review/src/migrations/v001_initial_review_tables.sql`:
+This migration script will reside in `modules/curate/src/migrations/v001_initial_curate_tables.sql`:
 
 ```sql
 PRAGMA foreign_keys = ON;
 
--- 1. review_decision table
-CREATE TABLE IF NOT EXISTS review_decision (
-    review_decision_id INTEGER PRIMARY KEY AUTOINCREMENT,
+-- 1. curation_decision table
+CREATE TABLE IF NOT EXISTS curation_decision (
+    curation_decision_id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_item_id INTEGER NOT NULL UNIQUE,
-    review_status TEXT NOT NULL CHECK (review_status IN ('approved', 'rejected', 'failed')),
+    curate_status TEXT NOT NULL CHECK (curate_status IN ('approved', 'rejected', 'failed')),
     downstream_action TEXT CHECK (downstream_action IS NULL OR downstream_action IN ('publish_link', 'publish_summary', 'edit_rewrite', 'reject_discard')),
     decision_reason TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0 CHECK (retry_count >= 0),
     model_name TEXT NOT NULL,
     prompt_version TEXT NOT NULL,
-    reviewed_at TEXT NOT NULL,
+    curated_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
     FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE,
     CHECK (
-        (review_status = 'failed' AND downstream_action IS NULL) OR
-        (review_status = 'approved' AND downstream_action IN ('publish_link', 'publish_summary')) OR
-        (review_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard'))
+        (curate_status = 'failed' AND downstream_action IS NULL) OR
+        (curate_status = 'approved' AND downstream_action IN ('publish_link', 'publish_summary')) OR
+        (curate_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard'))
     )
 );
 
-CREATE INDEX IF NOT EXISTS idx_review_decision_source_item_id 
-    ON review_decision(source_item_id);
+CREATE INDEX IF NOT EXISTS idx_curation_decision_source_item_id 
+    ON curation_decision(source_item_id);
 
-CREATE INDEX IF NOT EXISTS idx_review_decision_status_action 
-    ON review_decision(review_status, downstream_action);
+CREATE INDEX IF NOT EXISTS idx_curation_decision_status_action 
+    ON curation_decision(curate_status, downstream_action);
 
 
 -- 2. editor_brief table
@@ -135,9 +135,9 @@ CREATE INDEX IF NOT EXISTS idx_editor_brief_source_item_id
     ON editor_brief(source_item_id);
 
 
--- 3. review_output table
-CREATE TABLE IF NOT EXISTS review_output (
-    review_output_id INTEGER PRIMARY KEY AUTOINCREMENT,
+-- 3. curation_output table
+CREATE TABLE IF NOT EXISTS curation_output (
+    curation_output_id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_item_id INTEGER NOT NULL UNIQUE,
     display_title TEXT NOT NULL,
     summary_short TEXT NOT NULL,
@@ -150,15 +150,15 @@ CREATE TABLE IF NOT EXISTS review_output (
     FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_review_output_source_item_id 
-    ON review_output(source_item_id);
+CREATE INDEX IF NOT EXISTS idx_curation_output_source_item_id 
+    ON curation_output(source_item_id);
 ```
 
 ---
 
 ## 4. Pending Item Query
 
-The `review` queue selects items that have been successfully classified as `core` or `adjacent`, and do not yet have a decision OR have failed previously but have not exceeded 3 retry attempts.
+The `curate` queue selects items that have been successfully classified as `core` or `adjacent`, and do not yet have a decision OR have failed previously but have not exceeded 3 retry attempts.
 
 ```sql
 SELECT 
@@ -172,10 +172,10 @@ SELECT
 FROM source_item s
 JOIN source_item_text t ON s.source_item_id = t.source_item_id
 JOIN classification_result c ON s.source_item_id = c.source_item_id
-LEFT JOIN review_decision r ON s.source_item_id = r.source_item_id
+LEFT JOIN curation_decision r ON s.source_item_id = r.source_item_id
 WHERE s.ingest_status = 'ingested'
   AND c.topic_class IN ('core', 'adjacent')
-  AND (r.review_decision_id IS NULL OR (r.review_status = 'failed' AND r.retry_count < 3));
+  AND (r.curation_decision_id IS NULL OR (r.curate_status = 'failed' AND r.retry_count < 3));
 ```
 
 ### Key Differences

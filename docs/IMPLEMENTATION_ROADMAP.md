@@ -87,11 +87,11 @@ Goal:
 
 - align classify with the rewritten ingest contract
 
-### Phase 6: Review And Publish Planning Refresh
+### Phase 6: Curation And Publish Planning Refresh
 
 After ingest and classify contracts stabilize, refresh:
 
-- review queue contracts
+- curation queue contracts
 - publish export contracts
 - edit workflow contracts needed for the immediate post-MVP phase
 

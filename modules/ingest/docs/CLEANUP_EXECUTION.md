@@ -25,7 +25,7 @@ Cleanup does not own:
 
 - fetching new source payloads
 - sanitization of new feed items
-- classification or review logic
+- classification or curation logic
 - deletion of durable sanitized working text
 
 ---

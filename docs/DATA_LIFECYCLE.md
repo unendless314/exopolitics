@@ -14,7 +14,7 @@ It focuses on:
 - raw input
 - sanitized working text
 - classification outputs
-- review and publish transitions
+- curation and publish transitions
 - deletion and rebuild expectations
 
 ---
@@ -25,7 +25,7 @@ The key lifecycle rule is:
 
 - raw input may enter first
 - sanitized text becomes the downstream working form
-- publish outputs are derived from reviewed canonical records
+- publish outputs are derived from approved canonical records
 
 These are different lifecycle stages, not interchangeable copies of the same field.
 
@@ -38,7 +38,7 @@ raw feed item
   -> normalized ingest item
   -> sanitized working text
   -> classification result
-  -> review decision
+  -> curation decision
   -> publish export
   -> site rendering
 ```
@@ -46,9 +46,9 @@ raw feed item
 Recognized branch:
 
 ```text
-review decision
+curation decision
   -> edit workflow
-  -> review decision
+  -> human review decision
 ```
 
 ---
@@ -103,7 +103,7 @@ Minimum transformation expectations:
 Sanitized working text is the default downstream representation for:
 
 - classification
-- reviewer inspection support
+- curation inspection support
 - future enrichment decisions
 
 ### 5.3 Durability
@@ -139,16 +139,16 @@ Classification produces:
 
 ---
 
-## 7. Review Lifecycle
+## 7. Curation Lifecycle
 
-Review consumes classified items and determines whether they should:
+Curation consumes classified items and determines whether they should:
 
 - be approved
 - be rejected
 - be deleted under governance policy
 - enter an edit-oriented workflow before publication
 
-Review is also where queue aging and SLA governance belong.
+Curation is also where queue aging and SLA governance belong.
 
 ---
 
@@ -186,7 +186,7 @@ The following are part of system history and should remain durable unless intent
 
 - ingest records
 - classification outputs
-- review decisions
+- curation decisions
 
 ### 9.3 Retention-Governed Data
 
@@ -212,10 +212,10 @@ That means:
 ## 11. Temporal Policy and Historical Data
 
 ### 11.1 State-Driven Processing Pipeline
-The system processes and stores all fetched items regardless of their publication date (`published_at`). There is no temporal filtering in the upstream ingestion, classification, or review workflows.
+The system processes and stores all fetched items regardless of their publication date (`published_at`). There is no temporal filtering in the upstream ingestion, classification, or curation workflows.
 - **Ingestion**: Ingest fetches all available feed data. De-duplication rules prevent duplicates, but any novel historical item (e.g. published years ago but fetched for the first time) is stored as a valid `source_item`.
 - **Classification**: All newly ingested items are classified using the same content-based rules and LLM models.
-- **Review**: The review queue processes all classified items based on state transitions, ensuring historical records are verified and enriched.
+- **Curation**: The curation queue processes all classified items based on state transitions, ensuring historical records are verified and enriched.
 
 ### 11.2 Downstream UI-Level Filtering
 The responsibility of managing the user-facing temporal experience is deferred entirely to the downstream **site** (or publish-export) layer:

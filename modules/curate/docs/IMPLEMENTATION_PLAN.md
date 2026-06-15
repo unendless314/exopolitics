@@ -1,4 +1,4 @@
-# Review Module Implementation Plan
+# Curate Module Implementation Plan
 
 **Document version:** v1.4  
 **Updated:** 2026-06-15  
@@ -8,10 +8,10 @@
 
 ## 1. Project Directory Structure
 
-The initial module structure will reside under `modules/review/`:
+The initial module structure will reside under `modules/curate/`:
 
 ```text
-modules/review/
+modules/curate/
 ├── config/
 │   ├── model_settings.yaml
 │   └── prompt_templates.yaml
@@ -21,10 +21,10 @@ modules/review/
 │   ├── IMPLEMENTATION_PLAN.md
 │   ├── PROMPT_CONTRACT.md
 │   ├── README.md
-│   └── REVIEW_POLICY.md
+│   └── CURATION_POLICY.md
 ├── src/
 │   ├── migrations/
-│   │   └── v001_initial_review_tables.sql
+│   │   └── v001_initial_curate_tables.sql
 │   ├── __init__.py
 │   ├── cli.py
 │   ├── config.py
@@ -43,11 +43,11 @@ modules/review/
 The implementation is divided into four main epics:
 
 ### Epic 1: Database Schema & Migration
-* **Goal:** Create the durable review tables and set up the repository pattern.
+* **Goal:** Create the durable curation tables and set up the repository pattern.
 * **Tasks:**
-  * Write `v001_initial_review_tables.sql` DDL migration script incorporating the `retry_count` column and the `CHECK` constraint validating `downstream_action` nullability against `review_status`.
+  * Write `v001_initial_curate_tables.sql` DDL migration script incorporating the `retry_count` column and the `CHECK` constraint validating `downstream_action` nullability against `curate_status`.
   * Create `src/database.py` containing:
-    * `ReviewRepository`: Methods for `get_pending_items()`, `upsert_review_decision()`, `upsert_editor_brief()`, and `upsert_review_output()`.
+    * `CurationRepository`: Methods for `get_pending_items()`, `upsert_curation_decision()`, `upsert_editor_brief()`, and `upsert_curation_output()`.
     * Ensure the repository updates/resets `retry_count` on successful model outputs and writes `downstream_action = NULL` on runner failures.
     * Integration with the database runner (`run_migrations`).
 
@@ -60,7 +60,7 @@ The implementation is divided into four main epics:
     * Prompt builder.
     * LLM client wrapper (calling Gemini API with schema enforcement).
     * Exception handlers that catch model schema mismatch or rate-limits, incrementing `retry_count` and persisting a `'failed'` status with `downstream_action = None`.
-    * Batch loop logic that locks transactions, runs the review process, and persists results.
+    * Batch loop logic that locks transactions, runs the curation process, and persists results.
 
 ### Epic 3: CLI Interface
 * **Goal:** Expose commands to run migrations, trigger batch runs, preview prompts, and view stats.
@@ -68,7 +68,7 @@ The implementation is divided into four main epics:
   * Create `src/cli.py` using `click` (matching `classify/src/cli.py` style).
   * Expose commands:
     * `migrate`: Apply the schema DDL.
-    * `run`: Run automated reviews with `--batch-size` and `--preview-prompts` options.
+    * `run`: Run automated curation with `--batch-size` and `--preview-prompts` options.
     * `status`: Print counts of pending, approved, rejected, and failed items.
 
 ### Epic 4: Verification & Testing
@@ -94,8 +94,8 @@ The implementation is divided into four main epics:
 
 During planning, the following decisions were resolved:
 1. **Runner-Generated Failed State:** The status `'failed'` is purely a runner-side persistence state. The model schema contract only allows it to return `'approved'` or `'rejected'`.
-2. **Downstream Action Nullability & Routing:** To keep the database contract clean, `downstream_action` is nullable. It must be `NULL` for `review_status = 'failed'`, and `NOT NULL` for approved/rejected records. Valid values are `'publish_link'`, `'publish_summary'`, `'edit_rewrite'`, and `'reject_discard'`. This is enforced at the database level via a `CHECK` constraint.
+2. **Downstream Action Nullability & Routing:** To keep the database contract clean, `downstream_action` is nullable. It must be `NULL` for `curate_status = 'failed'`, and `NOT NULL` for approved/rejected records. Valid values are `'publish_link'`, `'publish_summary'`, `'edit_rewrite'`, and `'reject_discard'`. This is enforced at the database level via a `CHECK` constraint.
 3. **Auto-Retry Limit:** Failed items will auto-retry in the queue up to 3 times before locking, preventing infinite loop token waste.
-4. **No Mock Renderers inside Review:** Downstream rendering is completely out of scope for the `review` module. Any temporary `publish mock` scripts are documented purely as external validation consumers.
-5. **Summary Short Constraint:** `summary_short` is defined as `NOT NULL` across all presentation outputs. For `publish_link` items, the reviewer is explicitly instructed to generate a single-sentence excerpt to satisfy this constraint.
-6. **Conditional Table Row Creation:** To optimize token utilization and database semantics, `editor_brief` is required and created if `downstream_action` is `'publish_link'`, `'publish_summary'`, or `'edit_rewrite'`. `review_output` is required and created if `downstream_action` is `'publish_link'` or `'publish_summary'`. Otherwise, they are omitted. Both are defined as nullable objects in the LLM JSON response schema.
+4. **No Mock Renderers inside Curation:** Downstream rendering is completely out of scope for the `curate` module. Any temporary `publish mock` scripts are documented purely as external validation consumers.
+5. **Summary Short Constraint:** `summary_short` is defined as `NOT NULL` across all presentation outputs. For `publish_link` items, the curator is explicitly instructed to generate a single-sentence excerpt to satisfy this constraint.
+6. **Conditional Table Row Creation:** To optimize token utilization and database semantics, `editor_brief` is required and created if `downstream_action` is `'publish_link'`, `'publish_summary'`, or `'edit_rewrite'`. `curation_output` is required and created if `downstream_action` is `'publish_link'` or `'publish_summary'`. Otherwise, they are omitted. Both are defined as nullable objects in the LLM JSON response schema.

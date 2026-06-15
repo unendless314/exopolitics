@@ -32,7 +32,7 @@ Optional inputs:
 - manual recovery mode for selected sources
 - retained raw records from recent runs when needed for sanitizer evaluation
 
-`ingest` must not require `classify`, `review`, `publish`, or `site` data as runtime inputs.
+`ingest` must not require `classify`, `curate`, `publish`, or `site` data as runtime inputs.
 
 ---
 
@@ -50,7 +50,7 @@ Optional inputs:
 `ingest` must not write:
 
 - topic classification decisions
-- review decisions
+- curation decisions
 - edit workflow records
 - publish-layer output records
 
@@ -97,7 +97,7 @@ Minimum logical fields:
 
 Important rule:
 
-- this is the default text representation for `classify` and reviewer support
+- this is the default text representation for `classify` and curation support
 
 ### 4.3 Raw Retained Record
 
@@ -174,7 +174,7 @@ Minimum logical fields:
 `ingest` must not own:
 
 - classification prompts or judgments
-- review queue behavior
+- curation queue behavior
 - publish formatting
 - site rendering
 

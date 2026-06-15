@@ -41,7 +41,7 @@ Examples:
 - source health state
 - fetch execution records
 - classification results
-- review decisions
+- curation decisions
 - publish records or publish references
 - provenance and disclosure metadata
 
@@ -77,7 +77,7 @@ The rewritten system should keep these categories durably:
 - dedup markers or equivalent ingest identity controls
 - source fetch state and execution history
 - classification outputs
-- review decisions and responsibility trail
+- curation decisions and responsibility trail
 - publish-layer references and disclosure metadata
 
 These are the records that define system behavior and editorial history.
@@ -102,7 +102,7 @@ This document does not hard-lock exact durations yet, but it locks the policy sh
 
 - raw input: bounded retention window
 - sanitized working text: long-term retention
-- classification and review outcomes: long-term retention
+- classification and curation outcomes: long-term retention
 - publish exports: rebuildable retention layer
 
 Suggested early-production raw retention windows to evaluate:

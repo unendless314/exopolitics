@@ -14,7 +14,7 @@ Its purpose is not to mirror full articles, run a discussion forum, or generate 
 - ingest feed items from many external sources
 - preserve enough structured data for downstream processing and auditing
 - classify items into topic-relevant buckets
-- support human review before public exposure
+- support curation and human review before public exposure
 - publish approved outputs to a static public site
 
 The product is fundamentally an **aggregation and curation system**.
@@ -65,7 +65,7 @@ Initial topic classes are:
 - `irrelevant`
 - `unknown`
 
-These classes exist to reduce review burden and organize attention.
+These classes exist to reduce curation burden and organize attention.
 They do not replace human judgment.
 
 ### 4.3 Human Review Owns Final Public Decisions
@@ -88,7 +88,7 @@ The system must distinguish between:
 
 - raw feed input
 - sanitized downstream text
-- review and publish decisions
+- curation, review, and publish decisions
 
 This distinction exists because raw feed metadata is often noisy, HTML-heavy, and unsuitable for direct downstream classification.
 
@@ -108,7 +108,7 @@ MVP includes:
 - deduplication and canonical storage of normalized source items
 - sanitized text generation for downstream classification
 - initial classification pipeline
-- human review workflow
+- curation and review workflows
 - publish export for approved content
 - static site consumption of publish outputs
 
@@ -130,8 +130,8 @@ This does not mean `edit` is optional as a product capability. It means only tha
 The MVP is successful when:
 
 - ingest runs reliably enough to keep source coverage current
-- classification reduces human review burden without destroying topic precision
-- reviewers can inspect and decide on pending content with clear provenance
+- classification reduces human curation and review burden without destroying topic precision
+- reviewers and operators can inspect and decide on pending content with clear provenance
 - the public site only depends on approved publish outputs
 - raw-versus-sanitized handling is explicit and no longer ambiguous in contracts
 - storage growth remains governable through retention policy rather than accidental bloat
@@ -164,6 +164,6 @@ The system is not intended to be:
 ## 10. Deferred Product Questions
 
 - when, if ever, full-page retrieval becomes a common shared capability
-- when `edit` should become an independently executable module instead of remaining a review-adjacent workflow for a short period
+- when `edit` should become an independently executable module instead of remaining a curation-adjacent workflow for a short period
 - what retention window is best for raw input in early production
 - whether certain sources deserve custom sanitization rules

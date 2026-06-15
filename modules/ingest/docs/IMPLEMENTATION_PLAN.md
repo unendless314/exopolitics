@@ -36,7 +36,7 @@ The following requirements are already locked by active documentation and must b
 ### 3.1 Module boundary
 
 - `ingest` owns source configuration interpretation, fetching, normalization, deduplication, sanitization, raw-retention handling, source health tracking, and fetch execution records
-- `ingest` does not own classification, review, publish formatting, or site rendering
+- `ingest` does not own classification, curate, publish formatting, or site rendering
 
 ### 3.2 Canonical storage separation
 
@@ -61,7 +61,7 @@ The first migration must not include:
 
 - cleanup audit tables
 - cleanup execution tables beyond the retention metadata already defined on `source_item_raw`
-- classify, review, publish, or site tables
+- classify, curate, publish, or site tables
 
 ### 3.4 Storage rules that must be honored
 
@@ -267,7 +267,7 @@ The following work should not be part of the first implementation pass:
 - `export-report` CLI command
 - static HTML side-by-side report generation
 - JSON output modes that are not required for MVP operation
-- classify, review, publish, or site functionality
+- classify, curate, publish, or site functionality
 
 These items may become useful later, but they should not slow or blur the first ingest rebuild.
 

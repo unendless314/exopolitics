@@ -407,7 +407,7 @@ Default ingest write path should support:
 Default downstream read path should support:
 
 - `classify` reads `source_item.title`, selected metadata, and `source_item_text.sanitized_text`
-- `review` reads `source_item`, `source_item_text`, classification output, and optionally `source_item_raw`
+- `curate` reads `source_item`, `source_item_text`, classification output, and optionally `source_item_raw`
 - no downstream module should need to infer working text from raw payload fields
 
 ---

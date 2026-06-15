@@ -65,7 +65,7 @@ Owns:
 - pending queue selection for unclassified items
 - topic classification results
 - classification rationale and confidence
-- machine-generated descriptive signals for downstream review triage
+- machine-generated descriptive signals for downstream curation triage
 
 May read:
 
@@ -85,14 +85,14 @@ Important boundary:
 
 - `classify` reads sanitized working text, not ambiguous raw summary fields
 
-### 3.3 `review`
+### 3.3 `curate`
 
 Owns:
 
-- review queue behavior
+- curation queue behavior
 - approval, rejection, deletion, and downstream action selection under editorial policy
 - queue aging and SLA policy
-- final human responsibility over public exposure
+- editorial curation over public exposure
 
 May read:
 
@@ -155,7 +155,7 @@ May read:
 Must not own:
 
 - canonical database writes
-- review state changes
+- curation state changes
 - feed or classification configuration
 
 ---
@@ -182,6 +182,6 @@ Until then, avoid inventing heavyweight shared systems too early.
 
 - `ingest` owns sanitization of feed input into downstream working text
 - `classify` owns classification, not text cleanup
-- `review` owns final public decision-making
+- `curate` owns curation decision-making
 - `publish` owns export shape
 - `site` is a pure downstream consumer

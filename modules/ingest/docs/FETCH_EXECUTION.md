@@ -114,7 +114,7 @@ Observability note:
 Fetch execution does not own:
 
 - classification retry policy
-- review queue behavior
+- curation queue behavior
 - edit workflow behavior
 - publish formatting
 

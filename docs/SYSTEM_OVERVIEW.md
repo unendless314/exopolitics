@@ -27,7 +27,7 @@ External Feed Sources
   -> ingest
   -> canonical storage
   -> classify
-  -> review
+  -> curate
   -> publish
   -> site
 ```
@@ -35,9 +35,9 @@ External Feed Sources
 Recognized workflow branch:
 
 ```text
-review
+curate
   -> edit workflow
-  -> review
+  -> human review
 ```
 
 ---
@@ -60,7 +60,7 @@ Canonical storage exists to keep the durable system record for:
 - sanitized working text
 - source health and ingest execution metadata
 - classification outputs
-- review decisions
+- curation decisions
 - site-owned edit records when introduced into the workflow
 - publishable content references
 
@@ -82,7 +82,7 @@ The rewritten system recognizes at least three important content representations
 ### 5.2 Sanitized Working Representation
 
 - cleaned text derived from raw feed content
-- intended for classification and downstream review support
+- intended for classification and downstream curation support
 - must be contractually defined and predictable
 
 ### 5.3 Publish Representation
@@ -113,15 +113,15 @@ Owns:
 - pending item selection
 - initial topic classification
 - confidence and rationale persistence
-- generating descriptive signals (descriptors) for downstream review triage
+- generating descriptive signals (descriptors) for downstream curation triage
 
-### 6.3 `review`
+### 6.3 `curate`
 
 Owns:
 
-- approval, rejection, and editorial action decisions
-- queue governance
-- final human responsibility over public exposure
+- curation decisions (approval, rejection, and editorial action decisions)
+- curation queue governance
+- editorial curation over public exposure
 
 ### 6.4 `publish`
 
@@ -169,4 +169,4 @@ This document does not lock:
 - exact retention durations
 - exact sanitization algorithm details
 - CLI command layout
-- review UI design
+- curation UI design

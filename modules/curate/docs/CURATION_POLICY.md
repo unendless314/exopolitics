@@ -1,4 +1,4 @@
-# Review Policy
+# Curation Policy
 
 **Document version:** v1.3  
 **Updated:** 2026-06-15  
@@ -8,19 +8,19 @@
 
 ## 1. Purpose
 
-The `review` module acts as the editorial quality gate. Since classification is performed by a broad relevance filter (`core`/`adjacent`), many classified items may still contain noise, duplicates, low content density, or speculative clickbait. 
+The `curate` module acts as the editorial quality gate. Since classification is performed by a broad relevance filter (`core`/`adjacent`), many classified items may still contain noise, duplicates, low content density, or speculative clickbait. 
 
-This document defines the strict editorial policy rules that the automated reviewer (LLM) must follow when evaluating classified items.
+This document defines the strict editorial policy rules that the automated curation engine (LLM) must follow when evaluating classified items.
 
 ---
 
-## 2. Review Criteria
+## 2. Curation Criteria
 
-Every item is evaluated against five main criteria to determine its review status and downstream action:
+Every item is evaluated against five main criteria to determine its curation status and downstream action:
 
 ### 2.1 Relevance Validation
 * Re-validate the upstream classification. 
-* If the upstream module misclassified an item (e.g. general technology news classified as `adjacent`), the reviewer must downgrade the decision to `rejected` and set `downstream_action = 'reject_discard'`.
+* If the upstream module misclassified an item (e.g. general technology news classified as `adjacent`), the curation engine must downgrade the decision to `rejected` and set `downstream_action = 'reject_discard'`.
 
 ### 2.2 Evidence Density & Quality
 * Evaluate the level of evidence claimed. 
@@ -29,13 +29,13 @@ Every item is evaluated against five main criteria to determine its review statu
 
 ### 2.3 Tone & Sensationalism
 * **Sensationalism Filter:** Reject extreme clickbait, apocalyptic predictions, or articles with highly alarmist or non-neutral tone.
-* **Display Title Sanitization:** The reviewer must rewrite the display title to be calm, de-sensationalized, and factual. For example:
+* **Display Title Sanitization:** The curation engine must rewrite the display title to be calm, de-sensationalized, and factual. For example:
   * *Raw Title:* "UFO ALERT!! Pentagon whistleblowers REVEAL terrifying space portal over military base!"
   * *Display Title:* "Pentagon Whistleblower Discloses Alleged Anomalous Event Above Base Location"
 
 ### 2.4 Duplicate & Redundancy Check
 * While database-level deduplication catches exact matches, different feeds often publish slightly rephrased versions of the same press release.
-* The reviewer must reject items that offer zero new information or context beyond already widely published events.
+* The curation engine must reject items that offer zero new information or context beyond already widely published events.
 
 ### 2.5 Text Extraction Quality
 * Items with corrupted text, dominating paywall blocks ("Subscribe now to read..."), or generic JavaScript warning notifications are rejected or marked as `failed` if a scraping retry is appropriate.
@@ -44,7 +44,7 @@ Every item is evaluated against five main criteria to determine its review statu
 
 ## 3. Downstream Routing Rules
 
-The reviewer must choose exactly one of four routing outcomes based on these policies:
+The curation engine must choose exactly one of four routing outcomes based on these policies:
 
 ```mermaid
 graph TD
@@ -84,18 +84,18 @@ graph TD
 * **Action:** Reject.
 * **Required Content:**
   * **An `editor_brief` is required** to explain the rewrite goals, target formats (representing the *intended final publication format* to rewrite into, e.g., `'link_card'` or `'structured_summary'`), risk flags, and tone guidance.
-  * **No public-facing output (review_output MUST be returned as null).**
+  * **No public-facing output (curation_output MUST be returned as null).**
 
 ### 3.4 `reject_discard` (Hard Reject / Trash Mode)
 * **Target:** Irrelevant items, severe clickbait, general speculative opinion pieces, duplicate news stories, or heavily broken text extractions.
 * **Action:** Reject.
 * **Required Content:**
   * A clear `decision_reason` (e.g., `'duplicate'`, `'low_quality'`, `'opinionated'`).
-  * **No editor_brief and no review_output (both MUST be returned as null).**
+  * **No editor_brief and no curation_output (both MUST be returned as null).**
 
 ---
 
 ## 4. Operational Safety Guidelines
 
-* **Neutrality:** The automated reviewer must never adopt a subjective stance on UAP reality. It must evaluate text strictly on whether it presents verifiable evidence, policy developments, or institutional data in a professional tone.
-* **No Speculative Excerpts:** When generating the short summary or display title, the reviewer must not include unverified claims as absolute facts; instead, use attribution language (e.g., "The report claims...", "Whistleblowers allege...").
+* **Neutrality:** The automated curation engine must never adopt a subjective stance on UAP reality. It must evaluate text strictly on whether it presents verifiable evidence, policy developments, or institutional data in a professional tone.
+* **No Speculative Excerpts:** When generating the short summary or display title, the curation engine must not include unverified claims as absolute facts; instead, use attribution language (e.g., "The report claims...", "Whistleblowers allege...").

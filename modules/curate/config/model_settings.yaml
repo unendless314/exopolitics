@@ -1,0 +1,33 @@
+# Active provider and prompt selection for the curate module.
+active_provider: mini-proxy
+active_prompt_template: curator_v1
+
+# Request behavior shared across providers.
+request_defaults:
+  temperature: 0.2
+  top_p: 0.95
+  max_output_tokens: 2048
+
+# Execution controls owned by the curate module.
+execution_policy:
+  batch_size: 20
+  max_concurrent_requests: 3
+  rate_limit_per_minute: 60
+  request_timeout_seconds: 60.0
+  retry_attempts: 3
+  backoff_factor: 2.0
+
+# Provider registry.
+providers:
+  openai:
+    api_type: openai
+    api_key_env: OPENAI_API_KEY
+    model_name: gpt-5.4-mini
+    supports_structured_output: true
+
+  mini-proxy:
+    api_type: openai_compatible
+    api_base: https://mini-proxy.noeticseeker.com/v1
+    api_key_env: MINI_API_KEY
+    model_name: gpt-5.4-mini
+    supports_structured_output: false

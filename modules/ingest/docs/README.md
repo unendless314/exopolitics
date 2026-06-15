@@ -23,6 +23,6 @@ Read order:
 Scope note:
 
 - `ingest` owns the transition from raw feed input to sanitized working text
-- `ingest` does not own classification, review, publish formatting, or site rendering
+- `ingest` does not own classification, curate, publish formatting, or site rendering
 - `ingest` does not filter out old/historical items by date; all fetched unique items are stored. Downstream time-filtering responsibilities are governed by the top-level [DATA_LIFECYCLE.md](file:///C:/Users/user/Documents/derived-work/docs/DATA_LIFECYCLE.md#11-temporal-policy-and-historical-data) policy.
 

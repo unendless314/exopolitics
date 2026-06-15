@@ -10,7 +10,7 @@
 This document defines how `ingest` turns raw feed input into sanitized working text.
 
 The purpose of sanitization is not to create publish-ready prose.
-The purpose is to create a predictable downstream working representation for classification and review support.
+The purpose is to create a predictable downstream working representation for classification and curation support.
 
 ---
 

@@ -1,4 +1,4 @@
-# Reviewer Prompt Contract
+# Curation Prompt Contract
 
 **Document version:** v1.5  
 **Updated:** 2026-06-15  
@@ -8,7 +8,7 @@
 
 ## 1. Purpose
 
-This document defines the interface contract between the `review` orchestrator and the LLM provider (Gemini).
+This document defines the interface contract between the `curate` orchestrator and the LLM provider (Gemini).
 
 To maximize performance, efficiency, and cost-effectiveness, the triage decision, editor brief analysis, and final publishable outputs are generated in **a single, structured LLM API call** per item.
 
@@ -38,10 +38,10 @@ The model is expected to return a valid JSON object matching the following struc
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "review_decision": {
+    "curation_decision": {
       "type": "object",
       "properties": {
-        "review_status": {
+        "curate_status": {
           "type": "string",
           "enum": ["approved", "rejected"]
         },
@@ -54,7 +54,7 @@ The model is expected to return a valid JSON object matching the following struc
           "maxLength": 200
         }
       },
-      "required": ["review_status", "downstream_action", "decision_reason"]
+      "required": ["curate_status", "downstream_action", "decision_reason"]
     },
     "editor_brief": {
       "type": ["object", "null"],
@@ -87,7 +87,7 @@ The model is expected to return a valid JSON object matching the following struc
       },
       "required": ["brief_goal", "target_format", "risk_flags", "tone_guidance"]
     },
-    "review_output": {
+    "curation_output": {
       "type": ["object", "null"],
       "properties": {
         "display_title": {
@@ -118,13 +118,13 @@ The model is expected to return a valid JSON object matching the following struc
       "required": ["display_title", "summary_short"]
     }
   },
-  "required": ["review_decision", "editor_brief", "review_output"]
+  "required": ["curation_decision", "editor_brief", "curation_output"]
 }
 ```
 
 ---
 
-## 4. Prompt Template (`reviewer_v1`)
+## 4. Prompt Template (`curator_v1`)
 
 ### System Instruction
 ```text
@@ -133,29 +133,29 @@ You are an expert UAP/UFO research editor. Your job is to review the title and s
 You MUST enforce a strict quality control policy.
 
 Triage & Routing Rules:
-1. If the item is irrelevant, speculative opinion without verified sources, clickbait, duplicate, or severely broken text extraction, set review_status to 'rejected'.
+1. If the item is irrelevant, speculative opinion without verified sources, clickbait, duplicate, or severely broken text extraction, set curate_status to 'rejected'.
 2. If the text has no value and should be discarded, set downstream_action = 'reject_discard'.
 3. If the text has value but is poorly written, requires substantial editing/fact-checking, or needs human rewrite, set downstream_action = 'edit_rewrite'.
-4. If approved (review_status = 'approved'), choose downstream_action:
+4. If approved (curate_status = 'approved'), choose downstream_action:
    - publish_link: Use for short updates, event announcements, conference links, or brief video uploads.
    - publish_summary: Use for long-form reporting, congressional statements, declassified reports, or scientific papers.
 
 Conditional Output Requirements:
 - For downstream_action = 'reject_discard':
-  - Both 'editor_brief' and 'review_output' MUST be returned as null.
+  - Both 'editor_brief' and 'curation_output' MUST be returned as null.
 - For downstream_action = 'edit_rewrite':
   - 'editor_brief' MUST be a valid object (with brief_goal, target_format representing the intended rewrite goal format, tone_guidance, etc.).
-  - 'review_output' MUST be returned as null.
+  - 'curation_output' MUST be returned as null.
 - For downstream_action IN ('publish_link', 'publish_summary'):
-  - Both 'editor_brief' and 'review_output' MUST be valid objects.
+  - Both 'editor_brief' and 'curation_output' MUST be valid objects.
   
 Drafting Guidelines (when output is not null):
-- review_decision.decision_reason: Write a concise reason for the routing decision (maximum 200 characters).
+- curation_decision.decision_reason: Write a concise reason for the routing decision (maximum 200 characters).
   - For publish_link / publish_summary: Write a brief approval justification (e.g. 'official_announcement', 'high_evidence_report', 'scientific_preprint').
   - For edit_rewrite: Write the reason editing is needed (e.g. 'needs_rewrite_cleanup', 'insufficient_context', 'translation_required').
   - For reject_discard: Write the rejection reason (e.g. 'duplicate', 'low_quality', 'opinionated', 'clickbait').
-- review_output.display_title: Rewrite the raw title to be completely calm, objective, factual, and de-sensationalized (no clickbait words, no exclamation marks, normalized casing, maximum 100 characters).
-- review_output.summary_short: Write a single concise, neutral paragraph (maximum 300 characters) describing the item. For 'publish_link', this serves as a brief excerpt framing the link.
+- curation_output.display_title: Rewrite the raw title to be completely calm, objective, factual, and de-sensationalized (no clickbait words, no exclamation marks, normalized casing, maximum 100 characters).
+- curation_output.summary_short: Write a single concise, neutral paragraph (maximum 300 characters) describing the item. For 'publish_link', this serves as a brief excerpt framing the link.
 - For downstream_action = 'publish_summary':
   - Output exactly three bullet points (bullet_1, bullet_2, bullet_3):
     1. bullet_1 (claim): Describe the primary factual claim (maximum 150 characters).
