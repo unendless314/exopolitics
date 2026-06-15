@@ -1,7 +1,7 @@
 # Curate Data Contract
 
-**Document version:** v1.3  
-**Updated:** 2026-06-15  
+**Document version:** v1.4  
+**Updated:** 2026-06-16  
 **Status:** Planning & Active rewrite draft
 
 ---
@@ -181,3 +181,42 @@ WHERE s.ingest_status = 'ingested'
 ### Key Differences
 * **Retry Safety:** Selecting previous `failed` items with `retry_count < 3` allows transient network or API rate limit errors to be retried automatically.
 * **No Contract Leakage:** `c.additional_signals` is excluded from this query to strictly honor the policy that downstream modules must not rely on experimental schema columns.
+
+---
+
+## 5. Dependency on Upstream Schema Columns
+
+The `curate` module's queue loader reads from the canonical SQLite database. To ensure decoupling, it assumes and depends only on the following specific schema contracts in the upstream tables:
+
+### 5.1 `source_item` (Owned by `ingest`)
+* **`source_item_id`**: `INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT` — Uniquely identifies each item. Used as the foreign key target.
+* **`title`**: `TEXT NOT NULL` — The original raw title.
+* **`canonical_url`**: `TEXT` (Nullable) — The URL to reference.
+* **`ingest_status`**: `TEXT NOT NULL` — Evaluated as `'ingested'` to check suitability.
+
+### 5.2 `source_item_text` (Owned by `ingest`)
+* **`source_item_id`**: `INTEGER NOT NULL UNIQUE` — FK to `source_item(source_item_id)` with `ON DELETE CASCADE`. Guaranteed to have at most one row per source item.
+* **`sanitized_text`**: `TEXT NOT NULL` — The cleaned content text used for LLM prompt context.
+
+### 5.3 `classification_result` (Owned by `classify`)
+* **`source_item_id`**: `INTEGER NOT NULL UNIQUE` — FK to `source_item(source_item_id)` with `ON DELETE CASCADE`. The `curate` queue loader only selects items where a classification result row already exists. Due to the `UNIQUE` key constraint, there is at most one classification result per source item (one-to-one relationship), avoiding duplicate processing entries.
+* **`topic_class`**: `TEXT NOT NULL` — Evaluated as part of routing. Checked for inclusion in `('core', 'adjacent')`.
+* **`governmental_involvement`**: `INTEGER` (Nullable) — Flag (`0` or `1`) passed to the curator model for additional context.
+
+---
+
+## 6. Curation Result Validation Matrix
+
+To ensure data integrity, the system must enforce strict validation constraints between the resolved `downstream_action` and the generated metadata in the database rows. 
+
+| Downstream Action | `curation_decision` Columns | `editor_brief` Status | `curation_output` Status | Bullet Points (`bullet_1`, `2`, `3`) |
+| :--- | :--- | :--- | :--- | :--- |
+| **`publish_link`** | `curate_status = 'approved'` | **MUST exist** | **MUST exist** | **MUST be NULL** |
+| **`publish_summary`** | `curate_status = 'approved'` | **MUST exist** | **MUST exist** | **MUST all be NOT NULL** |
+| **`edit_rewrite`** | `curate_status = 'rejected'` | **MUST exist** | **MUST NOT exist** | N/A (no curation output) |
+| **`reject_discard`** | `curate_status = 'rejected'` | **MUST NOT exist** | **MUST NOT exist** | N/A (no curation output) |
+| **`failed`** (Runner-side) | `curate_status = 'failed'`<br>`downstream_action = NULL` | **MUST NOT exist** | **MUST NOT exist** | N/A (no curation output) |
+
+This validation matrix should be executed programmatically in:
+1. The orchestrator's output schema parser before committing database writes.
+2. The SQLite database schema validation constraints (where applicable) and database unit tests.

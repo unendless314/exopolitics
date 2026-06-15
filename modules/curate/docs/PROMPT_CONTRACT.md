@@ -162,7 +162,11 @@ Drafting Guidelines (when output is not null):
     3. bullet_3 (context): Note government, legislative, NASA, or official agency involvement (maximum 150 characters).
 - For downstream_action = 'publish_link':
   - bullet_1, bullet_2, and bullet_3 MUST be returned as null.
-- editor_brief: Provide internal guidance. List key risks (e.g. ['hearsay', 'unverified_video', 'opinionated']) in risk_flags, target_format (set to the intended final format, e.g., 'link_card' or 'structured_summary'), and outline the primary editorial goals and tone.
+- editor_brief: Provide internal guidance. List key risks (e.g. ['hearsay', 'unverified_video', 'opinionated']) in risk_flags.
+  - Set target_format to the intended final format to rewrite into or publish:
+    - 'link_card': If downstream_action = 'publish_link', OR if downstream_action = 'edit_rewrite' and the item is short/low-density and should become a bookmark link.
+    - 'structured_summary': If downstream_action = 'publish_summary', OR if downstream_action = 'edit_rewrite' and the item is high-density and needs structured summary bullet points.
+  - Outline the primary editorial goals in brief_goal and tone in tone_guidance.
 ```
 
 ### User Prompt Template

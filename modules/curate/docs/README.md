@@ -40,6 +40,8 @@ In this revised MVP rewrite:
 
 * [DATA_CONTRACT.md](file:///C:/Users/user/documents/derived-work/modules/curate/docs/DATA_CONTRACT.md)  
   Defines the database schema for `curation_decision`, `editor_brief`, and `curation_output`, including table indexes, foreign keys, and retry count tracking.
+* [STATE_TRANSITIONS.md](file:///C:/Users/user/documents/derived-work/modules/curate/docs/STATE_TRANSITIONS.md)  
+  Defines curation workflow states, retry loops, transition rules, and re-curation data cleanup side-effects.
 * [CURATION_POLICY.md](file:///C:/Users/user/documents/derived-work/modules/curate/docs/CURATION_POLICY.md)  
   Defines editorial criteria for triage (approval vs. rejection), noise filtering rules, and downstream routing guidelines.
 * [PROMPT_CONTRACT.md](file:///C:/Users/user/documents/derived-work/modules/curate/docs/PROMPT_CONTRACT.md)  
@@ -51,12 +53,23 @@ In this revised MVP rewrite:
 
 ---
 
-## 4. Config Map
+## 4. Configuration Schema Specs
 
-* `modules/curate/config/prompt_templates.yaml`  
-  Stores the active curation prompt templates.
-* `modules/curate/config/model_settings.yaml`  
-  Stores LLM provider model selection, parameters, and batch execution configs.
+The `curate` module uses typed YAML configurations parsed into Pydantic models at runtime.
+
+### 4.1 `model_settings.yaml` Schema
+| Field Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `active_provider` | `string` | **Yes** | Identifier of the active LLM provider in the `providers` map. |
+| `active_prompt_template` | `string` | **Yes** | Identifier of the active template in `prompt_templates.yaml`. |
+| `request_defaults` | `object` | **Yes** | Default settings: `temperature` (float, 0.0-2.0, default 0.2), `top_p` (float, 0.0-1.0, default 0.95), and `max_output_tokens` (integer, default 2048). |
+| `execution_policy` | `object` | **Yes** | Runner settings: `batch_size` (int, default 20), `max_concurrent_requests` (int, default 3), `rate_limit_per_minute` (int, default 60), `request_timeout_seconds` (float, default 60.0), `retry_attempts` (int, default 3), and `backoff_factor` (float, default 2.0). |
+| `providers` | `map` | **Yes** | Map of provider key to settings: `api_type` (openai/openai_compatible), `api_key_env` (env var name), `model_name` (string), `supports_structured_output` (bool, default false), `api_base` (optional URL). |
+
+### 4.2 `prompt_templates.yaml` Schema
+| Field Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `templates` | `map` | **Yes** | Map of template key to configuration. Each template requires `version` (string), `description` (optional string), `system_instruction` (string), and `user_prompt_template` (string). |
 
 ---
 
@@ -85,3 +98,15 @@ Check curation queue status and stats:
 ```text
 python -m modules.curate.src.cli status --db-path data/canonical.db
 ```
+
+### 5.1 Status Output Definition
+The `status` command queries `data/canonical.db` and must print a standardized, formatted summary of the curation queue:
+* **`pending`**: Count of items eligible for curation (source_item status 'ingested', classification topic 'core'/'adjacent', and no curation decision OR status 'failed' with retry_count < 3).
+* **`locked` (Failed permanently)**: Count of items that failed curation and reached `retry_count >= 3`.
+* **`approved`**: Count of approved items, showing a breakdown:
+  * `publish_link` (Bookmark Mode)
+  * `publish_summary` (Full Summary Mode)
+* **`rejected`**: Count of rejected items, showing a breakdown:
+  * `edit_rewrite` (Soft Reject Mode)
+  * `reject_discard` (Hard Reject Mode)
+* **`total_failed_runs`**: Count of items currently in a failed state (both transient failed and permanently locked).

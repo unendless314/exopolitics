@@ -1,7 +1,7 @@
 # Curation Execution Policy
 
-**Document version:** v1.4  
-**Updated:** 2026-06-15  
+**Document version:** v1.5  
+**Updated:** 2026-06-16  
 **Status:** Planning & Active rewrite draft
 
 ---
@@ -24,14 +24,15 @@ This document defines execution controls, transaction boundaries, rate-limiting,
 
 ## 3. Database Transactions & Concurrency
 
-* **Strict Transaction Boundaries:** All database operations (fetching, locking, writing) must run within a strict transaction block using SQLite's `BEGIN IMMEDIATE` to prevent concurrency issues.
-* **Isolation of Writes:** For each item evaluated:
-  * Write the `curation_decision` row. If the item was previously in a `'failed'` state, update the row and preserve or increment the `retry_count` depending on the outcome.
-  * Depending on the resolved `downstream_action`, conditionally write matching records:
-    * For `'publish_link'` and `'publish_summary'`: write matching records to both `editor_brief` and `curation_output` tables.
-    * For `'edit_rewrite'`: write to the `editor_brief` table, and do not write to the `curation_output` table.
-    * For `'reject_discard'`: do not write to either `editor_brief` or `curation_output` tables.
-  * Commit the transaction only when all writes succeed. If any write fails, roll back the transaction for that item.
+* **Multi-Process Runner Lock (SQLite Coordination):** Since SQLite is a local file-based database, running multiple instances of `curate run` in separate processes simultaneously can lead to lock contention and duplicate work. The orchestrator must acquire an exclusive file lock on `data/curate_runner.lock` at start. If the lock is held, the runner must exit with an error.
+* **Internal Concurrency & Semaphore:** Within the single runner process, parallel execution is achieved asynchronously using a task queue. Concurrency is limited by `max_concurrent_requests` (via `asyncio.Semaphore`).
+* **Isolation of Network Calls:** LLM API requests must be performed **outside** of any database transaction. Doing network calls inside a transaction is strictly forbidden as it keeps SQLite write locks active for seconds, blocking other reads/writes.
+* **Granular Database Transactions:** The database transaction must only wrap the final write operations. For each item:
+  1. Acquire an `asyncio.Lock` to serialize SQLite writes within the async loop.
+  2. Start a short transaction block using `BEGIN IMMEDIATE`.
+  3. Write the `curation_decision` row (handling updates/upserts).
+  4. Perform the conditional writes or deletions for `editor_brief` and `curation_output` depending on the resolved `downstream_action` (as defined in the validation matrix and `STATE_TRANSITIONS.md`).
+  5. Commit and release the transaction immediately.
 * **Idempotency:** Re-running the queue must not duplicate rows. The repository must use `ON CONFLICT(source_item_id) DO UPDATE` constraints to ensure safe, repeatable updates.
 
 ---
@@ -39,10 +40,7 @@ This document defines execution controls, transaction boundaries, rate-limiting,
 ## 4. Runner-Side Error Handling & Retry Policies
 
 * **Transient Failures:** Network timeouts, model overload (`503`), rate-limiting (`429`), or JSON parsing failures must not crash the orchestrator execution.
-* **Failed State Persistence:**
-  * When the LLM client or parsing schema validation raises an exception, the runner must trap the exception and persist a `'failed'` status in `curation_decision` for that `source_item_id`.
-  * **Important Downstream Action Value:** When writing a `'failed'` status, the runner must set `downstream_action` to **`NULL`**. This satisfies the database CHECK constraint:
-    `CHECK ((curate_status = 'failed' AND downstream_action IS NULL) OR (curate_status = 'approved' AND downstream_action IN ('publish_link', 'publish_summary')) OR (curate_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard')))`
-  * The runner must write a clear error message or traceback snippet to `decision_reason` and **increment** the `retry_count` by `1` (or set to `1` on first failure).
-  * If an item's `retry_count` reaches `3`, it is locked out of the automatic queue and will no longer be selected, requiring manual intervention or an admin override.
+* **Failed State Persistence (Workflow Scope Boundary):**
+  * **Normal Queue/Failed Item Runs:** When processing pending or failed items, if the LLM client or parsing schema validation raises an exception, the runner must trap the exception, write a `'failed'` status in `curation_decision` for that `source_item_id` (setting `downstream_action` to `NULL` to satisfy the DB constraint), record the error message in `decision_reason`, and increment the `retry_count` by 1. Once `retry_count` reaches 3, the item is locked out of the automatic queue.
+  * **Operator-Forced Re-runs of Completed Items:** If an item is already in a completed state (`approved` or `rejected`) and a manual re-run is forced, any execution failure (e.g. LLM timeout, API exception, parser error) must **not** overwrite the existing successful/rejected status or increment the retry counter. Instead, the runner must rollback the transaction completely, preserving the old curation results unchanged in the database, and log the failure to stderr.
 * **Graceful Backoff:** Implement an exponential backoff delay (e.g. 2s, 4s, 8s) between retries during API execution to respect the provider's rate limits.

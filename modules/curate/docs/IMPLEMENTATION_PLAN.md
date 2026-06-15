@@ -21,7 +21,8 @@ modules/curate/
 │   ├── IMPLEMENTATION_PLAN.md
 │   ├── PROMPT_CONTRACT.md
 │   ├── README.md
-│   └── CURATION_POLICY.md
+│   ├── CURATION_POLICY.md
+│   └── STATE_TRANSITIONS.md
 ├── src/
 │   ├── migrations/
 │   │   └── v001_initial_curate_tables.sql
@@ -82,11 +83,13 @@ The implementation is divided into four main epics:
 ## 3. Testing Strategy
 
 * **Local Mock Databases:** Run tests against a temporary `:memory:` or local SQLite mock DB to ensure cascading deletes (`ON DELETE CASCADE`) and unique constraints work.
+* **State Transition Cleanup Validation:** Unit tests in `tests/test_database.py` must verify that transitioning between downstream actions (e.g., approved -> reject_discard or approved -> edit_rewrite) correctly purges orphaned database rows in `editor_brief` and `curation_output` according to `STATE_TRANSITIONS.md`.
 * **LLM Mocking:** Mock the LLM client call response during orchestrator tests. Ensure the parser handles:
   * Missing bullet points on `publish_link` (bullets should map to `NULL` in the DB, while `summary_short` is properly populated as the excerpt).
   * Incomplete JSON responses (must catch exception, write `failed` status to DB, increment `retry_count` by `1`, and verify `downstream_action` is written as `NULL`).
   * Automatic retries of items with `status = 'failed'` and `retry_count < 3`.
   * Proper exclusion of `additional_signals` from upstream data selection.
+  * Validation matrix enforcement (raises ValidationError on invalid schema state combination).
 
 ---
 
@@ -98,4 +101,5 @@ During planning, the following decisions were resolved:
 3. **Auto-Retry Limit:** Failed items will auto-retry in the queue up to 3 times before locking, preventing infinite loop token waste.
 4. **No Mock Renderers inside Curation:** Downstream rendering is completely out of scope for the `curate` module. Any temporary `publish mock` scripts are documented purely as external validation consumers.
 5. **Summary Short Constraint:** `summary_short` is defined as `NOT NULL` across all presentation outputs. For `publish_link` items, the curator is explicitly instructed to generate a single-sentence excerpt to satisfy this constraint.
-6. **Conditional Table Row Creation:** To optimize token utilization and database semantics, `editor_brief` is required and created if `downstream_action` is `'publish_link'`, `'publish_summary'`, or `'edit_rewrite'`. `curation_output` is required and created if `downstream_action` is `'publish_link'` or `'publish_summary'`. Otherwise, they are omitted. Both are defined as nullable objects in the LLM JSON response schema.
+6. **Conditional Table Row Creation & Validation Matrix:** To optimize token utilization and database semantics, `editor_brief` is required and created if `downstream_action` is `'publish_link'`, `'publish_summary'`, or `'edit_rewrite'`. `curation_output` is required and created if `downstream_action` is `'publish_link'` or `'publish_summary'`. Otherwise, they are omitted. Both are defined as nullable objects in the LLM JSON response schema, and validated programmatically using the Curation Result Validation Matrix.
+7. **SQLite Concurrency and File Locking:** To coordinate execution safely on SQLite, a file-level exclusive lock (`data/curate_runner.lock`) is held by the active orchestrator process. Internal parallelism is handled using a semaphore, and write queries are serialized using an asynchronous lock to keep transactions brief and avoid SQLite write collisions.

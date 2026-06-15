@@ -84,6 +84,9 @@ graph TD
 * **Action:** Reject.
 * **Required Content:**
   * **An `editor_brief` is required** to explain the rewrite goals, target formats (representing the *intended final publication format* to rewrite into, e.g., `'link_card'` or `'structured_summary'`), risk flags, and tone guidance.
+  * **Decision Criteria for `target_format`**:
+    * Set to `'link_card'` if the item is low-density, short, or primarily contains a reference link (e.g. video announcement, short schedule notice) that requires cleaning up but is only suitable for bookmark mode.
+    * Set to `'structured_summary'` if the item is high-density, contains complex or detailed claims/evidence, or represents a full report/transcript that requires human summarization and structured bullet points.
   * **No public-facing output (curation_output MUST be returned as null).**
 
 ### 3.4 `reject_discard` (Hard Reject / Trash Mode)
