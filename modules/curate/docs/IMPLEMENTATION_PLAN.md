@@ -1,7 +1,7 @@
 # Curate Module Implementation Plan
 
-**Document version:** v1.4  
-**Updated:** 2026-06-15  
+**Document version:** v1.5  
+**Updated:** 2026-06-16  
 **Status:** Planning & Active rewrite draft
 
 ---
@@ -64,13 +64,14 @@ The implementation is divided into four main epics:
     * Batch loop logic that locks transactions, runs the curation process, and persists results.
 
 ### Epic 3: CLI Interface
-* **Goal:** Expose commands to run migrations, trigger batch runs, preview prompts, and view stats.
+* **Goal:** Expose commands to run migrations, trigger batch runs, preview prompts, validate configurations, and view stats.
 * **Tasks:**
-  * Create `src/cli.py` using `click` (matching `classify/src/cli.py` style).
-  * Expose commands:
-    * `migrate`: Apply the schema DDL.
-    * `run`: Run automated curation with `--batch-size` and `--preview-prompts` options.
-    * `status`: Print counts of pending, approved, rejected, and failed items.
+   * Create `src/cli.py` using `click` (matching `classify/src/cli.py` style conceptually, implemented using the Click library).
+   * Expose commands:
+     * `validate`: Validate model settings and prompt configurations.
+     * `migrate`: Apply the schema DDL.
+     * `run`: Run automated curation with `--batch-size`, `--preview-prompts`, `--dry-run`, `--source-item-id`, and `--force` options.
+     * `status`: Print counts of pending, approved, rejected, and failed items.
 
 ### Epic 4: Verification & Testing
 * **Goal:** Ensure unit test coverage and validate the pipeline end-to-end.

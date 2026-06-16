@@ -1,7 +1,7 @@
 # Curate Module
 
-**Document version:** v1.3  
-**Updated:** 2026-06-15  
+**Document version:** v1.4  
+**Updated:** 2026-06-16  
 **Status:** Planning & Active rewrite draft
 
 ---
@@ -75,6 +75,12 @@ The `curate` module uses typed YAML configurations parsed into Pydantic models a
 
 ## 5. Minimal CLI Usage
 
+Validate configurations:
+
+```text
+python -m modules.curate.src.cli validate
+```
+
 Run curate database migrations:
 
 ```text
@@ -91,6 +97,12 @@ Run a live curation batch:
 
 ```text
 python -m modules.curate.src.cli run --db-path data/canonical.db --batch-size 20
+```
+
+Curate a specific item (forced re-run of a completed item requires `--force`):
+
+```text
+python -m modules.curate.src.cli run --db-path data/canonical.db --source-item-id 123 --force
 ```
 
 Check curation queue status and stats:

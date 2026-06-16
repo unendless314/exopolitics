@@ -70,7 +70,7 @@ templates:
           "summary_short": "Short summary paragraph",
           "bullet_1": "factual claim or null",
           "bullet_2": "evidence cited or null",
-          "bullet_3": "government entities or null",
+          "bullet_3": "institutional and government involvements or null",
           "source_attribution_note": "translation note or null"
         }}
       }}
