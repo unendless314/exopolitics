@@ -1,7 +1,7 @@
 # Curation Prompt Contract
 
-**Document version:** v1.5  
-**Updated:** 2026-06-15  
+**Document version:** v1.6  
+**Updated:** 2026-06-16  
 **Status:** Planning & Active rewrite draft
 
 ---
@@ -159,7 +159,7 @@ Drafting Guidelines (when output is not null):
   - Output exactly three bullet points (bullet_1, bullet_2, bullet_3):
     1. bullet_1 (claim): Describe the primary factual claim (maximum 200 characters).
     2. bullet_2 (evidence): Detail the evidence level cited (e.g. radar log, eyewitness, official document, NASA report) without judging its truth (maximum 200 characters).
-    3. bullet_3 (context): Note government, legislative, NASA, or official agency involvement (maximum 200 characters).
+    3. bullet_3 (implication): Analyze the objective scientific, political, legal, security, social, or religious implications of this development; do not speculate on unverified sci-fi scenarios (maximum 200 characters).
 - For downstream_action = 'publish_link':
   - bullet_1, bullet_2, and bullet_3 MUST be returned as null.
 - editor_brief: Provide internal guidance. List key risks (e.g. ['hearsay', 'unverified_video', 'opinionated']) in risk_flags.
@@ -201,7 +201,7 @@ Output a valid JSON matching the schema format as below. Ensure display_title, s
     "summary_short": "Short summary paragraph",
     "bullet_1": "factual claim or null",
     "bullet_2": "evidence cited or null",
-    "bullet_3": "government entities or null",
+    "bullet_3": "objective implication of this development or null",
     "source_attribution_note": "translation note or null"
   }
 }

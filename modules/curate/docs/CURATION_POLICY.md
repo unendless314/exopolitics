@@ -1,7 +1,7 @@
 # Curation Policy
 
-**Document version:** v1.3  
-**Updated:** 2026-06-15  
+**Document version:** v1.4  
+**Updated:** 2026-06-16  
 **Status:** Planning & Active rewrite draft
 
 ---
@@ -74,9 +74,9 @@ graph TD
   * A normalized de-sensationalized display title.
   * A concise summary paragraph (persisted under `summary_short`).
   * Exactly three structured bullet points detailing:
-    1. `claim`: The primary UAP/official claim (persisted under `bullet_1`).
-    2. `evidence`: The evidence level cited (persisted under `bullet_2`).
-    3. `context`: The official or congressional entities involved (persisted under `bullet_3`).
+    1. `claim`: The primary factual claim presented by the item (persisted under `bullet_1`).
+    2. `evidence`: The evidence level or source type cited (persisted under `bullet_2`).
+    3. `implication`: The objective scientific, political, legal, security, social, or religious implication of the development (persisted under `bullet_3`).
   * **An `editor_brief` is required** to provide risk flags, target format (set to `'structured_summary'`), and tone guidance.
 
 ### 3.3 `edit_rewrite` (Soft Reject / Request Revision Mode)
