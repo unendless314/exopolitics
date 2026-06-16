@@ -121,33 +121,54 @@ Must not own:
 - source ingest identity
 - public export rules
 - site rendering
+- translation execution
 
-### 3.5 `publish`
+### 3.5 `translate`
 
 Owns:
 
-- selection of approved source-derived records and approved edited records for export
-- publish representation
+- translation of display titles, source attribution notes, and spliced content body markdown
+- content translation versioning and source fingerprint matching
+- language coverage status and quality states (pending, completed, failed, stale)
+- translation LLM orchestration, prompt template loading, and rate limiting
+
+May read:
+
+- curation outputs (e.g., `curation_output`)
+- finalized edited drafts (when human editor revisions are completed)
+
+Must not own:
+
+- editorial curation judgment (whether to publish or rewrite)
+- static exporter layouts or static file folder writing (owned by `publish`)
+
+### 3.6 `publish`
+
+Owns:
+
+- selection of completed translated records for export
+- publish representation and slug generation
 - attribution and disclosure emission
 
 May read:
 
-- approved canonical records
-- source links and provenance data
+- completed translated records (`translation_output`)
+- original source item metadata and canonical URL
 
 Must not own:
 
 - raw data collection
 - classification logic
+- translation LLM orchestration or cost decisions
 - human editorial judgment itself
 
-### 3.6 `site`
+### 3.7 `site`
 
 Owns:
 
 - routes
 - public presentation
-- i18n and SEO concerns
+- UI localization (i18n) and SEO concerns
 
 May read:
 
@@ -184,5 +205,6 @@ Until then, avoid inventing heavyweight shared systems too early.
 - `ingest` owns sanitization of feed input into downstream working text
 - `classify` owns classification, not text cleanup
 - `curate` owns curation decision-making
-- `publish` owns export shape
+- `translate` owns content translation and fingerprinted lifecycle
+- `publish` owns export shape and slug generation
 - `site` is a pure downstream consumer
