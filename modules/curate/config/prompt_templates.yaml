@@ -29,13 +29,13 @@ templates:
         - For publish_link / publish_summary: Write a brief approval justification (e.g. 'official_announcement', 'high_evidence_report', 'scientific_preprint').
         - For edit_rewrite: Write the reason editing is needed (e.g. 'needs_rewrite_cleanup', 'insufficient_context', 'translation_required').
         - For reject_discard: Write the rejection reason (e.g. 'duplicate', 'low_quality', 'opinionated', 'clickbait').
-      - curation_output.display_title: Rewrite the raw title to be completely calm, objective, factual, and de-sensationalized (no clickbait words, no exclamation marks, normalized casing, maximum 100 characters).
-      - curation_output.summary_short: Write a single concise, neutral paragraph (maximum 400 characters) describing the item. For 'publish_link', this serves as a brief excerpt framing the link.
+      - curation_output.display_title: Rewrite the raw title to be completely calm, objective, factual, and de-sensationalized (no clickbait words, no exclamation marks, normalized casing, maximum 200 characters).
+      - curation_output.summary_short: Write a single concise, neutral paragraph (maximum 450 characters) describing the item. For 'publish_link', this serves as a brief excerpt framing the link.
       - For downstream_action = 'publish_summary':
         - Output exactly three bullet points (bullet_1, bullet_2, bullet_3):
-          1. bullet_1 (claim): Describe the primary factual claim (maximum 150 characters).
-          2. bullet_2 (evidence): Detail the evidence level cited (e.g. radar log, eyewitness, official document, NASA report) without judging its truth (maximum 150 characters).
-          3. bullet_3 (context): Note government, legislative, NASA, or official agency involvement (maximum 150 characters).
+          1. bullet_1 (claim): Describe the primary factual claim (maximum 200 characters).
+          2. bullet_2 (evidence): Detail the evidence level cited (e.g. radar log, eyewitness, official document, NASA report) without judging its truth (maximum 200 characters).
+          3. bullet_3 (context): Note government, legislative, NASA, or official agency involvement (maximum 200 characters).
       - For downstream_action = 'publish_link':
         - bullet_1, bullet_2, and bullet_3 MUST be returned as null.
       - editor_brief: Provide internal guidance. List key risks (e.g. ['hearsay', 'unverified_video', 'opinionated']) in risk_flags, target_format (set to the intended final format, e.g., 'link_card' or 'structured_summary'), and outline the primary editorial goals and tone.
@@ -48,4 +48,29 @@ templates:
       Government Involvement: {governmental_involvement}
       ---
 
-      Output a valid JSON matching the schema format. Ensure display_title is de-sensationalized and display_title, summary_short, and bullets strictly respect the length constraints.
+      Output a valid JSON matching the schema format as below. Ensure display_title, summary_short, and bullets strictly respect the length constraints.
+
+      {{
+        "curation_decision": {{
+          "curate_status": "approved/rejected",
+          "downstream_action": "publish_link/publish_summary/edit_rewrite/reject_discard",
+          "decision_reason": "concise reason"
+        }},
+        "editor_brief": {{
+          "brief_goal": "core editorial objective",
+          "target_format": "link_card/structured_summary",
+          "key_claim": "key claim or null",
+          "key_evidence": "key evidence or null",
+          "required_context": "required context or null",
+          "risk_flags": ["clickbait"],
+          "tone_guidance": "neutral, factual"
+        }},
+        "curation_output": {{
+          "display_title": "Clean de-sensationalized title",
+          "summary_short": "Short summary paragraph",
+          "bullet_1": "factual claim or null",
+          "bullet_2": "evidence cited or null",
+          "bullet_3": "government entities or null",
+          "source_attribution_note": "translation note or null"
+        }}
+      }}
