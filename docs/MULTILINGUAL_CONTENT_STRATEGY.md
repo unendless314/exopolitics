@@ -25,13 +25,12 @@
 內容多語翻譯應接在**「最終可發布母稿」**產出之後。處理流程演化如下：
 
 ```text
-                  ┌───> [curation_output] ───┐
-[ingest] ──> [classify] ──> [curate]         ├──> [translate] ──> [publish] ──> [site]
-                               └──> [edit] ──┘
+[ingest] ──> [classify] ──> [curate] ──> [approved_content_record] ──> [translate] ──> [publish] ──> [site]
+                                     \-> [edit] ───────────────────/
 ```
 
-* **上游合約**：`translate` 模組訂閱「已核准發布」的母稿，不論是直接來自 `curate` 或經過 `edit` 人工編修完成後發佈的內容。
-* **下游合約**：`publish` 模組只消費 `translation_output` 中的多語系成品，不直接依賴 `curate` 或 `edit` 的內部欄位結構。
+* **上游合約**：`translate` 模組不直接依賴 `curate` 或 `edit` 的內部狀態，而是讀取統一抽象化的「已核准發布母稿」紀錄（`approved_content_record`）。不論是自動審核通過直接發布，抑或是經過人工編輯定稿發布，皆會統一生成此母稿紀錄。
+* **下游合約**：`publish` 模組只消費 `translation_output` 中的多語系成品，不直接依賴 `approved_content_record` 的內部欄位結構。
 
 ### 2.3 Current Operating Assumption
 The pipeline is designed to remain language-agnostic at the contract level. The current operating assumption may still use Chinese as the primary draft language, but that is an editorial policy choice rather than a fixed architectural requirement.
@@ -66,21 +65,22 @@ The pipeline is designed to remain language-agnostic at the contract level. The 
 
 ## 4. 資料庫合約草案 (`translation_output`)
 
-為維護資料庫完整性，應將 `source_item_id` 與 `language_code` 設為複合唯一鍵。
+為維護資料庫完整性，應將 `parent_content_id` 與 `language_code` 設為複合唯一鍵 `UNIQUE (parent_content_id, language_code)`，用以區分同一個母稿下的多語系翻譯。
 
 | 欄位名稱 | SQLite 類型 | 空值限制 | 說明 |
 | :--- | :--- | :--- | :--- |
 | `translation_output_id` | `INTEGER` | `NOT NULL PRIMARY KEY AUTOINCREMENT` | 流水號主鍵 |
-| `source_item_id` | `INTEGER` | `NOT NULL` | 外鍵，關聯至 `source_item` |
+| `parent_content_id` | `INTEGER` | `NOT NULL` | 外鍵，關聯至 `approved_content_record` (上游發布母稿) |
+| `source_item_id` | `INTEGER` | `NOT NULL` | 外鍵，關聯至 `source_item` (保留對帳與來源追蹤用) |
 | `language_code` | `TEXT` | `NOT NULL` | 語系代碼（`'zh'`, `'en'`, `'ja'` 等） |
 | `display_title` | `TEXT` | `NOT NULL` | 該語系的標題 |
 | `content` | `TEXT` | `NOT NULL` | 該語系的 Markdown 內文（摘要與列表的拼接） |
 | `source_attribution_note`| `TEXT` | `NULL` | 該語系的來源備註 |
-| `source_fingerprint` | `TEXT` | `NOT NULL` | 計算自上游母稿內容的 SHA-256 指紋 |
+| `source_fingerprint` | `TEXT` | `NOT NULL` | 計算自上游母稿內容的 SHA-256 指紋 (偵測內部編輯更新) |
 | `translation_status` | `TEXT` | `NOT NULL` | 品質與生命週期狀態（`'pending'`, `'completed'`, `'failed'`, `'stale'`） |
 | `model_name` | `TEXT` | `NOT NULL` | 所使用的翻譯 LLM 名稱 |
 | `prompt_version` | `TEXT` | `NOT NULL` | 所使用的翻譯 Prompt 版本 |
-| `translated_at` | `TEXT` | `NULL` | 翻譯完成的 UTC 時間戳記（僅在 `completed` 狀態下有值，`pending`/`failed` 時為 `NULL`） |
+| `translated_at` | `TEXT` | `NULL` | 翻譯完成的 UTC 時間戳記（僅在 `completed` 狀態下有值） |
 | `created_at` | `TEXT` | `NOT NULL` | 記錄建立時間 |
 | `updated_at` | `TEXT` | `NOT NULL` | 記錄更新時間 |
 
@@ -94,7 +94,9 @@ The pipeline is designed to remain language-agnostic at the contract level. The 
 2. **主語言優先策略 (Primary-Only Fallback)**：只要主語言（如 `zh`）完成，即可發布；其餘語系若為 `pending`/`stale`，則在該語系頁面下顯示「翻譯中...」或自動 Fallback 回主語言。
 3. **獨立發布策略 (Independent Publish)**：各語系獨立，只輸出已 `completed` 的語系檔案。
 
-**短期實作建議**：採用**「嚴格覆蓋策略」**。這最容易維護，也符合靜態網站建置的一致性。
+**實作決策與演進政策**：
+* **MVP 預設契約**：強制採用**「嚴格覆蓋策略」**，保證發布品質的一致性。
+* **代碼設計彈性 (Config-driven)**：發布策略的判定邏輯應於 `publish` 模組內實作為可配置的規則 (Config-driven)，各語系仍保持獨立的資料庫資料列 (Row)。如此一來，未來調整為 Fallback 或獨立發布時，僅需調整 `publish` 模組的查詢條件與配置，不需重構資料表 schema。
 
 ---
 
@@ -118,5 +120,10 @@ The pipeline is designed to remain language-agnostic at the contract level. The 
    - **優點**：絕對穩定、完全無語言依賴。
    - **缺點**：完全喪失 URL 的 SEO 語意價值。
 
-**MVP 與中長期策略**：
-在短期實作中，我們搭配 **「嚴格覆蓋策略」**，因此 **方案 A（英文標題生成）** 為最優解。未來若升級為「主語言優先策略」，系統將自動 Fallback 至以 `source_item_id` 或主語言拼音作為 Slug 的方案，以避免外語翻譯延遲阻塞主語言發布。
+**MVP 與中長期策略 (Slug 永久凍結規則)**：
+為了極大化 SEO 價值與避免讀者遇到 404 斷鏈，系統強制執行 **「首次發布即永久凍結（First-Publish Freeze）」** 契約：
+1. 當文章首次成功發布時，系統依據當時的英文標題生成 Slug，並將其寫入資料庫中的 `publish_record`（或等價的 frozen slug registry）永久保存。
+2. 後續不論英文標題因重新翻譯、Prompt 調整或人工修訂如何變更，`publish` 模組都必須使用資料庫中已凍結的 Slug，**不得重新生成**。
+3. 若確有更正網址之必要，必須視為特殊運維操作，並由操作者手動設定 301 重導向，系統本身不提供自動更新 Slug 的功能。
+
+在 MVP 中，我們搭配 **「嚴格覆蓋策略」**，因此 **方案 A（首次英文標題生成後凍結）** 為最優解。未來若升級為「主語言優先策略」，系統將自動 Fallback 至以 `source_item_id` 或主語言拼音作為永久 Slug 的方案。

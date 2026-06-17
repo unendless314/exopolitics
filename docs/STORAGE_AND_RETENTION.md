@@ -42,6 +42,7 @@ Examples:
 - fetch execution records
 - classification results
 - curation decisions
+- translated content outputs (to avoid repeated LLM cost)
 - publish records or publish references
 - provenance and disclosure metadata
 
@@ -78,6 +79,7 @@ The rewritten system should keep these categories durably:
 - source fetch state and execution history
 - classification outputs
 - curation decisions and responsibility trail
+- translation outputs, status states, and source fingerprints
 - publish-layer references and disclosure metadata
 
 These are the records that define system behavior and editorial history.
@@ -175,3 +177,4 @@ These metrics often have more long-term value than permanent storage of every ra
 - retention policy is mandatory, not optional
 - cleanup is valid and expected, not a sign of data loss by itself
 - exception retention must exist for special cases
+- translation outputs are stored long-term to prevent costly and redundant LLM API calls

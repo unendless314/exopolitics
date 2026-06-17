@@ -134,8 +134,7 @@ Owns:
 
 May read:
 
-- curation outputs (e.g., `curation_output`)
-- finalized edited drafts (when human editor revisions are completed)
+- approved content records (`approved_content_record`, representing either finalized curation outputs or finalized edited drafts)
 
 Must not own:
 
@@ -147,7 +146,8 @@ Must not own:
 Owns:
 
 - selection of completed translated records for export
-- publish representation and slug generation
+- generation of slug on first publication, which is permanently frozen in canonical storage
+- static multilingual directory structures and export files emission
 - attribution and disclosure emission
 
 May read:
@@ -160,7 +160,7 @@ Must not own:
 - raw data collection
 - classification logic
 - translation LLM orchestration or cost decisions
-- human editorial judgment itself
+- human editorial judgment or content lifecycle state changes (e.g. withdraw decisions)
 
 ### 3.7 `site`
 

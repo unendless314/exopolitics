@@ -87,17 +87,19 @@ Goal:
 
 - align classify with the rewritten ingest contract
 
-### Phase 6: Curation And Publish Planning Refresh
+### Phase 6: Curation, Translation, and Publish Planning Refresh
 
 After ingest and classify contracts stabilize, refresh:
 
 - curation queue contracts
-- publish export contracts
+- translation module contracts and LLM prompt design
+- publish export contracts (multilingual static folders, slug rules, and coverage policies)
 - edit workflow contracts needed for the immediate post-MVP phase
 
 Goal:
 
 - ensure downstream modules inherit the corrected upstream semantics
+- align translation, slug generation, and static JSON output formats with the new multilingual content strategy
 - ensure the post-MVP path to edit-assisted publishing is already aligned with the rewritten core pipeline
 
 ---

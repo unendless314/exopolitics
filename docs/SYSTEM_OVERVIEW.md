@@ -28,6 +28,7 @@ External Feed Sources
   -> canonical storage
   -> classify
   -> curate
+  -> translate
   -> publish
   -> site
 ```
@@ -61,8 +62,9 @@ Canonical storage exists to keep the durable system record for:
 - source health and ingest execution metadata
 - classification outputs
 - curation decisions
-- site-owned edit records when introduced into the workflow
-- publishable content references
+- site-owned edit records and approved content records (`approved_content_record`)
+- translation outputs (`translation_output`), metadata (status, fingerprints), and frozen slugs
+- publishable content references and metadata
 
 Canonical storage is not required to retain every raw payload forever.
 Retention policy is a separate concern from canonical identity.
@@ -71,7 +73,7 @@ Retention policy is a separate concern from canonical identity.
 
 ## 5. Representation Layers
 
-The rewritten system recognizes at least three important content representations:
+The rewritten system recognizes at least four important content representations:
 
 ### 5.1 Raw Feed Representation
 
@@ -85,10 +87,16 @@ The rewritten system recognizes at least three important content representations
 - intended for classification and downstream curation support
 - must be contractually defined and predictable
 
-### 5.3 Publish Representation
+### 5.3 Translation Representation
 
-- approved outputs prepared for public consumption
-- derived from canonical records
+- spliced and translated content (display titles, markdown body, and source notes) for each language code
+- kept in canonical storage, mapping to the upstream approved content fingerprint
+- cached long-term to avoid redundant LLM API costs
+
+### 5.4 Publish Representation
+
+- approved outputs prepared for public consumption in static file form (multilingual folders, index, feeds)
+- derived from canonical records using a unified frozen slug lookup
 - optimized for site rendering rather than operational workflow
 
 ---
@@ -123,15 +131,7 @@ Owns:
 - curation queue governance
 - editorial curation over public exposure
 
-### 6.4 `publish`
-
-Owns:
-
-- selecting approved source-derived records and approved edited records for export
-- generating publish-layer outputs
-- preserving attribution and disclosure in exported form
-
-### 6.5 `edit`
+### 6.4 `edit`
 
 Owns when active in the workflow:
 
@@ -139,11 +139,29 @@ Owns when active in the workflow:
 - source linking for edited content
 - edit-specific provenance and responsibility metadata
 
-### 6.6 `site`
+### 6.5 `translate`
+
+Owns:
+
+- translation of display titles, source attribution notes, and spliced content body markdown
+- content translation versioning and source fingerprint matching
+- language coverage status and quality states (pending, completed, failed, stale)
+- translation LLM orchestration, prompt template loading, and rate limiting
+
+### 6.6 `publish`
+
+Owns:
+
+- selecting completed translated records (`translation_output`) for export
+- generating publish-layer outputs (e.g., static multilingual directory structure)
+- preserving attribution, disclosure, and unified slug generation
+
+### 6.7 `site`
 
 Owns:
 
 - public presentation
+- UI localization (i18n) and SEO concerns
 - routing and page generation
 - static rendering concerns
 

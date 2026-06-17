@@ -46,7 +46,9 @@ The rewritten system must recognize at least these canonical entity families:
 6. classification result
 7. curation decision
 8. edit-owned draft or edited content when that workflow is active
-9. publishable record or publish reference
+9. approved content record (representing the finalized publication mother-draft)
+10. translation output
+11. publishable record or publish reference
 
 The list above is a logical contract, not a requirement that every family live in a single table.
 
@@ -201,13 +203,56 @@ Ownership:
 - written by `edit`
 - readable by human review and `publish`
 
-### 4.9 Publishable Record Or Publish Reference
+### 4.9 Approved Content Record
+
+This entity family represents the finalized publication mother-draft ready for translation and public static export. It is the single canonical entity representing the publishable state; both curate and edit write to this exact same schema structure.
+
+Minimum semantic contents:
+
+- stable link to the source item record (`source_item_id`)
+- display title (finalized title, either directly approved from curation or edited by human operators)
+- content body (finalized Markdown body, spliced from curation outputs or edited by human operators)
+- source attribution notes (finalized attribution notes)
+- content fingerprint (`content_fingerprint`) representing the SHA-256 hash of the title, body, and notes
+- approved timestamp
+- author/editor metadata (identifying the responsible user or system configuration version)
+
+Ownership:
+
+- written by `curate` (for direct automated curation approvals) or `edit` (for manual editorial定稿)
+- readable by `translate`
+
+### 4.10 Translation Output
+
+This entity family represents the translated content ready for publication.
+
+Minimum semantic contents:
+
+- stable link to the approved content record (`parent_content_id`)
+- stable link to the source item record (`source_item_id`) for grouping
+- language identifier (`language_code`)
+- target language display title (`display_title`)
+- target language content (spliced Markdown body text)
+- target language source attribution notes (`source_attribution_note`)
+- source fingerprint (`source_fingerprint`) used for change detection and cache validation
+- quality/progress state (`translation_status`)
+- LLM runtime configuration (`model_name`, `prompt_version`)
+- timing fields (`translated_at`, `created_at`, `updated_at`)
+
+Ownership:
+
+- written by `translate`
+- readable by `publish`
+
+### 4.11 Publishable Record Or Publish Reference
 
 This entity family represents the approved output selected for export.
 
 Minimum semantic contents:
 
-- approved canonical source reference
+- approved canonical source reference (`source_item_id`)
+- approved content record reference (`parent_content_id`)
+- permanently frozen URL slug (`slug`), generated upon first publication
 - export-ready provenance and disclosure fields
 - publish-layer record identity or reference
 
@@ -220,16 +265,19 @@ Ownership:
 
 ## 5. Representation Boundaries
 
-The top-level canonical model recognizes three non-interchangeable content representations:
+The top-level canonical model recognizes four non-interchangeable content representations:
 
 1. raw retained evidence
 2. sanitized working text
-3. publish representation
+3. translation representation (spliced multi-lingual database structure)
+4. publish representation (static multilingual JSON directories, indexes, and feeds)
 
 Boundary rules:
 
 - `classify` reads sanitized working text, not raw retained evidence by default
 - `curate` may inspect sanitized working text by default and raw retained evidence only when needed
+- `translate` reads approved content records (`approved_content_record`), and writes translation outputs
+- `publish` reads completed translation outputs only
 - `site` reads publish-layer outputs only
 - cleanup of raw retained evidence must not invalidate the source item record or sanitized working text record
 
@@ -239,16 +287,22 @@ Boundary rules:
 
 - `ingest` owns source item identity, sanitized working text, raw retained evidence, source state, fetch history, and dedup state
 - `classify` owns classification result
-- `curate` owns curation decision
-- `edit` owns edited content records when active in workflow
-- `publish` owns publish-layer records or references
+- `curate` owns curation decision, and writes approved content records (when editing is bypassed)
+- `edit` owns edited content records, and writes approved content records (when editing is finalized)
+- `translate` owns translation output, quality states, and source content fingerprinting
+- `publish` owns publish-layer records or references (and manages frozen slug registry)
 - `site` does not own canonical database writes
 
 ---
 
 ## 7. Decisions Locked By This Contract
 
-- the canonical model separates source identity, sanitized working text, and raw retained evidence
+- the canonical model separates source identity, sanitized working text, raw retained evidence, and translation outputs
 - `ingest` is responsible for creating the sanitized working representation before classification
 - downstream modules must not reinterpret ambiguous feed summary fields as canonical working text
+- translation outputs must separate language-specific representations from curation and edit schemas
+- `approved_content_record` is the single canonical entity representing the publishable mother-draft; both `curate` and `edit` write to this exact same schema, and downstream modules read exclusively from it
+- translation outputs must point to the unified `approved_content_record` instead of the raw `source_item_id` to prevent update drift
+- `approved_content_record.content_fingerprint` is the canonical fingerprint representing the mother-draft state; `translate` stores and compares against this to determine staleness
+- URL slug generation occurs on first successful publication and is permanently frozen in canonical storage to prevent broken links
 - top-level docs lock entity families and ownership, while module docs lock implementation-facing schema details

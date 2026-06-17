@@ -88,7 +88,7 @@ The system must distinguish between:
 
 - raw feed input
 - sanitized downstream text
-- curation, edit, review, and publish decisions
+- curation, edit, review, translation, and publish decisions
 
 This distinction exists because raw feed metadata is often noisy, HTML-heavy, and unsuitable for direct downstream classification.
 
@@ -109,7 +109,7 @@ MVP includes:
 - sanitized text generation for downstream classification
 - initial classification pipeline
 - curation, edit, and review workflows
-- publish export for approved content
+- translate and publish export for approved content
 - static site consumption of publish outputs
 
 MVP does not require:

@@ -38,7 +38,9 @@ raw feed item
   -> normalized ingest item
   -> sanitized working text
   -> classification result
-  -> curation decision
+  -> curation decision (approved)
+  -> approved content record (finalized mother-draft)
+  -> translation output (completed translated records)
   -> publish export
   -> site rendering
 ```
@@ -47,8 +49,9 @@ Recognized branch:
 
 ```text
 curation decision
-  -> edit workflow
-  -> human review decision
+  -> edit workflow (human editorial draft / revision)
+  -> approved content record (finalized mother-draft)
+  -> translation output (completed translated records)
 ```
 
 ---
@@ -152,43 +155,61 @@ Curation is also where queue aging and SLA governance belong.
 
 ---
 
-## 8. Publish Lifecycle
+## 8. Translation Lifecycle
 
-Approved canonical records move into a publish representation.
+Translation consumes finalized mother-drafts (`approved_content_record`), checks for fingerprint changes, and calls LLMs to produce translated versions.
+
+### 8.1 Input
+Translation reads:
+- `approved_content_record` (representing either direct curation approvals or finalized edited drafts)
+
+### 8.2 Output
+Translation produces:
+- `translation_output` containing display titles, spliced markdown body content, and metadata (source fingerprint, translation status, model name, and prompt version) for each configured language code (e.g., `'zh'`, `'en'`, `'ja'`).
+
+### 8.3 Lifecycle and Invalidation
+- A translation record tracks the parent content via `parent_content_id` and is bound to the content state using `translation_output.source_fingerprint`.
+- Whenever the `translate` runner runs, it compares `translation_output.source_fingerprint` with `approved_content_record.content_fingerprint`.
+- If the fingerprint mismatches (indicating the upstream title or content has changed), the translation status transitions to `stale`, triggering a re-translation.
+- If the translation process encounters an error, the status transitions to `failed` to trigger retries.
+
+---
+
+## 9. Publish Lifecycle
+
+The `publish` module consumes completed translation records (`translation_output` in `completed` status) and exports them into static public assets.
 
 Publish output should:
 
-- be derived from canonical records
+- be derived from `translation_output` records where `translation_status = 'completed'`
+- follow the configured Language Coverage Policy (e.g., Strict Match)
+- generate uniform SEO-friendly URL slugs using English translated titles
 - preserve provenance and disclosure data
 - remain rebuildable if needed
-
-Those canonical records may be either:
-
-- approved source-derived records that are ready for direct aggregation-style publication
-- approved edited records created through the edit workflow
 
 The site must consume publish output, not canonical operational tables directly.
 
 ---
 
-## 9. Rebuild And Deletion Rules
+## 10. Rebuild And Deletion Rules
 
-### 9.1 Rebuildable Layers
+### 10.1 Rebuildable Layers
 
 The following should be rebuildable:
 
 - publish exports
 - site output
 
-### 9.2 Non-Rebuildable Decisions
+### 10.2 Non-Rebuildable Decisions
 
 The following are part of system history and should remain durable unless intentionally deleted under policy:
 
 - ingest records
 - classification outputs
 - curation decisions
+- translation outputs (cached to avoid duplicate LLM API fees)
 
-### 9.3 Retention-Governed Data
+### 10.3 Retention-Governed Data
 
 Raw input belongs to a retention-governed layer.
 
@@ -200,24 +221,26 @@ That means:
 
 ---
 
-## 10. Lifecycle Questions Locked By This Rewrite
+## 11. Lifecycle Questions Locked By This Rewrite
 
 - raw input and sanitized text are separate lifecycle stages
 - sanitized text is created before classification
 - raw cleanup is allowed and expected by default
 - canonical downstream flow must not depend on indefinite raw retention
+- translation is triggered by finalized curation or edit decisions and caches results to avoid redundant LLM cost
+- publish exports only consume completed translation records
 
 ---
 
-## 11. Temporal Policy and Historical Data
+## 12. Temporal Policy and Historical Data
 
-### 11.1 State-Driven Processing Pipeline
+### 12.1 State-Driven Processing Pipeline
 The system processes and stores all fetched items regardless of their publication date (`published_at`). There is no temporal filtering in the upstream ingestion, classification, or curation workflows.
 - **Ingestion**: Ingest fetches all available feed data. De-duplication rules prevent duplicates, but any novel historical item (e.g. published years ago but fetched for the first time) is stored as a valid `source_item`.
 - **Classification**: All newly ingested items are classified using the same content-based rules and LLM models.
 - **Curation**: The curation queue processes all classified items based on state transitions, ensuring historical records are verified and enriched.
 
-### 11.2 Downstream UI-Level Filtering
+### 12.2 Downstream UI-Level Filtering
 The responsibility of managing the user-facing temporal experience is deferred entirely to the downstream **site** (or publish-export) layer:
 - **Breaking/Latest News Feed**: The front page or feed views should filter items by publication date (e.g., displaying only items with `published_at` in the last 7 days).
 - **Search & Archives**: Users can query the complete, curated database containing all historical records.
