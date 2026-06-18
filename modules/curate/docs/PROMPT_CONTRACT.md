@@ -109,10 +109,6 @@ The model is expected to return a valid JSON object matching the following struc
         "bullet_3": {
           "type": ["string", "null"],
           "maxLength": 250
-        },
-        "source_attribution_note": {
-          "type": ["string", "null"],
-          "maxLength": 250
         }
       },
       "required": ["display_title", "summary_short"]
@@ -201,8 +197,7 @@ Output a valid JSON matching the schema format as below. Ensure display_title, s
     "summary_short": "Short summary paragraph",
     "bullet_1": "factual claim or null",
     "bullet_2": "evidence cited or null",
-    "bullet_3": "objective implication of this development or null",
-    "source_attribution_note": "translation note or null"
+    "bullet_3": "objective implication of this development or null"
   }
 }
 ```

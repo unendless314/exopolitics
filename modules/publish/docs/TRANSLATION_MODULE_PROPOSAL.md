@@ -53,7 +53,6 @@
 | `language_code` | `TEXT` | `NOT NULL` | 語系代碼（如 `'zh'`, `'en'`, `'ja'`） |
 | `display_title` | `TEXT` | `NOT NULL` | 該語系去誇張化的文章標題 |
 | `content` | `TEXT` | `NOT NULL` | 該語系的 Markdown 內文（包含摘要與列表） |
-| `source_attribution_note`| `TEXT` | `NULL` | 該語系的來源備註（如 "First reported by..."） |
 | `translated_at` | `TEXT` | `NOT NULL` | 翻譯完成的 UTC 時間戳記 |
 | `created_at` | `TEXT` | `NOT NULL` | 記錄建立時間 |
 

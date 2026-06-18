@@ -143,10 +143,6 @@ JSON_SCHEMA = {
                 "bullet_3": {
                     "type": ["string", "null"],
                     "maxLength": 250
-                },
-                "source_attribution_note": {
-                    "type": ["string", "null"],
-                    "maxLength": 250
                 }
             },
             "required": ["display_title", "summary_short"],

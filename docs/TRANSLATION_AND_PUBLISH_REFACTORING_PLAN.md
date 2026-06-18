@@ -15,7 +15,7 @@
                                      \-> [edit] ───────────────────/
 ```
 
-- **`curate` / `edit`**：產出最終可發布的統一母稿紀錄（`approved_content_record`）。當前營運可選擇以中文作為主語言母稿，但系統管線設計上保留語言彈性，不限於特定語言。
+- **`curate` / `edit`**：分別產出各自擁有的 finalized editorial state。共享的 handoff / assembly capability 會將這些 finalized state 正規化為最終可發布的統一母稿紀錄（`approved_content_record`）。當前營運可選擇以中文作為主語言母稿，但系統管線設計上保留語言彈性，不限於特定語言。
 - **`translate` (翻譯模組)**：讀取上游母稿 `approved_content_record`，進行 Markdown 拼接，生成來源內容指紋，呼叫 LLM 進行外語翻譯，並寫入 `translation_output` 資料表。
 - **`publish` (發布模組)**：讀取已完成翻譯的多語系資料，依據資料庫中已凍結的靜態 Slug 進行檔案輸出，並導出語系資料夾：
   - `data/publish_export/zh/items/<slug>.json`

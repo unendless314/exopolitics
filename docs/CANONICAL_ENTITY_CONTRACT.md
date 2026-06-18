@@ -186,7 +186,7 @@ Minimum semantic contents:
 Ownership:
 
 - written by `curate`
-- readable by `publish`
+- readable by `translate` and `edit`
 
 ### 4.8 Edit-Owned Draft Or Edited Content
 
@@ -201,25 +201,24 @@ Minimum semantic contents:
 Ownership:
 
 - written by `edit`
-- readable by human review and `publish`
+- readable by human review, `publish`, and `translate`
 
 ### 4.9 Approved Content Record
 
-This entity family represents the finalized publication mother-draft ready for translation and public static export. It is the single canonical entity representing the publishable state; both curate and edit write to this exact same schema structure.
+This entity family represents the finalized publication mother-draft ready for translation and public static export. It is the single canonical handoff artifact representing the publishable state, assembled from finalized upstream editorial states.
 
 Minimum semantic contents:
 
 - stable link to the source item record (`source_item_id`)
 - display title (finalized title, either directly approved from curation or edited by human operators)
 - content body (finalized Markdown body, spliced from curation outputs or edited by human operators)
-- source attribution notes (finalized attribution notes)
-- content fingerprint (`content_fingerprint`) representing the SHA-256 hash of the title, body, and notes
+- content fingerprint (`content_fingerprint`) representing the SHA-256 hash of the title and body
 - approved timestamp
 - author/editor metadata (identifying the responsible user or system configuration version)
 
 Ownership:
 
-- written by `curate` (for direct automated curation approvals) or `edit` (for manual editorial定稿)
+- produced from finalized `curate` approvals or finalized `edit` outputs through the shared handoff capability
 - readable by `translate`
 
 ### 4.10 Translation Output
@@ -233,11 +232,10 @@ Minimum semantic contents:
 - language identifier (`language_code`)
 - target language display title (`display_title`)
 - target language content (spliced Markdown body text)
-- target language source attribution notes (`source_attribution_note`)
 - source fingerprint (`source_fingerprint`) used for change detection and cache validation
 - quality/progress state (`translation_status`)
 - LLM runtime configuration (`model_name`, `prompt_version`)
-- timing fields (`translated_at`, `created_at`, `updated_at`)
+- timing fields (`translated_at`, `created_at`)
 
 Ownership:
 
@@ -287,8 +285,9 @@ Boundary rules:
 
 - `ingest` owns source item identity, sanitized working text, raw retained evidence, source state, fetch history, and dedup state
 - `classify` owns classification result
-- `curate` owns curation decision, and writes approved content records (when editing is bypassed)
-- `edit` owns edited content records, and writes approved content records (when editing is finalized)
+- `curate` owns curation decision
+- `edit` owns edited content records
+- the shared handoff capability assembles approved content records from finalized upstream editorial state
 - `translate` owns translation output, quality states, and source content fingerprinting
 - `publish` owns publish-layer records or references (and manages frozen slug registry)
 - `site` does not own canonical database writes
@@ -301,7 +300,7 @@ Boundary rules:
 - `ingest` is responsible for creating the sanitized working representation before classification
 - downstream modules must not reinterpret ambiguous feed summary fields as canonical working text
 - translation outputs must separate language-specific representations from curation and edit schemas
-- `approved_content_record` is the single canonical entity representing the publishable mother-draft; both `curate` and `edit` write to this exact same schema, and downstream modules read exclusively from it
+- `approved_content_record` is the single canonical entity representing the publishable mother-draft; it is assembled from finalized curation or edit outcomes, and downstream modules read from it by pull
 - translation outputs must point to the unified `approved_content_record` instead of the raw `source_item_id` to prevent update drift
 - `approved_content_record.content_fingerprint` is the canonical fingerprint representing the mother-draft state; `translate` stores and compares against this to determine staleness
 - URL slug generation occurs on first successful publication and is permanently frozen in canonical storage to prevent broken links

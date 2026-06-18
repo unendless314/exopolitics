@@ -29,7 +29,7 @@
                                      \-> [edit] ───────────────────/
 ```
 
-* **上游合約**：`translate` 模組不直接依賴 `curate` 或 `edit` 的內部狀態，而是讀取統一抽象化的「已核准發布母稿」紀錄（`approved_content_record`）。不論是自動審核通過直接發布，抑或是經過人工編輯定稿發布，皆會統一生成此母稿紀錄。
+* **上游合約**：`translate` 模組不直接依賴 `curate` 或 `edit` 的內部狀態，而是讀取統一抽象化的「已核准發布母稿」紀錄（`approved_content_record`）。不論是自動審核通過直接發布，抑或是經過人工編輯定稿發布，皆會透過共享的 handoff / assembly capability 統一生成此母稿紀錄。
 * **下游合約**：`publish` 模組只消費 `translation_output` 中的多語系成品，不直接依賴 `approved_content_record` 的內部欄位結構。
 
 ### 2.3 Current Operating Assumption
@@ -75,7 +75,6 @@ The pipeline is designed to remain language-agnostic at the contract level. The 
 | `language_code` | `TEXT` | `NOT NULL` | 語系代碼（`'zh'`, `'en'`, `'ja'` 等） |
 | `display_title` | `TEXT` | `NOT NULL` | 該語系的標題 |
 | `content` | `TEXT` | `NOT NULL` | 該語系的 Markdown 內文（摘要與列表的拼接） |
-| `source_attribution_note`| `TEXT` | `NULL` | 該語系的來源備註 |
 | `source_fingerprint` | `TEXT` | `NOT NULL` | 計算自上游母稿內容的 SHA-256 指紋 (偵測內部編輯更新) |
 | `translation_status` | `TEXT` | `NOT NULL` | 品質與生命週期狀態（`'pending'`, `'completed'`, `'failed'`, `'stale'`） |
 | `model_name` | `TEXT` | `NOT NULL` | 所使用的翻譯 LLM 名稱 |

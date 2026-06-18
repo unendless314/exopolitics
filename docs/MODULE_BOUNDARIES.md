@@ -127,7 +127,7 @@ Must not own:
 
 Owns:
 
-- translation of display titles, source attribution notes, and spliced content body markdown
+- translation of display titles and spliced content body markdown
 - content translation versioning and source fingerprint matching
 - language coverage status and quality states (pending, completed, failed, stale)
 - translation LLM orchestration, prompt template loading, and rate limiting
@@ -139,6 +139,7 @@ May read:
 Must not own:
 
 - editorial curation judgment (whether to publish or rewrite)
+- assembly of finalized upstream editorial states into the canonical mother-draft handoff
 - static exporter layouts or static file folder writing (owned by `publish`)
 
 ### 3.6 `publish`
@@ -189,6 +190,15 @@ Some capabilities may later be shared without becoming formal modules immediatel
 Example candidate:
 
 - external page retrieval or enrichment
+- finalized-content assembly / handoff generation
+
+For the current rewrite, `approved_content_record` is treated as a canonical handoff artifact rather than as a responsibility semantically owned by `curate`, `edit`, or `translate` alone.
+
+Current direction:
+
+- finalized curation approvals and finalized edited drafts are normalized into the same `approved_content_record` contract
+- downstream modules consume that handoff artifact by pull
+- this assembly step is recognized as a shared capability, not yet a formal standalone module
 
 Criteria for becoming shared:
 
@@ -205,6 +215,7 @@ Until then, avoid inventing heavyweight shared systems too early.
 - `ingest` owns sanitization of feed input into downstream working text
 - `classify` owns classification, not text cleanup
 - `curate` owns curation decision-making
+- `approved_content_record` functions as a canonical handoff artifact assembled from finalized upstream editorial states
 - `translate` owns content translation and fingerprinted lifecycle
 - `publish` owns export shape and slug generation
 - `site` is a pure downstream consumer

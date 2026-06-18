@@ -86,7 +86,6 @@ SELECT
     tr.language_code,
     tr.display_title,
     tr.content AS translated_content,
-    tr.source_attribution_note,
     -- English title is fetched to generate slug if needed
     (SELECT display_title FROM translation_output 
      WHERE source_item_id = s.source_item_id AND language_code = 'en') AS en_title,
@@ -126,7 +125,6 @@ Each item gets a dedicated JSON file for deep linking under its corresponding la
   "canonical_url": "https://example.com/al-seckel-epstein-files",
   "downstream_action": "publish_summary",
   "content": "This article reviews references to Al Seckel in released Epstein-related files...\n\n* **Core Claim**: Claim detail...\n* **Evidence Level**: Evidence detail...\n* **Objective Implication**: Implication detail...",
-  "source_attribution_note": null,
   "disclosure_note": "This item is aggregated and summarized by AI, curated by human editors.",
   "original_published_at": "2026-06-16T08:00:00Z",
   "published_at": "2026-06-16T15:00:00Z"

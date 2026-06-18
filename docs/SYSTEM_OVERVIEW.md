@@ -39,6 +39,7 @@ Recognized workflow branch:
 curate
   -> edit workflow
   -> human review
+translate
 ```
 
 ---
@@ -62,7 +63,8 @@ Canonical storage exists to keep the durable system record for:
 - source health and ingest execution metadata
 - classification outputs
 - curation decisions
-- site-owned edit records and approved content records (`approved_content_record`)
+- site-owned edit records
+- approved content records (`approved_content_record`) as canonical handoff artifacts assembled from finalized editorial state
 - translation outputs (`translation_output`), metadata (status, fingerprints), and frozen slugs
 - publishable content references and metadata
 
@@ -91,7 +93,6 @@ The rewritten system recognizes at least four important content representations:
 
 - spliced and translated content (display titles, markdown body, and source notes) for each language code
 - kept in canonical storage, mapping to the upstream approved content fingerprint
-- cached long-term to avoid redundant LLM API costs
 
 ### 5.4 Publish Representation
 
@@ -139,16 +140,23 @@ Owns when active in the workflow:
 - source linking for edited content
 - edit-specific provenance and responsibility metadata
 
-### 6.5 `translate`
+### 6.5 Shared Handoff Capability
+
+The rewrite recognizes one shared capability without promoting it to a formal module yet:
+
+- assembly of finalized curation approvals and finalized edited drafts into a unified `approved_content_record`
+- exposure of that mother-draft as a pull-based downstream handoff
+
+### 6.6 `translate`
 
 Owns:
 
-- translation of display titles, source attribution notes, and spliced content body markdown
+- translation of display titles and spliced content body markdown
 - content translation versioning and source fingerprint matching
 - language coverage status and quality states (pending, completed, failed, stale)
 - translation LLM orchestration, prompt template loading, and rate limiting
 
-### 6.6 `publish`
+### 6.7 `publish`
 
 Owns:
 
@@ -156,7 +164,7 @@ Owns:
 - generating publish-layer outputs (e.g., static multilingual directory structure)
 - preserving attribution, disclosure, and unified slug generation
 
-### 6.7 `site`
+### 6.8 `site`
 
 Owns:
 
@@ -167,19 +175,7 @@ Owns:
 
 ---
 
-## 7. Why The Rewrite Changes The Architecture Direction
-
-The prior planning set treated feed summary fields too loosely.
-
-The rewritten direction makes one explicit correction:
-
-- downstream modules must not rely on an ambiguous text field whose meaning shifts between raw feed summary and cleaned working text
-
-This is not a cosmetic change. It is the architectural fix that allows classification cost, quality, and retention policy to be governed separately.
-
----
-
-## 8. Out Of Scope For This Layer
+## 7. Out Of Scope For This Layer
 
 This document does not lock:
 

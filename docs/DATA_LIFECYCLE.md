@@ -14,7 +14,7 @@ It focuses on:
 - raw input
 - sanitized working text
 - classification outputs
-- curation and publish transitions
+- curation, edit, translation, and publish transitions
 - deletion and rebuild expectations
 
 ---
@@ -25,7 +25,7 @@ The key lifecycle rule is:
 
 - raw input may enter first
 - sanitized text becomes the downstream working form
-- publish outputs are derived from approved canonical records
+- publish outputs are derived from approved and translated canonical records
 
 These are different lifecycle stages, not interchangeable copies of the same field.
 
@@ -149,7 +149,7 @@ Curation consumes classified items and determines whether they should:
 - be approved
 - be rejected
 - be deleted under governance policy
-- enter an edit-oriented workflow before publication
+- enter an edit-oriented workflow before translation
 
 Curation is also where queue aging and SLA governance belong.
 
@@ -207,7 +207,7 @@ The following are part of system history and should remain durable unless intent
 - ingest records
 - classification outputs
 - curation decisions
-- translation outputs (cached to avoid duplicate LLM API fees)
+- translation outputs
 
 ### 10.3 Retention-Governed Data
 
@@ -227,7 +227,8 @@ That means:
 - sanitized text is created before classification
 - raw cleanup is allowed and expected by default
 - canonical downstream flow must not depend on indefinite raw retention
-- translation is triggered by finalized curation or edit decisions and caches results to avoid redundant LLM cost
+- approved content handoff is assembled from finalized curation approvals or finalized edited drafts before downstream processing
+- translation pulls data from `approved_content_record` rather than accepting direct upstream writes into translation-owned storage
 - publish exports only consume completed translation records
 
 ---
@@ -245,4 +246,3 @@ The responsibility of managing the user-facing temporal experience is deferred e
 - **Breaking/Latest News Feed**: The front page or feed views should filter items by publication date (e.g., displaying only items with `published_at` in the last 7 days).
 - **Search & Archives**: Users can query the complete, curated database containing all historical records.
 - **Rationale**: This separates semantic relevance (content evaluation) from transient presentation guidelines (news age), ensuring the system builds a complete historical UAP database without cluttering the homepage UI.
-

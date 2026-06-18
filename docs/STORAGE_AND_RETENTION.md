@@ -42,6 +42,7 @@ Examples:
 - fetch execution records
 - classification results
 - curation decisions
+- approved content handoff records
 - translated content outputs (to avoid repeated LLM cost)
 - publish records or publish references
 - provenance and disclosure metadata
@@ -79,6 +80,7 @@ The rewritten system should keep these categories durably:
 - source fetch state and execution history
 - classification outputs
 - curation decisions and responsibility trail
+- approved content handoff records and mother-draft fingerprints
 - translation outputs, status states, and source fingerprints
 - publish-layer references and disclosure metadata
 

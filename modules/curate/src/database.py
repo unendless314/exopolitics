@@ -276,7 +276,6 @@ class CurationRepository:
             "bullet_1": output_data.get("bullet_1"),
             "bullet_2": output_data.get("bullet_2"),
             "bullet_3": output_data.get("bullet_3"),
-            "source_attribution_note": output_data.get("source_attribution_note"),
             "created_at": output_data.get("created_at", now),
             "updated_at": output_data.get("updated_at", now),
         }
@@ -285,10 +284,10 @@ class CurationRepository:
         cursor.execute("""
             INSERT INTO curation_output (
                 source_item_id, display_title, summary_short, bullet_1, bullet_2,
-                bullet_3, source_attribution_note, created_at, updated_at
+                bullet_3, created_at, updated_at
             ) VALUES (
                 :source_item_id, :display_title, :summary_short, :bullet_1, :bullet_2,
-                :bullet_3, :source_attribution_note, :created_at, :updated_at
+                :bullet_3, :created_at, :updated_at
             )
             ON CONFLICT(source_item_id) DO UPDATE SET
                 display_title = excluded.display_title,
@@ -296,7 +295,6 @@ class CurationRepository:
                 bullet_1 = excluded.bullet_1,
                 bullet_2 = excluded.bullet_2,
                 bullet_3 = excluded.bullet_3,
-                source_attribution_note = excluded.source_attribution_note,
                 updated_at = excluded.updated_at
         """, fields)
         return cursor.lastrowid

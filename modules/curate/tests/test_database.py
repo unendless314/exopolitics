@@ -215,8 +215,7 @@ class TestDatabaseRepository(unittest.TestCase):
                 "summary_short": "Exemplary short summary.",
                 "bullet_1": "Claim text",
                 "bullet_2": "Evidence text",
-                "bullet_3": "Context text",
-                "source_attribution_note": "First report"
+                "bullet_3": "Context text"
             })
 
             cursor.execute("SELECT * FROM curation_output WHERE source_item_id = 10")

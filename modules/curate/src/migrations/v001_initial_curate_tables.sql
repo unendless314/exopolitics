@@ -56,7 +56,6 @@ CREATE TABLE IF NOT EXISTS curation_output (
     bullet_1 TEXT,
     bullet_2 TEXT,
     bullet_3 TEXT,
-    source_attribution_note TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
