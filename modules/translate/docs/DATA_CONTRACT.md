@@ -1,19 +1,40 @@
 # Translate Data Contract
 
-**Document version:** v1.0  
-**Updated:** 2026-06-18  
-**Status:** Active planning & design
+**Document version:** v1.3  
+**Updated:** 2026-06-19  
+**Status:** Locked Contract  
 
-> [!NOTE]
-> Detailed code-level properties documented here represent **current design proposals and working assumptions** to guide the MVP implementation, rather than locked top-level system contracts. In particular, target language sets and concrete storage DDL may evolve as multilingual requirements expand.
+> [!IMPORTANT]
+> **Co-location Disclaimer**: The `approved_content_record` table represents a shared canonical handoff capability (not owned solely by the `translate` module). For implementation simplicity, its schema migrations and assembly helper scripts are temporarily co-located under `modules/translate/`. This co-location does not alter the module boundaries defined in [MODULE_BOUNDARIES.md](file:///C:/Users/user/Documents/derived-work/docs/MODULE_BOUNDARIES.md); `translate` remains a pure downstream consumer of this handoff table.
 
 ---
 
-## 1. Database Contract: `translation_output`
+## 1. Database Contract: `approved_content_record` & `translation_output`
 
-To manage multi-lingual translations and prevent stale caches after edits, the `translate` module writes to the `translation_output` table in `data/canonical.db`.
+To manage multi-lingual translations and prevent stale caches after edits, the repository defines two main tables in `data/canonical.db`.
 
-### 1.1 Table Schema: `translation_output`
+### 1.1 Table Schema: `approved_content_record` (Shared Handoff Artifact - Co-located)
+Stores the finalized publication mother-draft ready for downstream modules. Exactly one row exists per approved source item.
+
+* **Versioning Strategy (MVP)**:
+  - This table only stores the latest canonical mother-draft per `source_item_id`.
+  - Upstream edits or modifications replace/overwrite the existing handoff row (using `ON CONFLICT(source_item_id) DO UPDATE` or `REPLACE`).
+  - Historical versions of the mother-draft are not retained as separate rows. Any upstream modification alters the `content_fingerprint`, which automatically invalidates downstream translations (forcing them to `stale` as detailed in the invalidation policy).
+
+| Field Name | SQLite Type | Nullability | Description / Constraint |
+| :--- | :--- | :--- | :--- |
+| `parent_content_id` | `INTEGER` | `NOT NULL PRIMARY KEY AUTOINCREMENT` | Surrogate primary key. Referenced as FK by downstream tables. |
+| `source_item_id` | `INTEGER` | `NOT NULL UNIQUE` | FK to `source_item(source_item_id) ON DELETE CASCADE`. Ensures 1 mother-draft per item. |
+| `display_title` | `TEXT` | `NOT NULL` | Finalized de-sensationalized title (either direct curation or operator edited). |
+| `content_body` | `TEXT` | `NOT NULL` | Spliced Markdown body text representing the finalized mother-draft content. |
+| `content_fingerprint` | `TEXT` | `NOT NULL` | SHA-256 hash of `display_title` and `content_body` for change detection. |
+| `approved_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp when curation approval or editing was finalized. |
+| `author_metadata` | `TEXT` | `NULL` | JSON string or text identifying the editor or process version responsible. |
+| `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp. |
+| `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp. |
+
+### 1.2 Table Schema: `translation_output` (Translate Module)
+Stores translated outputs grouped by language code and parent draft identifier.
 
 | Field Name | SQLite Type | Nullability | Description / Constraint |
 | :--- | :--- | :--- | :--- |
@@ -21,10 +42,11 @@ To manage multi-lingual translations and prevent stale caches after edits, the `
 | `parent_content_id` | `INTEGER` | `NOT NULL` | FK to `approved_content_record(parent_content_id) ON DELETE CASCADE`. |
 | `source_item_id` | `INTEGER` | `NOT NULL` | FK to `source_item(source_item_id)`. Retained for join queries and auditing. |
 | `language_code` | `TEXT` | `NOT NULL` | The target language code (e.g., `'zh'`, `'en'`, `'ja'`). |
-| `display_title` | `TEXT` | `NOT NULL` | The translated title for the target language. |
-| `content` | `TEXT` | `NOT NULL` | Spliced Markdown body text translated into target language. |
+| `display_title` | `TEXT` | `NULL` | The translated title. Nullable to support initial failure states before first translation success. |
+| `content` | `TEXT` | `NULL` | Spliced Markdown body text. Nullable to support initial failure states before first translation success. |
 | `source_fingerprint` | `TEXT` | `NOT NULL` | The canonical fingerprint copied from the upstream `approved_content_record.content_fingerprint`. |
 | `translation_status` | `TEXT` | `NOT NULL` | Lifecycle state: `'pending'`, `'completed'`, `'failed'`, `'stale'`. |
+| `retry_count` | `INTEGER` | `NOT NULL DEFAULT 0` | Count of failed attempts. Logical lock applies when status='failed' AND retry_count >= 3. |
 | `model_name` | `TEXT` | `NOT NULL` | Name/ID of the LLM used for translation. |
 | `prompt_version` | `TEXT` | `NOT NULL` | Version identifier of the prompt template used. |
 | `translated_at` | `TEXT` | `NULL` | UTC ISO-8601 timestamp when translation was successfully completed. |
@@ -33,42 +55,84 @@ To manage multi-lingual translations and prevent stale caches after edits, the `
 
 - **Unique Constraint**: `UNIQUE (parent_content_id, language_code)` ensures exactly one row exists per language code for each approved mother-draft.
 
-### 1.2 Logical Storage Expectations
+### 1.3 Logical Storage Expectations
 The eventual module migration should preserve these logical requirements:
 
 - `translation_output` remains keyed by `parent_content_id` and `language_code`.
-- `language_code` should not be treated as permanently limited to a fixed three-language set at the contract level.
+- `language_code` should not be treated as permanently limited to a fixed target language set at the contract level.
 - `source_fingerprint` stores the upstream canonical fingerprint copied from `approved_content_record.content_fingerprint`.
-- `translation_status` must support at least `pending`, `completed`, `failed`, and `stale`.
-- The storage layer should support efficient lookup by `(parent_content_id, language_code)` and by translation status.
+- `translation_status` must support at least `pending`, `completed`, `failed`, and `stale`. The physical status column does not include a separate `'locked'` string; locked tasks are represented logically by `translation_status = 'failed'` AND `retry_count >= 3`.
+- The storage layer must support efficient lookup by `(parent_content_id, language_code)` and by translation status.
 
-Concrete SQLite DDL and migration filenames should be finalized alongside the actual module implementation.
+### 1.4 SQLite DDL Migration Specification
+This migration script will reside in `modules/translate/src/migrations/v001_initial_translate_tables.sql`:
+
+```sql
+PRAGMA foreign_keys = ON;
+
+-- 1. approved_content_record (Shared Handoff Capability - Co-located)
+CREATE TABLE IF NOT EXISTS approved_content_record (
+    parent_content_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_item_id INTEGER NOT NULL UNIQUE,
+    display_title TEXT NOT NULL,
+    content_body TEXT NOT NULL,
+    content_fingerprint TEXT NOT NULL,
+    approved_at TEXT NOT NULL,
+    author_metadata TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_approved_content_record_source_item_id 
+    ON approved_content_record(source_item_id);
+
+CREATE INDEX IF NOT EXISTS idx_approved_content_record_fingerprint 
+    ON approved_content_record(content_fingerprint);
+
+-- 2. translation_output (Translate Module)
+CREATE TABLE IF NOT EXISTS translation_output (
+    translation_output_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    parent_content_id INTEGER NOT NULL,
+    source_item_id INTEGER NOT NULL,
+    language_code TEXT NOT NULL,
+    display_title TEXT,
+    content TEXT,
+    source_fingerprint TEXT NOT NULL,
+    translation_status TEXT NOT NULL CHECK (translation_status IN ('pending', 'completed', 'failed', 'stale')),
+    retry_count INTEGER NOT NULL DEFAULT 0 CHECK (retry_count >= 0),
+    model_name TEXT NOT NULL,
+    prompt_version TEXT NOT NULL,
+    translated_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (parent_content_id) REFERENCES approved_content_record (parent_content_id) ON DELETE CASCADE,
+    FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id),
+    UNIQUE (parent_content_id, language_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_translation_output_parent_lang 
+    ON translation_output(parent_content_id, language_code);
+
+CREATE INDEX IF NOT EXISTS idx_translation_output_status 
+    ON translation_output(translation_status);
+```
 
 ---
 
 ## 2. Invalidation and Fingerprinting Policy
 
-To handle editorial changes, prompt upgrades, and LLM parameter shifts without displaying stale translations, the system enforces fingerprinting verification.
+Detailed state transition definitions and cache invalidation matrices are defined in [STATE_TRANSITIONS.md](./STATE_TRANSITIONS.md). 
 
 ### 2.1 Upstream Fingerprint Alignment
 The single source of truth for the mother-draft state version is `approved_content_record.content_fingerprint`. 
-- The `translate` module does not compute its own independent content fingerprint.
 - During processing, `translate` reads the canonical `content_fingerprint` from the upstream `approved_content_record` and stores it directly in the `source_fingerprint` column of `translation_output`.
 
 ### 2.2 Invalidation Conditions
 A translation record is marked as `stale` or undergoes re-execution if:
-1. **Fingerprint Mismatch**: The current `content_fingerprint` in the upstream `approved_content_record` does not match the stored `source_fingerprint` in `translation_output`.
-2. **Configuration Change**: The running config's `model_name` or `prompt_version` differs from the record's values.
+1. **Fingerprint Mismatch**: The current `content_fingerprint` in the upstream `approved_content_record` does not match the stored `source_fingerprint` in `translation_output` (indicating the mother-draft was edited).
+2. **Configuration Change**: The running config's `model_name` or `prompt_version` differs from the record's values (indicating a model update or prompt template change).
 3. **Operator Overrule**: An operator manually triggers a retry, setting the record back to `pending`.
 
-### 2.3 Translation Lifecycle State Matrix
+See [STATE_TRANSITIONS.md](./STATE_TRANSITIONS.md) and [EXECUTION_POLICY.md](./EXECUTION_POLICY.md) for retry details, error behaviors, and workflow constraints.
 
-> [!NOTE]
-> The downstream behavior for the `publish` module described below represents current working assumptions under discussion and is not a formal contract enforced by the `translate` module.
-
-| State (Status) | Description | Downstream `publish` behavior (Working Assumptions) |
-| :--- | :--- | :--- |
-| **`pending`** | Task registered/queued, awaiting LLM translation call. | Excluded from static generation (unless fallback is enabled). |
-| **`completed`** | Translation successfully performed and fingerprints match. | Eligible for static file generation. |
-| **`failed`** | Encountered API timeout, prompt refusal, or schema syntax error. | Excluded from static generation; re-tried in next execution run. |
-| **`stale`** | Upstream mother-draft or translation config changed. | Triggers re-translation. In interim, downstream may fallback or hide. |
