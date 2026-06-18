@@ -26,9 +26,7 @@ templates:
       - curation_decision.decision_reason: Write a concise reason for the routing decision (maximum 200 characters).
         - For publish_link / publish_summary: Write a brief approval justification (e.g. 'official_announcement', 'high_evidence_report', 'scientific_preprint', 'academic_research', 'archival_documentation').
         - For edit_rewrite: Write the reason editing is needed (e.g. 'needs_rewrite_cleanup', 'insufficient_context', 'translation_required').
-        - For reject_discard: Write the rejection reason (e.g. 'duplicate', 'low_quality', 'opinionated', 'clickbait').
-      - curation_output.display_title: Rewrite the raw title to be completely calm, objective, factual, and de-sensationalized (no clickbait words, no exclamation marks, normalized casing, maximum 200 characters).
-      - curation_output.summary_short: Write a single concise, neutral paragraph (maximum 450 characters) describing the item. For 'publish_link', this serves as a brief excerpt framing the link.
+        - For reject_discard: Write the rejection reason (e.g. 'duplicate', 'low_quality', 'opinionated', 'clickbait').      
       - For downstream_action = 'publish_summary':
         - Output exactly three bullet points (bullet_1, bullet_2, bullet_3):
           1. bullet_1 (claim): Describe the primary factual claim (maximum 200 characters).
@@ -36,7 +34,16 @@ templates:
           3. bullet_3 (implication): Analyze the objective scientific, political, legal, security, social, or religious implications of this development; do not speculate on unverified sci-fi scenarios (maximum 200 characters).
       - For downstream_action = 'publish_link':
         - bullet_1, bullet_2, and bullet_3 MUST be returned as null.
-      - editor_brief: Provide internal guidance. List key risks (e.g. ['hearsay', 'unverified_video', 'opinionated']) in risk_flags, target_format (set to the intended final format, e.g., 'link_card' or 'structured_summary'), and outline the primary editorial goals and tone.
+      - editor_brief: Provide internal guidance for downstream editors or rewrite tasks. You must populate the following fields:
+        - brief_goal: Outline the primary editorial objective (e.g., specific instructions for rewriting or verification).
+        - target_format: Set to the intended final format (e.g., 'link_card' or 'structured_summary').
+        - key_claim: Extract the single most critical factual claim made by the source (maximum 200 characters), or null if none.
+        - key_evidence: Detail the specific evidence cited by the source (e.g., official document, radar logs, witness statement; maximum 200 characters), or null if none.
+        - required_context: Describe any critical background information, historical events, dates, or organizational names that the editor must preserve, add, or verify to make the article complete (maximum 200 characters), or null if no critical context is required.
+        - risk_flags: List warning tags (e.g., ['hearsay', 'unverified_video', 'opinionated', 'clickbait']).
+        - tone_guidance: Specify the required editorial tone constraints (e.g., 'neutral, factual').
+      - curation_output.display_title: Rewrite the raw title to be completely calm, objective, factual, and de-sensationalized (no clickbait words, no exclamation marks, normalized casing, maximum 200 characters).
+      - curation_output.summary_short: Write a single concise, neutral paragraph (maximum 450 characters) describing the item. For 'publish_link', this serves as a brief excerpt framing the link.
     user_prompt_template: |
       Item for Editorial Review:
       ---
