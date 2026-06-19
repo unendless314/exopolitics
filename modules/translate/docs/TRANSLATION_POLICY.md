@@ -53,9 +53,11 @@ To maintain consistency in UAP (Unidentified Anomalous Phenomena) and government
 
 1. **Display Title Limits**:
    - English: Maximum 500 characters.
-   - Japanese: Maximum 120 characters (due to information density in double-byte characters).
+   - Japanese & Traditional Chinese: Maximum 120 characters (due to CJK double-byte character density).
+   - *Note: These limits are canonically configured per-language in [model_settings.yaml](../config/model_settings.yaml).*
 2. **Content Length**:
-   - The translated body must remain proportional to the mother-draft. Significant expansion (more than 1.2x of raw character length equivalents) is treated as validation failure.
+   - The translated body must remain proportional to the mother-draft. Significant expansion (more than 1.2x of raw character length equivalents, configured as `content_ratio_limit` in [model_settings.yaml](../config/model_settings.yaml)) is treated as validation failure.
 
 *Note: Any violation of these title length or content length constraints is verified runner-side during validation and will transition the task status to `'failed'` (incrementing `retry_count`) as defined in [EXECUTION_POLICY.md](./EXECUTION_POLICY.md#5-runner-side-content-validation-rules).*
+
 

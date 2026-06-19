@@ -1,0 +1,53 @@
+# Active provider and prompt selection for the translate module.
+active_provider: mini-proxy
+active_prompt_template: translator_v1
+
+# Request behavior shared across providers.
+request_defaults:
+  temperature: 0.3
+  top_p: 0.95
+  max_output_tokens: 4096
+
+# Target Languages Mapping and Validation Configuration (Option A)
+target_languages:
+  en:
+    label: "English"
+    max_title_length: 500
+    # max_content_length: 10000     # Optional absolute limit (in characters)
+  ja:
+    label: "Japanese"
+    max_title_length: 120
+    # max_content_length: 5000
+  zh:
+    label: "Traditional Chinese"
+    max_title_length: 120
+    # max_content_length: 5000
+
+# Execution controls owned by the translate module.
+execution_policy:
+  batch_size: 20                  # Number of source items to process per run
+  max_concurrent_requests: 5       # Concurrency limit (asyncio.Semaphore)
+  rate_limit_per_minute: 60       # Rate limit for requests
+  request_timeout_seconds: 90.0   # API request timeout (longer for translation)
+  retry_attempts: 3               # Retry count limit before logical lock (retry_count >= max_retries)
+  backoff_factor: 2.0             # Exponential backoff factor (e.g. 2.0 -> 2s, 4s, 8s)
+
+# Validation Parameters
+validation:
+  default_max_title_length: 500   # Fallback if not specified in target_languages
+  content_ratio_limit: 1.2        # Max ratio of len(translated_content) / len(content_body)
+
+# Provider registry.
+providers:
+  openai:
+    api_type: openai
+    api_key_env: OPENAI_API_KEY
+    model_name: gpt-5.4-mini
+    supports_structured_output: true
+
+  mini-proxy:
+    api_type: openai_compatible
+    api_base: https://mini-proxy.noeticseeker.com/v1
+    api_key_env: MINI_API_KEY
+    model_name: gpt-5.4-mini
+    supports_structured_output: false

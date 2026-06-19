@@ -47,7 +47,7 @@ Stores translated outputs grouped by language code and parent draft identifier.
 | `content` | `TEXT` | `NULL` | Spliced Markdown body text. Nullable to support initial failure states before first translation success. |
 | `source_fingerprint` | `TEXT` | `NOT NULL` | The canonical fingerprint copied from the upstream `approved_content_record.content_fingerprint`. |
 | `translation_status` | `TEXT` | `NOT NULL` | Lifecycle state: `'pending'`, `'completed'`, `'failed'`, `'stale'`. |
-| `retry_count` | `INTEGER` | `NOT NULL DEFAULT 0` | Count of failed attempts. Logical lock applies when status='failed' AND retry_count >= max_retries (configured in config/config.yaml, defaulting to 3). |
+| `retry_count` | `INTEGER` | `NOT NULL DEFAULT 0` | Count of failed attempts. Logical lock applies when status='failed' AND retry_count >= retry_attempts (configured in config/model_settings.yaml, defaulting to 3). |
 | `model_name` | `TEXT` | `NOT NULL` | Name/ID of the LLM used for translation. |
 | `prompt_version` | `TEXT` | `NOT NULL` | Version identifier of the prompt template used. |
 | `translated_at` | `TEXT` | `NULL` | UTC ISO-8601 timestamp when translation was successfully completed. |
@@ -61,7 +61,7 @@ The eventual module migration should preserve these logical requirements:
 - `translation_output` remains keyed by `parent_content_id` and `language_code`.
 - `language_code` should not be treated as permanently limited to a fixed target language set at the contract level.
 - `source_fingerprint` stores a snapshot of the upstream canonical fingerprint copied from `approved_content_record.content_fingerprint`.
-- `translation_status` must support at least `pending`, `completed`, `failed`, and `stale`. The physical status column does not include a separate `'locked'` string; locked tasks are represented logically by `translation_status = 'failed'` AND `retry_count >= max_retries` (where `max_retries` is configured in `config/config.yaml`).
+- `translation_status` must support at least `pending`, `completed`, `failed`, and `stale`. The physical status column does not include a separate `'locked'` string; locked tasks are represented logically by `translation_status = 'failed'` AND `retry_count >= retry_attempts` (where `retry_attempts` is configured in `config/model_settings.yaml`).
 - The storage layer must support efficient lookup by `(parent_content_id, language_code)` and by translation status.
 
 ### 1.4 SQLite DDL Migration Specification

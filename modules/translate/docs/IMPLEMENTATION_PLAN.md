@@ -58,7 +58,7 @@ Create unit tests under `modules/translate/tests/` to verify:
 2. **Fingerprint Validation**: Verify the runner accurately detects update drift by comparing cached records against changes in `approved_content_record.content_fingerprint`.
 3. **Invalidation Scenarios**: Verify that editing a mother-draft updates the fingerprint and moves the translation record state to `stale`.
 4. **Configuration Changes**: Verify that altering the model or prompt configuration version forces cached rows into the `stale` state.
-5. **Mock LLM Execution**: Mock API responses to test successful transitions to `completed` and failure paths to `failed` (verifying `retry_count` incrementing and locking at `max_retries` as defined in `config/config.yaml`).
+5. **Mock LLM Execution**: Mock API responses to test successful transitions to `completed` and failure paths to `failed` (verifying `retry_count` incrementing and locking at `retry_attempts` as defined in `config/model_settings.yaml`).
 
 ### Integration Tests
 - Run full CLI command suite on sandbox/mock SQLite database records.
