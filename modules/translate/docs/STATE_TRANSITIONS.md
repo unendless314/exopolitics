@@ -11,7 +11,7 @@
 Every target language translation task for an approved mother-draft moves through distinct workflow states. These states are defined by the `translation_status` column in `translation_output`:
 
 * **`pending`**: The translation task is newly registered or manually queued, awaiting its first execution. This is represented by `translation_status = 'pending'`, or logically if no row exists yet for the `(parent_content_id, language_code)` pair in `translation_output`.
-* **`completed`**: The translation has been successfully generated and is up to date. A row exists in `translation_output` with `translation_status = 'completed'` where the stored `source_fingerprint` matches `approved_content_record.content_fingerprint`, and the stored `model_name` and `prompt_version` match the running config.
+* **`completed`**: The translation has been successfully generated and is up to date. A row exists in `translation_output` with `translation_status = 'completed'` where the stored `source_fingerprint` matches `approved_content_record.content_fingerprint`, and either the stored `model_name` and `prompt_version` match the running config, or the row represents a bypassed self-translation with `model_name = 'bypass'` and `prompt_version = 'bypass'`.
 * **`failed`**: A transient error (timeout, rate limit, parse error, or validation failure) occurred during translation. A row exists with `translation_status = 'failed'`.
 * **`stale`**: The upstream mother-draft has been updated (causing a fingerprint mismatch) or the translation configuration (model, prompt version) has changed since translation. A row exists with `translation_status = 'stale'`. This triggers re-translation in the next execution run.
 

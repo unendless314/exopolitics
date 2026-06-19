@@ -122,7 +122,7 @@ CREATE INDEX IF NOT EXISTS idx_translation_output_status
 
 - `approved_content_record` is a materialized shared handoff artifact, not a live view over upstream editorial tables.
 - The upstream assembler is solely responsible for constructing `display_title`, `content_body`, `content_fingerprint`, `content_language_code`, `approved_at`, `created_at`, and `updated_at` before downstream pull-based consumption.
-- The assembler determines `content_language_code` for the mother-draft by querying the corresponding `classification_result.primary_language_code` linked to the `source_item_id`. If the classification record is missing, it runs a deterministic language detection fallback on the assembled text (defaulting to `'zh'` if detection is inconclusive). This ensures a single canonical rule for language resolution.
+- The assembler determines `content_language_code` for the mother-draft by first reading the corresponding `classification_result.primary_language_code` linked to the `source_item_id`. If that value is unavailable, it must run a deterministic language detection fallback on the assembled mother-draft text and persist the detected result. If the language still cannot be resolved confidently, the assembler must not silently default to an arbitrary language code; it must surface the item for operator review or follow an explicitly documented upstream fallback policy.
 - The assembler may be physically co-located under `modules/translate/`, but it must remain implementation-independent from translation runtime logic and should not import translation-specific code.
 - `approved_at` must be copied and preserved in the handoff row even if it is derivable from current upstream tables, because upstream editorial storage and retention policies may later diverge from downstream historical needs.
 - `created_at` and `updated_at` are system materialization timestamps and must not be used as substitutes for the editorial meaning of `approved_at`.
@@ -160,7 +160,7 @@ The single source of truth for the mother-draft state version is `approved_conte
 ### 2.2 Invalidation Conditions
 A translation record is marked as `stale` or undergoes re-execution if:
 1. **Fingerprint Mismatch**: The current `content_fingerprint` in the upstream `approved_content_record` does not match the stored `source_fingerprint` in `translation_output` (indicating the mother-draft was edited).
-2. **Configuration Change**: The running config's `model_name` or `prompt_version` differs from the record's values (indicating a model update or prompt template change).
+2. **Configuration Change**: The running config's `model_name` or `prompt_version` differs from the record's values (indicating a model update or prompt template change). Bypassed self-translations, identified by `model_name = 'bypass'` and `prompt_version = 'bypass'`, are exempt from this invalidation rule.
 3. **Operator Overrule**: An operator manually triggers a retry, setting the record back to `pending`.
 
 See [STATE_TRANSITIONS.md](./STATE_TRANSITIONS.md) and [EXECUTION_POLICY.md](./EXECUTION_POLICY.md) for retry details, error behaviors, and workflow constraints.
