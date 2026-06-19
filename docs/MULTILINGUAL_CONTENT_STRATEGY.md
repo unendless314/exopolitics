@@ -43,6 +43,7 @@ To ensure translation accuracy and prevent stale content:
 - **Single Source of Truth**: The canonical state version of a mother-draft is represented by `approved_content_record.content_fingerprint`.
 - **Cache Validation**: The `translate` module must store this fingerprint in its database outputs and compare it against the upstream fingerprint during runs.
 - **Invalidation**: Any change to `approved_content_record.content_fingerprint` or the runner configuration (model, prompt version) marks the corresponding translation as `stale`, triggering re-translation.
+- **Write-Time Fingerprinting**: The canonical fingerprint is produced by the upstream handoff materialization step when `approved_content_record` is inserted or refreshed. Downstream translation runners compare stored fingerprint strings and do not re-hash full source bodies during normal stale detection.
 
 ---
 

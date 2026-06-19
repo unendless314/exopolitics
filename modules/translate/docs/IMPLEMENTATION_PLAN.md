@@ -23,12 +23,14 @@ The development of the `translate` module is divided into the following epics an
 - **Shared Handoff Assembly Utility (Co-located)**:
   - This repository co-locates a shared handoff assembler utility under `modules/translate/src/approved_content_record.py` (or `handoff_repository.py`) for delivery simplicity.
   - This assembler is *not* owned by the `translate` module; it operates as a separate upstream step. The `translate` runner consumes `approved_content_record` only after this upstream assembly step is executed and completed.
-  - The assembler reads finalized upstream curation approvals (from `curation_output`/`editor_brief`) and finalized edit drafts, splices the Markdown content body, computes the SHA-256 `content_fingerprint` of the title and body, and writes them to the `approved_content_record` table.
+  - The assembler reads finalized upstream curation approvals (from `curation_output`/`editor_brief`) and finalized edit drafts, splices the Markdown content body, normalizes line endings, computes the SHA-256 `content_fingerprint` of the normalized title/body payload, and writes them to the `approved_content_record` table.
+  - The assembler must remain translation-agnostic so it can later be moved into a shared location with minimal refactoring if more modules depend on the same handoff contract.
+  - Upstream refresh logic should be delta-oriented: detect rows whose upstream finalized state changed since the last handoff materialization and only recompute those fingerprints instead of rebuilding the entire table each run.
 - **Fingerprinting & Invalidation Logic (Translate Module)**:
   - Implement fingerprint alignment in the runner (retrieving the canonical `content_fingerprint` from `approved_content_record`).
   - Implement source retrieval and change detection logic following [EXECUTION_POLICY.md](./EXECUTION_POLICY.md):
     - Query newly approved or updated items from `approved_content_record`.
-    - Compare the upstream `content_fingerprint` and model/prompt config against existing cached translations.
+    - Compare the upstream stored `content_fingerprint` and model/prompt config against existing cached translations without recomputing hashes from raw content.
     - Insert or mark matching records as `stale` or `pending` as appropriate.
   - Read `display_title` and `content_body` directly from `approved_content_record` (the mother-draft is pre-spliced, so no local splicing is required).
 

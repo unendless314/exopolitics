@@ -27,11 +27,11 @@ Stores the finalized publication mother-draft ready for downstream modules. Exac
 | `source_item_id` | `INTEGER` | `NOT NULL UNIQUE` | FK to `source_item(source_item_id) ON DELETE CASCADE`. Ensures 1 mother-draft per item. |
 | `display_title` | `TEXT` | `NOT NULL` | Finalized de-sensationalized title (either direct curation or operator edited). |
 | `content_body` | `TEXT` | `NOT NULL` | Spliced Markdown body text representing the finalized mother-draft content. |
-| `content_fingerprint` | `TEXT` | `NOT NULL` | SHA-256 hash of `display_title` and `content_body` for change detection. |
-| `approved_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp when curation approval or editing was finalized. |
+| `content_fingerprint` | `TEXT` | `NOT NULL` | SHA-256 hash of normalized `display_title` and normalized `content_body` for change detection. This fingerprint is computed only by the upstream handoff assembler at write time and then treated as canonical by downstream consumers. |
+| `approved_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 business timestamp when curation approval or editing was finalized. This is the canonical editorial approval/publication time preserved for downstream consumers. |
 | `author_metadata` | `TEXT` | `NULL` | JSON string or text identifying the editor or process version responsible. |
-| `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp. |
-| `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp. |
+| `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp for when this handoff row was first materialized in `approved_content_record`. |
+| `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp for when this handoff row was last refreshed in `approved_content_record`. |
 
 ### 1.2 Table Schema: `translation_output` (Translate Module)
 Stores translated outputs grouped by language code and parent draft identifier.
@@ -118,6 +118,14 @@ CREATE INDEX IF NOT EXISTS idx_translation_output_status
     ON translation_output(translation_status);
 ```
 
+### 1.5 Handoff Materialization Rules
+
+- `approved_content_record` is a materialized shared handoff artifact, not a live view over upstream editorial tables.
+- The upstream assembler is solely responsible for constructing `display_title`, `content_body`, `content_fingerprint`, `approved_at`, `created_at`, and `updated_at` before downstream pull-based consumption.
+- The assembler may be physically co-located under `modules/translate/`, but it must remain implementation-independent from translation runtime logic and should not import translation-specific code.
+- `approved_at` must be copied and preserved in the handoff row even if it is derivable from current upstream tables, because upstream editorial storage and retention policies may later diverge from downstream historical needs.
+- `created_at` and `updated_at` are system materialization timestamps and must not be used as substitutes for the editorial meaning of `approved_at`.
+
 ---
 
 ## 2. Invalidation and Fingerprinting Policy
@@ -128,6 +136,14 @@ Detailed state transition definitions and cache invalidation matrices are define
 The single source of truth for the mother-draft state version is `approved_content_record.content_fingerprint`. 
 - During processing, `translate` reads the canonical `content_fingerprint` from the upstream `approved_content_record` and stores it directly in the `source_fingerprint` column of `translation_output`.
 
+### 2.1.1 Fingerprint Computation Rules
+
+- The canonical fingerprint is computed when the upstream handoff row is inserted or updated, not during downstream translation reads.
+- The assembler must normalize line endings before hashing by converting all `\r\n` and bare `\r` sequences to `\n`.
+- The assembler should use one stable serialization rule for the fingerprint input, for example `display_title + "\n\n" + content_body`, and apply it consistently for both inserts and updates.
+- The `translate` runner must never recompute the source fingerprint from raw text for normal stale detection; it compares the stored upstream `content_fingerprint` against `translation_output.source_fingerprint`.
+- As a result, steady-state invalidation work scales with changed rows rather than requiring full-table hash recomputation on every run.
+
 ### 2.2 Invalidation Conditions
 A translation record is marked as `stale` or undergoes re-execution if:
 1. **Fingerprint Mismatch**: The current `content_fingerprint` in the upstream `approved_content_record` does not match the stored `source_fingerprint` in `translation_output` (indicating the mother-draft was edited).
@@ -135,4 +151,3 @@ A translation record is marked as `stale` or undergoes re-execution if:
 3. **Operator Overrule**: An operator manually triggers a retry, setting the record back to `pending`.
 
 See [STATE_TRANSITIONS.md](./STATE_TRANSITIONS.md) and [EXECUTION_POLICY.md](./EXECUTION_POLICY.md) for retry details, error behaviors, and workflow constraints.
-
