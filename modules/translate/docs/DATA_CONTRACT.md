@@ -29,7 +29,7 @@ Stores the finalized publication mother-draft ready for downstream modules. Exac
 | `content_body` | `TEXT` | `NOT NULL` | Spliced Markdown body text representing the finalized mother-draft content. |
 | `content_fingerprint` | `TEXT` | `NOT NULL` | SHA-256 hash of normalized `display_title` and normalized `content_body` for change detection. This fingerprint is computed only by the upstream handoff assembler at write time and then treated as canonical by downstream consumers. |
 | `approved_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 business timestamp when curation approval or editing was finalized. This is the canonical editorial approval/publication time preserved for downstream consumers. |
-| `author_metadata` | `TEXT` | `NULL` | JSON string or text identifying the editor or process version responsible. |
+| `author_metadata` | `TEXT` | `NULL` | JSON string representing author metadata. For the MVP, this must contain `source_module` (e.g., `'curate'`, `'edit'`) and `writer_type` (e.g., `'AI'`, `'human'`, `'hybrid'`). In the current implementation (curated via pure API), `writer_type` defaults to `'AI'`. |
 | `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp for when this handoff row was first materialized in `approved_content_record`. |
 | `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp for when this handoff row was last refreshed in `approved_content_record`. |
 
@@ -50,7 +50,6 @@ Stores translated outputs grouped by language code and parent draft identifier.
 | `model_name` | `TEXT` | `NOT NULL` | Name/ID of the LLM used for translation. |
 | `prompt_version` | `TEXT` | `NOT NULL` | Version identifier of the prompt template used. |
 | `translated_at` | `TEXT` | `NULL` | UTC ISO-8601 timestamp when translation was successfully completed. |
-| `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp. |
 | `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp. |
 
 - **Unique Constraint**: `UNIQUE (parent_content_id, language_code)` ensures exactly one row exists per language code for each approved mother-draft.
@@ -104,7 +103,6 @@ CREATE TABLE IF NOT EXISTS translation_output (
     model_name TEXT NOT NULL,
     prompt_version TEXT NOT NULL,
     translated_at TEXT,
-    created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (parent_content_id) REFERENCES approved_content_record (parent_content_id) ON DELETE CASCADE,
     FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id),
@@ -125,6 +123,8 @@ CREATE INDEX IF NOT EXISTS idx_translation_output_status
 - The assembler may be physically co-located under `modules/translate/`, but it must remain implementation-independent from translation runtime logic and should not import translation-specific code.
 - `approved_at` must be copied and preserved in the handoff row even if it is derivable from current upstream tables, because upstream editorial storage and retention policies may later diverge from downstream historical needs.
 - `created_at` and `updated_at` are system materialization timestamps and must not be used as substitutes for the editorial meaning of `approved_at`.
+- In the current MVP, the assembler may use the effective upstream finalized row's `updated_at` as its freshness signal for delta pre-screening when no separate `finalized_at`-style field exists.
+- This means the current upstream contract assumes the effective `updated_at` of the selected finalized row changes whenever the downstream-visible mother-draft payload or its approval state changes.
 
 ---
 
@@ -143,6 +143,16 @@ The single source of truth for the mother-draft state version is `approved_conte
 - The assembler should use one stable serialization rule for the fingerprint input, for example `display_title + "\n\n" + content_body`, and apply it consistently for both inserts and updates.
 - The `translate` runner must never recompute the source fingerprint from raw text for normal stale detection; it compares the stored upstream `content_fingerprint` against `translation_output.source_fingerprint`.
 - As a result, steady-state invalidation work scales with changed rows rather than requiring full-table hash recomputation on every run.
+
+### 2.1.2 Delta Detection Rules For The Assembler
+
+- The assembler performs delta detection in two stages: a timestamp-based pre-screen followed by payload re-assembly and fingerprint confirmation.
+- In the MVP contract, when the upstream module does not expose a dedicated `finalized_at` or `version_approved_at` field, the assembler should compare the effective upstream finalized row's `updated_at` against `approved_content_record.updated_at`.
+- If no `approved_content_record` row exists for the `source_item_id`, the assembler must assemble the payload, compute the fingerprint, and insert the row.
+- If `upstream.updated_at` is later than `approved_content_record.updated_at`, the assembler should treat the item as a candidate refresh, re-assemble the payload, and recompute the fingerprint.
+- If `upstream.updated_at` is not later than `approved_content_record.updated_at`, the assembler may skip that item during normal delta runs.
+- Timestamp comparison is only a pre-screen optimization. The authoritative content-drift check remains the recomputed payload fingerprint for candidate rows.
+- `approved_at` remains the editorial approval timestamp of the current canonical version and must not be repurposed as the primary delta-comparison field.
 
 ### 2.2 Invalidation Conditions
 A translation record is marked as `stale` or undergoes re-execution if:

@@ -26,6 +26,8 @@ The development of the `translate` module is divided into the following epics an
   - The assembler reads finalized upstream curation approvals (from `curation_output`/`editor_brief`) and finalized edit drafts, splices the Markdown content body, normalizes line endings, computes the SHA-256 `content_fingerprint` of the normalized title/body payload, and writes them to the `approved_content_record` table.
   - The assembler must remain translation-agnostic so it can later be moved into a shared location with minimal refactoring if more modules depend on the same handoff contract.
   - Upstream refresh logic should be delta-oriented: detect rows whose upstream finalized state changed since the last handoff materialization and only recompute those fingerprints instead of rebuilding the entire table each run.
+  - For the MVP, if the effective upstream finalized source does not provide a dedicated `finalized_at`-style field, use that source row's `updated_at` as the pre-screen freshness signal.
+  - The delta algorithm should be: compare upstream effective `updated_at` to `approved_content_record.updated_at`, re-assemble only later candidates, then recompute the fingerprint and persist only if the handoff payload or approval metadata actually changed.
 - **Fingerprinting & Invalidation Logic (Translate Module)**:
   - Implement fingerprint alignment in the runner (retrieving the canonical `content_fingerprint` from `approved_content_record`).
   - Implement source retrieval and change detection logic following [EXECUTION_POLICY.md](./EXECUTION_POLICY.md):

@@ -214,7 +214,7 @@ Minimum semantic contents:
 - content body (finalized Markdown body, spliced from curation outputs or edited by human operators)
 - content fingerprint (`content_fingerprint`) representing the SHA-256 hash of the title and body
 - approved timestamp
-- author/editor metadata (identifying the responsible user or system configuration version)
+- author/editor metadata (identifying the responsible user or system configuration version; for the MVP, this must be a JSON string containing at least `source_module` and `writer_type`)
 
 Ownership:
 
@@ -235,7 +235,7 @@ Minimum semantic contents:
 - source fingerprint (`source_fingerprint`) used for change detection and cache validation
 - quality/progress state (`translation_status`)
 - LLM runtime configuration (`model_name`, `prompt_version`)
-- timing fields (`translated_at`, `created_at`)
+- timing fields (`translated_at`, `updated_at`)
 
 Ownership:
 
