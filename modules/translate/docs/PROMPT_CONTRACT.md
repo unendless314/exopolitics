@@ -111,4 +111,3 @@ Provide your response in raw JSON format matching the schema:
    - **Link Syntax Preservation**: Validate that markdown links `[link text](url)` are not malformed (e.g. mismatched brackets or parentheses).
    - **Header Preservation**: The count and level of markdown headers (e.g. `#`, `##`) in the translated output must match the structure of the input source.
    - **Validation Failure Outcome**: If any validation check fails, the runner must discard the output, treat it as a failure (status = `'failed'`), increment the `retry_count`, and log the specific validation error.
-

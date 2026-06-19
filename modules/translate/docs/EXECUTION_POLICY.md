@@ -19,8 +19,8 @@ This document defines execution controls, batching constraints, concurrent API l
   1. No matching row exists in the `translation_output` table for `(parent_content_id, language_code)`.
   2. A row exists in `translation_output` with `translation_status = 'pending'`.
   3. A row exists in `translation_output` with `translation_status = 'stale'`.
-  4. A row exists in `translation_output` with `translation_status = 'failed'` and `retry_count < 3`.
-* **Batch Size**: Defaults to `20` items (representing up to `20 * number of target languages` translation calls) per execution run, configurable via `--batch-size`.
+  4. A row exists in `translation_output` with `translation_status = 'failed'` and `retry_count < max_retries` (where `max_retries` is defined in `config/config.yaml`).
+* **Batch Size**: Defaults to the value configured in `config/config.yaml` (e.g. `20` items, representing up to `20 * number of target languages` translation calls per execution run), which can be overridden via the `--batch-size` CLI flag.
 * **Dry Run / Preview**: If `--preview-prompts` is supplied:
   * The runner prepares the inputs, constructs the prompts for each target language, and prints the generated payloads to stdout.
   * It must **not** invoke the LLM API and must **not** write any entries to the database.
@@ -33,7 +33,7 @@ This document defines execution controls, batching constraints, concurrent API l
   * To prevent duplicate API execution and lock contention in SQLite, the runner must acquire an exclusive file lock on `data/translate_runner.lock` at start.
   * If the lock cannot be acquired, the runner must log an error and exit immediately.
 * **Concurrency Semaphore**:
-  * Parallel execution of translation requests is managed asynchronously. Concurrency is limited by `max_concurrent_requests` (via `asyncio.Semaphore`, defaulting to 5) to respect API rate limits.
+  * Parallel execution of translation requests is managed asynchronously. Concurrency is limited by `max_concurrent_requests` (via `asyncio.Semaphore`, defaulting to the value configured in `config/config.yaml`, e.g. 5) to respect API rate limits.
 * **Isolation of Network Calls**:
   * All LLM API translation calls must be executed **outside** database transactions. Holding database connections or write transactions open during network calls is strictly forbidden.
 * **Granular Database Transactions**:
@@ -54,9 +54,9 @@ This document defines execution controls, batching constraints, concurrent API l
     - The runner must catch the error.
     - Write a `'failed'` status in `translation_output` for `(parent_content_id, language_code)`. Keep `display_title` and `content` as `NULL` if this is the first execution (do not write empty strings or fake content).
     - Increment `retry_count` by 1.
-    - If `retry_count >= 3`, the translation task is logically locked (excluded from automatic retries) and requires operator intervention.
+    - If `retry_count >= max_retries` (where `max_retries` is configured in `config/config.yaml`, e.g. 3), the translation task is logically locked (excluded from automatic retries) and requires operator intervention.
 * **Exponential Backoff**:
-  * Implement exponential backoff (e.g. 2s, 4s, 8s) between retries during API execution to respect provider rate limits.
+  * Implement exponential backoff (utilizing the backoff factor configured in `config/config.yaml`, e.g. 2.0 -> 2s, 4s, 8s) between retries during API execution to respect provider rate limits.
 * **Operator Forced Re-run Error Handling**:
   * If a manual/operator-forced re-run is triggered for an already `completed` translation, any execution or validation failure must **not** overwrite the existing successful translation or increment the retry counter. The runner must rollback the database transaction, leaving the existing translated title and markdown content unchanged in the database, and log the failure to stderr.
 
