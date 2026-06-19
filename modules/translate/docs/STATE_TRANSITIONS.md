@@ -18,8 +18,8 @@ Every target language translation task for an approved mother-draft moves throug
 ### 1.1 Queue Eligibility vs. Workflow States
 
 To keep state semantics clean, we distinguish between a record's physical state in the database and its eligibility for runner execution:
-* **Queue Eligibility**: A translation task is picked up by the runner if it has no row in the database, OR its status is `'pending'`, OR its status is `'stale'`, OR its status is `'failed'` with `retry_count < 3` (eligible for retry).
-* **Logical Lock (Failed logically)**: If a task is in `'failed'` status and `retry_count >= 3`, it is logically locked and will not be selected by the runner. It is excluded from the automatic queue and requires operator override or reset to `'pending'`. (There is no physical `'locked'` string in the `translation_status` column).
+* **Queue Eligibility**: A translation task is picked up by the runner if it has no row in the database, OR its status is `'pending'`, OR its status is `'stale'`, OR its status is `'failed'` with `retry_count < max_retries` (where `max_retries` is configured in `config/config.yaml`, defaulting to 3) (eligible for retry).
+* **Logical Lock (Failed logically)**: If a task is in `'failed'` status and `retry_count >= max_retries`, it is logically locked and will not be selected by the runner. It is excluded from the automatic queue and requires operator override or reset to `'pending'`. (There is no physical `'locked'` string in the `translation_status` column).
 
 
 ---
@@ -32,8 +32,8 @@ The table below defines how a translation record transitions from its **Old Stat
 | :--- | :--- | :--- | :--- | :--- |
 | **None / Pending** | LLM translation & validation success | **completed** | Insert/Update row (status='completed', retry_count=0, display_title, content, source_fingerprint, translated_at) | Ready for publish export. |
 | **None / Pending** | Transient Runner / Validation Failure | **failed** | Insert/Update row (status='failed', retry_count=retry_count+1, display_title=NULL, content=NULL) | Retried in next batch. Columns remain NULL. |
-| **failed** (retry < 2) | Transient Runner / Validation Failure | **failed** | Update row (status='failed', retry_count=retry_count+1) | Retried in next batch. |
-| **failed** (retry = 2) | Transient Runner / Validation Failure | **failed** (logically locked) | Update row (status='failed', retry_count=3) | Excluded from automatic queue. |
+| **failed** (retry < max_retries - 1) | Transient Runner / Validation Failure | **failed** | Update row (status='failed', retry_count=retry_count+1) | Retried in next batch. |
+| **failed** (retry = max_retries - 1) | Transient Runner / Validation Failure | **failed** (logically locked) | Update row (status='failed', retry_count=max_retries) | Excluded from automatic queue. |
 | **completed** | Upstream mother-draft fingerprint change | **stale** | Update row (status='stale') | Triggers re-translation in next batch. |
 | **completed** | Config version shift (`model_name` / `prompt_version`) | **stale** | Update row (status='stale') | Triggers re-translation in next batch. |
 | **completed** | Forced Rerun Trigger | **pending** | Update row (status='pending', retry_count=0) | Ready for immediate translation. |
