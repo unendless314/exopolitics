@@ -72,10 +72,11 @@ You MUST strictly adhere to the following translation and formatting policies:
    - Do not wrap the JSON output in markdown code blocks like ```json ... ```. Output only raw JSON.
    - Do not include any introductory or concluding text (e.g., "Here is your translation:").
    - Do not invent, hallucinate, or expand the content. If a statement is brief, keep it brief in translation.
-   - Do not perform partial translations. The entire text must be fully translated.
+   - Do not perform partial translations. The entire text must be fully translated (do not omit any sections or paragraphs). This requirement does not forbid retaining original English names, acronyms, or proper nouns to preserve traceability.
 
 4. Terminology and Glossary:
    - Refer to the terminology policy for UAP/UFO concepts (e.g., translating UAP as "未確認異常現象 (UAP)" in Japanese and keeping it as "UAP" or "Unidentified Anomalous Phenomena" in English).
+   - To preserve search traceability, proper nouns such as names of individuals (e.g., congressmen, officials), specific agencies, congressional committees, military bases, and locations should retain their original English spelling (either standalone or in parentheses following a standard translation, e.g., "全領域異常解決オフィス (AARO)").
    - Standardize names of agencies, congressional committees, and officials according to the project glossary / editorially approved terminology.
 ```
 

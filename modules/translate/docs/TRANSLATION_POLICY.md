@@ -26,6 +26,9 @@ All translations must strictly follow these rules:
 3. **No Added Commentary or Translator Notes**:
    - The model must never output notes like "*(Translator note: ...)*" or wrap the response in conversational preamble.
    - If the source text contains ambiguous terms, they must be translated neutrally without adding clarifying assumptions.
+4. **Proper Nouns and Traceability**:
+   - To preserve search traceability, proper nouns such as names of individuals (e.g., congressmen, officials), specific agencies, congressional committees, military bases, and locations should retain their original English spelling (either standalone or in parentheses following a standard translation, e.g., "全領域異常解決オフィス (AARO)").
+   - Standard domain acronyms (UAP, UFO, NHI) should be kept in English or included in parentheses on first mention.
 
 ---
 
