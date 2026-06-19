@@ -86,9 +86,9 @@ To guarantee markdown syntax preservation and translation quality, the runner mu
 To avoid redundant LLM API costs and prevent translation-induced content drift or hallucinations, the runner implements a self-translation bypass policy:
 
 1. **Source Language Detection**:
-   - The runner joins `approved_content_record` with `classification_result` on `source_item_id` to retrieve the `primary_language_code` of the source draft.
+   - The runner relies solely on `approved_content_record.content_language_code` to determine the language of the finalized mother-draft. It does not query `classification_result` or other upstream tables.
 2. **Bypass Criteria**:
-   - If the target `language_code` is identical to `primary_language_code` (e.g. source is `'en'` and target is `'en'`), the runner must **bypass** the LLM API call entirely.
+   - If the target `language_code` is identical to `approved_content_record.content_language_code` (e.g. both are `'en'`), the runner must **bypass** the LLM API call entirely.
 3. **Database Materialization**:
    - The runner directly copies the original `display_title` and `content_body` from `approved_content_record` into `translation_output` for that `language_code`.
    - The upsert fields must be written as:
@@ -98,3 +98,6 @@ To avoid redundant LLM API costs and prevent translation-induced content drift o
      - `translated_at` = current UTC ISO-8601 timestamp
      - `retry_count = 0`
    - This bypass operation consumes `0` API calls and completes successfully.
+4. **Invalidation Exceptions**:
+   - Bypassed rows are exempt from configuration-driven stale checks. Changing the execution config's `model_name` or `prompt_version` does not invalidate bypassed rows.
+   - Bypassed rows remain subject to standard content fingerprint validation. If `approved_content_record.content_fingerprint != translation_output.source_fingerprint` (indicating the mother-draft was edited), the record transitions to `stale` to trigger bypass re-evaluation.

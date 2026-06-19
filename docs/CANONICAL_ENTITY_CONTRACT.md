@@ -213,6 +213,7 @@ Minimum semantic contents:
 - display title (finalized title, either directly approved from curation or edited by human operators)
 - content body (finalized Markdown body, spliced from curation outputs or edited by human operators)
 - content fingerprint (`content_fingerprint`) representing the SHA-256 hash of the title and body
+- content language code (e.g. `content_language_code`, indicating the language of the mother-draft, populated at handoff)
 - approved timestamp
 - author/editor metadata (identifying the responsible user or system configuration version; for the MVP, this must be a JSON string containing at least `source_module` and `writer_type`)
 

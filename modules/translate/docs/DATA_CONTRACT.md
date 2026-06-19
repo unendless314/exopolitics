@@ -28,6 +28,7 @@ Stores the finalized publication mother-draft ready for downstream modules. Exac
 | `display_title` | `TEXT` | `NOT NULL` | Finalized de-sensationalized title (either direct curation or operator edited). |
 | `content_body` | `TEXT` | `NOT NULL` | Spliced Markdown body text representing the finalized mother-draft content. |
 | `content_fingerprint` | `TEXT` | `NOT NULL` | SHA-256 hash of normalized `display_title` and normalized `content_body` for change detection. This fingerprint is computed only by the upstream handoff assembler at write time and then treated as canonical by downstream consumers. |
+| `content_language_code` | `TEXT` | `NOT NULL` | The language code of the finalized mother-draft (e.g. `'zh'`, `'en'`), computed and written only by the upstream handoff assembler at write time. |
 | `approved_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 business timestamp when curation approval or editing was finalized. This is the canonical editorial approval/publication time preserved for downstream consumers. |
 | `author_metadata` | `TEXT` | `NULL` | JSON string representing author metadata. For the MVP, this must contain `source_module` (e.g., `'curate'`, `'edit'`) and `writer_type` (e.g., `'AI'`, `'human'`, `'hybrid'`). In the current implementation (curated via pure API), `writer_type` defaults to `'AI'`. |
 | `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp for when this handoff row was first materialized in `approved_content_record`. |
@@ -76,6 +77,7 @@ CREATE TABLE IF NOT EXISTS approved_content_record (
     display_title TEXT NOT NULL,
     content_body TEXT NOT NULL,
     content_fingerprint TEXT NOT NULL,
+    content_language_code TEXT NOT NULL,
     approved_at TEXT NOT NULL,
     author_metadata TEXT,
     created_at TEXT NOT NULL,
@@ -119,7 +121,8 @@ CREATE INDEX IF NOT EXISTS idx_translation_output_status
 ### 1.5 Handoff Materialization Rules
 
 - `approved_content_record` is a materialized shared handoff artifact, not a live view over upstream editorial tables.
-- The upstream assembler is solely responsible for constructing `display_title`, `content_body`, `content_fingerprint`, `approved_at`, `created_at`, and `updated_at` before downstream pull-based consumption.
+- The upstream assembler is solely responsible for constructing `display_title`, `content_body`, `content_fingerprint`, `content_language_code`, `approved_at`, `created_at`, and `updated_at` before downstream pull-based consumption.
+- The assembler determines `content_language_code` for the mother-draft by querying the corresponding `classification_result.primary_language_code` linked to the `source_item_id`. If the classification record is missing, it runs a deterministic language detection fallback on the assembled text (defaulting to `'zh'` if detection is inconclusive). This ensures a single canonical rule for language resolution.
 - The assembler may be physically co-located under `modules/translate/`, but it must remain implementation-independent from translation runtime logic and should not import translation-specific code.
 - `approved_at` must be copied and preserved in the handoff row even if it is derivable from current upstream tables, because upstream editorial storage and retention policies may later diverge from downstream historical needs.
 - `created_at` and `updated_at` are system materialization timestamps and must not be used as substitutes for the editorial meaning of `approved_at`.

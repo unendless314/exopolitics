@@ -35,7 +35,7 @@ The table below defines how a translation record transitions from its **Old Stat
 | **failed** (retry < max_retries - 1) | Transient Runner / Validation Failure | **failed** | Update row (status='failed', retry_count=retry_count+1) | Retried in next batch. |
 | **failed** (retry = max_retries - 1) | Transient Runner / Validation Failure | **failed** (logically locked) | Update row (status='failed', retry_count=max_retries) | Excluded from automatic queue. |
 | **completed** | Upstream mother-draft fingerprint change | **stale** | Update row (status='stale') | Triggers re-translation in next batch. |
-| **completed** | Config version shift (`model_name` / `prompt_version`) | **stale** | Update row (status='stale') | Triggers re-translation in next batch. |
+| **completed** | Config version shift (`model_name` / `prompt_version`) | **stale** | Update row (status='stale') | Triggers re-translation in next batch. **Exception**: Rows with `model_name = 'bypass'` are exempt and remain `completed`. |
 | **completed** | Forced Rerun Trigger | **pending** | Update row (status='pending', retry_count=0) | Ready for immediate translation. |
 | **completed** | Forced Rerun Failure | **completed** (Unchanged) | None. Rollback database transaction. | Keep old translated outputs unchanged; do not write `failed`. |
 | **stale** / **failed** / **failed (logically locked)** | LLM translation & validation success | **completed** | Update row (status='completed', retry_count=0, display_title, content, source_fingerprint, translated_at) | Ready for publish export. |
@@ -49,10 +49,10 @@ The table below defines how a translation record transitions from its **Old Stat
    ```text
    approved_content_record.content_fingerprint != translation_output.source_fingerprint
    ```
-   The runner must immediately transition that language record's status to `stale` before initiating the LLM call.
+   The runner must immediately transition that language record's status to `stale` before initiating the LLM call. This fingerprint validation applies equally to bypassed self-translations (triggering a re-evaluation of bypass status in the next run).
 
 2. **Configuration Change Detection**:
-   If the running configuration's `model_name` or `prompt_version` differs from the values written in the database record, the runner must transition that record's status to `stale`.
+   If the running configuration's `model_name` or `prompt_version` differs from the values written in the database record, the runner must transition that record's status to `stale`. **Exception**: Translation rows representing bypassed self-translations (where `model_name = 'bypass'` and `prompt_version = 'bypass'`) are exempt from this configuration stale check and remain in `completed` status.
 
 3. **Failed State Safety**:
    If an already `completed` translation is forced to re-run and fails (due to API error or runner-side validation mismatch), the system must **not** overwrite the successful translation with a `failed` or null entry, nor increment the retry count. The transaction must roll back, preserving the previous translation for publishing fallback until a successful rewrite/translation is committed.
