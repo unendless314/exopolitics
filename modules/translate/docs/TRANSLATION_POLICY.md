@@ -49,7 +49,7 @@ To maintain consistency in UAP (Unidentified Anomalous Phenomena) and government
 ## 4. Length and Space Constraints
 
 1. **Display Title Limits**:
-   - English: Maximum 250 characters.
+   - English: Maximum 500 characters.
    - Japanese: Maximum 120 characters (due to information density in double-byte characters).
 2. **Content Length**:
    - The translated body must remain proportional to the mother-draft. Significant expansion (more than 1.2x of raw character length equivalents) is treated as validation failure.

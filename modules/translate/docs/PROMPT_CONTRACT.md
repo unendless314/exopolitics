@@ -34,7 +34,7 @@ To prevent parsing errors and enforce structured formats, the translation API ca
   "properties": {
     "translated_title": {
       "type": "string",
-      "maxLength": 250,
+      "maxLength": 500,
       "description": "The de-sensationalized title translated into the target language."
     },
     "translated_content": {
@@ -102,7 +102,7 @@ Provide your response in raw JSON format matching the schema:
 
 ## 5. Quality and Safety Constraints
 
-1. **Title Length Cap**: The `translated_title` must not exceed 250 characters.
+1. **Title Length Cap**: The `translated_title` must not exceed 500 characters.
 2. **Atomic Execution**: Partial translations are strictly forbidden. If the LLM generates a truncated body or an invalid JSON response, the orchestrator must reject the output entirely, treat the attempt as a failure, write a `failed` status, and queue the item for retry. No corrupted or incomplete translation content may be written to the database.
 3. **Markdown Structural Validation**:
    Before saving the translated output to the database, the runner must perform the following structural validation checks:

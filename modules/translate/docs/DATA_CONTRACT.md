@@ -59,7 +59,7 @@ The eventual module migration should preserve these logical requirements:
 
 - `translation_output` remains keyed by `parent_content_id` and `language_code`.
 - `language_code` should not be treated as permanently limited to a fixed target language set at the contract level.
-- `source_fingerprint` stores the upstream canonical fingerprint copied from `approved_content_record.content_fingerprint`.
+- `source_fingerprint` stores a snapshot of the upstream canonical fingerprint copied from `approved_content_record.content_fingerprint`.
 - `translation_status` must support at least `pending`, `completed`, `failed`, and `stale`. The physical status column does not include a separate `'locked'` string; locked tasks are represented logically by `translation_status = 'failed'` AND `retry_count >= 3`.
 - The storage layer must support efficient lookup by `(parent_content_id, language_code)` and by translation status.
 
