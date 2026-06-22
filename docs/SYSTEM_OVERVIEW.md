@@ -128,7 +128,7 @@ Owns:
 
 Owns:
 
-- curation decisions (approval, rejection, and editorial action decisions)
+- curation decisions (including approval, rejection, manual withdrawal/re-approval, and downstream action decisions)
 - curation queue governance
 - editorial curation over public exposure
 
@@ -160,8 +160,8 @@ Owns:
 
 Owns:
 
-- selecting completed translated records (`translation_output`) for export
-- generating publish-layer outputs (e.g., static multilingual directory structure)
+- selecting completed translated records (`translation_output`) of actively approved items for export
+- generating publish-layer outputs and synchronizing cleanup for withdrawn items
 - preserving attribution, disclosure, and unified slug generation
 
 ### 6.8 `site`

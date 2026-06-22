@@ -90,7 +90,7 @@ Important boundary:
 Owns:
 
 - curation queue behavior
-- approval, rejection, deletion, and downstream action selection under editorial policy
+- editorial status management (including approval, rejection, manual withdrawal/re-approval, and downstream action selection)
 - queue aging and SLA policy
 - editorial curation over public exposure
 
@@ -150,11 +150,13 @@ Owns:
 - generation of slug on first publication, which is permanently frozen in canonical storage
 - static multilingual directory structures and export files emission
 - attribution and disclosure emission
+- downstream export synchronization and cleanup based on upstream state transitions
 
 May read:
 
 - completed translated records (`translation_output`)
 - original source item metadata and canonical URL
+- upstream curation decision and approval status
 
 Must not own:
 
@@ -197,7 +199,8 @@ For the current rewrite, `approved_content_record` is treated as a canonical han
 Current direction:
 
 - finalized curation approvals and finalized edited drafts are normalized into the same `approved_content_record` contract
-- downstream modules consume that handoff artifact by pull
+- downstream modules consume that handoff artifact by pull, but must verify active publish eligibility from the upstream curation decision
+- `approved_content_record` serves as a persistent handoff and cache anchor rather than a dynamic publish/unpublish toggle
 - this assembly step is recognized as a shared capability, not yet a formal standalone module
 
 Criteria for becoming shared:

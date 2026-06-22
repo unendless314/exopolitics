@@ -45,6 +45,13 @@ raw feed item
   -> site rendering
 ```
 
+When an item is manually withdrawn:
+```text
+curation decision (withdrawn)
+  -> approved content record & translation output (preserved in DB as cache anchors)
+  -> publish export (physically removed from site distribution)
+```
+
 Recognized branch:
 
 ```text
@@ -150,6 +157,7 @@ Curation consumes classified items and determines whether they should:
 - be rejected
 - be deleted under governance policy
 - enter an edit-oriented workflow before translation
+- be manually withdrawn or re-approved by an operator (transitioning its status to withdrawn without deleting downstream translation caches)
 
 Curation is also where queue aging and SLA governance belong.
 
@@ -181,11 +189,12 @@ The `publish` module consumes completed translation records (`translation_output
 
 Publish output should:
 
-- be derived from `translation_output` records where `translation_status = 'completed'`
+- be derived from `translation_output` records where `translation_status = 'completed'` and the upstream curation decision remains actively approved
 - follow the configured Language Coverage Policy (e.g., Strict Match)
 - generate uniform SEO-friendly URL slugs using English translated titles
 - preserve provenance and disclosure data
 - remain rebuildable if needed
+- synchronize exported assets by removing public outputs when items are withdrawn upstream
 
 The site must consume publish output, not canonical operational tables directly.
 
@@ -229,7 +238,7 @@ That means:
 - canonical downstream flow must not depend on indefinite raw retention
 - approved content handoff is assembled from finalized curation approvals or finalized edited drafts before downstream processing
 - translation pulls data from `approved_content_record` rather than accepting direct upstream writes into translation-owned storage
-- publish exports only consume completed translation records
+- publish exports only consume completed translation records of actively approved items, and synchronize removals when items are withdrawn
 
 ---
 

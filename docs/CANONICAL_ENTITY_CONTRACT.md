@@ -172,21 +172,21 @@ Ownership:
 
 ### 4.7 Curation Decision
 
-This entity family represents automated editorial curation, triage, formatting, and routing decisions.
+This entity family represents automated or manual editorial curation, triage, formatting, and routing decisions.
 
 Minimum semantic contents:
 
 - stable link to the curated canonical record
-- decision outcome
+- decision outcome (supporting approval, rejection, failure, and manual withdrawal states)
 - action semantics when applicable
-- responsible actor metadata
-- decision timestamp
-- optional notes or governance context
+- responsible actor metadata (identifying automated systems vs. human operators)
+- decision timestamp and last-modified metadata
+- optional notes or governance context (such as manual withdrawal or re-approval rationales)
 
 Ownership:
 
 - written by `curate`
-- readable by `translate` and `edit`
+- readable by `translate`, `edit`, and `publish`
 
 ### 4.8 Edit-Owned Draft Or Edited Content
 
@@ -205,7 +205,10 @@ Ownership:
 
 ### 4.9 Approved Content Record
 
-This entity family represents the finalized publication mother-draft ready for translation and public static export. It is the single canonical handoff artifact representing the publishable state, assembled from finalized upstream editorial states.
+This entity family represents the finalized publication mother-draft ready for translation and public static export. It serves as a persistent handoff and translation cache anchor assembled from finalized upstream editorial states.
+
+> [!IMPORTANT]
+> **Active Publish Eligibility:** The existence of an `approved_content_record` does not imply active publication status. Upstream `curation_decision` remains the absolute source of truth for active publish eligibility. Downstream modules must verify that the item is actively approved and has not been withdrawn.
 
 Minimum semantic contents:
 
@@ -276,7 +279,7 @@ Boundary rules:
 - `classify` reads sanitized working text, not raw retained evidence by default
 - `curate` may inspect sanitized working text by default and raw retained evidence only when needed
 - `translate` reads approved content records (`approved_content_record`), and writes translation outputs
-- `publish` reads completed translation outputs only
+- `publish` reads completed translation outputs together with upstream editorial eligibility state
 - `site` reads publish-layer outputs only
 - cleanup of raw retained evidence must not invalidate the source item record or sanitized working text record
 
