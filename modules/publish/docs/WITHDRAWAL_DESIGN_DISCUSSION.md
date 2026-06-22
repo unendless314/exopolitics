@@ -160,10 +160,32 @@
 3. `approved_content_record` 不宜再新增一個單純由 `curate_status` 派生出的 `publish_allowed` 或 `is_active`，避免同一語義分散成兩份狀態來源。
 4. `translation_output` 不應因 `approved_content_record` 的失效或移除而被級聯硬刪除。
    *(註：目前 [v001_initial_translate_tables.sql](file:///C:/Users/user/Documents/derived-work/modules/translate/src/migrations/v001_initial_translate_tables.sql) 對 `translation_output` 設有指向 `approved_content_record` 的 `ON DELETE CASCADE` 外鍵約束。只要我們維持不刪除 `approved_content_record` 紀錄列的設計，此級聯刪除就不會被觸發，因此現有機制是安全的。若未來調整了刪除邏輯，須同步注意此 FK 約束。)*
+5. `curation_decision.decision_reason` 可繼續沿用為共用欄位，但其語義需明確調整為「目前狀態的原因」，而不是僅限於初次 AI 審核理由。
+6. 為避免混淆自動與人工寫入來源，建議在 `curation_decision` 增加 `decision_actor` 欄位，值限定為 `system` 或 `operator`：
+   * `system`: 由自動 curation pipeline 產生並寫入的狀態。
+   * `operator`: 由人工透過 CLI / 後台手動變更的狀態。
+7. 為了與下游模組已採用的時間欄位風格一致，並避免把人工操作時間混入 AI 決策時間，建議在 `curation_decision` 增加 `updated_at` 欄位：
+   * `created_at`: 該 decision row 初次建立時間。
+   * `curated_at`: 最後一次由自動 curation pipeline 產生 decision 的時間。
+   * `updated_at`: 該 row 最後一次被任何 actor 更新的時間，包含人工 withdraw / reapprove。
 
 換句話說，若 `approved_content_record` 是下游 handoff artifact，就不應再把「撤回」主要表達為刪掉 handoff row；否則很容易把 translation cache 的生命週期一起綁進去。
 
-### 5.5 建議收斂結論
+### 5.5 對最小審計能力的補充收斂
+
+考量本專案目前仍偏向 pre-production、且人工撤回頻率預期遠低於自動 curation 寫入量，現階段不一定需要為 withdraw / reapprove 另建完整 audit history table。較務實的最小收斂方式可為：
+
+1. 共用 `decision_reason`，由其保存「目前狀態的原因」。
+2. 用 `decision_actor` 區分這次狀態是由 `system` 還是 `operator` 寫入。
+3. 用 `updated_at` 表達最後一次狀態變更時間。
+
+此做法的取捨是：
+
+1. 優點：改動面小，足以支撐 publish eligibility 與人工撤回操作。
+2. 風險：人工撤回時若覆寫 `decision_reason`，會失去原始 AI 決策理由的永久保留能力。
+3. 收斂判準：若未來營運上確實出現較高頻率的人工覆核、責任追溯、或需要追查「原本 AI 為何批准、後來人為何撤回」的情境，再升級為獨立的 decision history / audit table 會更合理。
+
+### 5.6 建議收斂結論
 
 綜合評估後，建議的方向是：
 
@@ -172,7 +194,8 @@
 3. 不採 hard delete。
 4. 不因撤回而刪除翻譯成果。
 5. 讓 `publish` 專注於依上游 canonical state 同步公開輸出，而不是擁有不可丟失的撤回決策本身。
+6. 在 `curation_decision` 採用最小補強：`decision_reason` 共用、增加 `decision_actor`、增加 `updated_at`。
 
 一句話總結：
 
-> 撤回決策應回到 `curate` / editorial domain，但實作上必須採 soft withdrawal，且不得因撤回而刪除翻譯成果。
+> 撤回決策應回到 `curate` / editorial domain，但實作上必須採 soft withdrawal，且不得因撤回而刪除翻譯成果；在資料設計上則以共用 `decision_reason`、新增 `decision_actor` 與 `updated_at` 作為最小而穩定的收斂方案。
