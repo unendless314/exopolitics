@@ -692,3 +692,108 @@ class TestOrchestrator(unittest.TestCase):
         finally:
             conn.close()
 
+    @patch.dict(os.environ, {"TEST_API_KEY": "dummy_key"})
+    @patch("httpx.AsyncClient.post")
+    def test_orchestrate_withdrawn_transitions(self, mock_post) -> None:
+        # Seed source item 90
+        self.seed_upstream_item(90, "Withdrawn Test Item", "Sanitized content")
+
+        conn = get_connection(self.db_path)
+        repo = CurationRepository(conn)
+        try:
+            # 1. Write initial withdrawn state manually
+            repo.upsert_curation_decision({
+                "source_item_id": 90,
+                "curate_status": "withdrawn",
+                "downstream_action": "publish_summary",
+                "decision_actor": "operator",
+                "model_name": "gpt-5.4-mini",
+                "prompt_version": "curator_v1"
+            })
+            conn.commit()
+
+            # 2. Running without force on a withdrawn item must raise ValueError
+            with self.assertRaises(ValueError):
+                asyncio.run(orchestrate_run(
+                    config=self.config,
+                    db_path=self.db_path,
+                    source_item_id=90,
+                    force=False
+                ))
+
+            # 3. Forced re-run failure: rollback without changes or retry increment
+            mock_fail = MagicMock()
+            mock_fail.status_code = 429
+            mock_post.return_value = mock_fail
+
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT s.source_item_id, s.title AS raw_title, s.canonical_url,
+                       t.sanitized_text, c.topic_class, c.governmental_involvement
+                FROM source_item s
+                JOIN source_item_text t ON s.source_item_id = t.source_item_id
+                JOIN classification_result c ON s.source_item_id = c.source_item_id
+                WHERE s.source_item_id = 90
+            """)
+            item_row = cursor.fetchone()
+
+            db_lock = asyncio.Lock()
+            async def run_curate_fail():
+                async with httpx.AsyncClient() as client:
+                    return await curate_item(
+                        repo=repo,
+                        client=client,
+                        config=self.config,
+                        item=item_row,
+                        api_key="dummy",
+                        db_lock=db_lock,
+                        commit=True
+                    )
+            success_fail = asyncio.run(run_curate_fail())
+            self.assertFalse(success_fail)
+
+            # Check database: state must be completely unchanged (still withdrawn)
+            cursor.execute("SELECT curate_status, downstream_action, retry_count FROM curation_decision WHERE source_item_id = 90")
+            dec_fail = cursor.fetchone()
+            self.assertEqual(dec_fail["curate_status"], "withdrawn")
+            self.assertEqual(dec_fail["downstream_action"], "publish_summary")
+            self.assertEqual(dec_fail["retry_count"], 0)
+
+            # 4. Forced re-run success: turns into approved or rejected
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {
+                "choices": [{
+                    "message": {
+                        "content": json.dumps({
+                            "curation_decision": {
+                                "curate_status": "rejected",
+                                "downstream_action": "reject_discard",
+                                "decision_reason": "not_relevant"
+                            },
+                            "editor_brief": None,
+                            "curation_output": None
+                        })
+                    }
+                }]
+            }
+            mock_post.return_value = mock_resp
+
+            summary = asyncio.run(orchestrate_run(
+                config=self.config,
+                db_path=self.db_path,
+                source_item_id=90,
+                force=True
+            ))
+            self.assertEqual(summary["processed_successfully"], 1)
+
+            # Verify database updated to rejected
+            cursor.execute("SELECT curate_status, downstream_action, decision_actor FROM curation_decision WHERE source_item_id = 90")
+            dec_success = cursor.fetchone()
+            self.assertEqual(dec_success["curate_status"], "rejected")
+            self.assertEqual(dec_success["downstream_action"], "reject_discard")
+            self.assertEqual(dec_success["decision_actor"], "system")
+
+        finally:
+            conn.close()
+

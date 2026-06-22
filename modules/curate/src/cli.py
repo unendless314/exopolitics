@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import pathlib
 import sys
 from typing import List, Optional
@@ -7,7 +8,7 @@ import click
 from dotenv import load_dotenv
 
 from .config import validate_and_load_config
-from .database import run_migrations, get_connection
+from .database import run_migrations, get_connection, transaction
 from .orchestrator import orchestrate_run
 
 DEFAULT_WORKSPACE_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent.parent
@@ -116,7 +117,7 @@ def cmd_migrate(ctx, db_path):
 @click.option(
     "--force",
     is_flag=True,
-    help="Allow re-curation of completed (approved/rejected) items when curating a specific item"
+    help="Allow re-curation of completed (approved/rejected/withdrawn) items when curating a specific item"
 )
 @click.pass_context
 def cmd_run(ctx, db_path, batch_size, preview_prompts, dry_run, source_item_id, force):
@@ -216,6 +217,24 @@ def cmd_status(db_path):
         """)
         approved_summary = cursor.fetchone()[0]
 
+        # 3.5 withdrawn counts (total, publish_link, publish_summary)
+        cursor.execute("""
+            SELECT COUNT(*) FROM curation_decision WHERE curate_status = 'withdrawn'
+        """)
+        withdrawn_total = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT COUNT(*) FROM curation_decision 
+            WHERE curate_status = 'withdrawn' AND downstream_action = 'publish_link'
+        """)
+        withdrawn_link = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT COUNT(*) FROM curation_decision 
+            WHERE curate_status = 'withdrawn' AND downstream_action = 'publish_summary'
+        """)
+        withdrawn_summary = cursor.fetchone()[0]
+
         # 4. rejected counts (total, edit_rewrite, reject_discard)
         cursor.execute("""
             SELECT COUNT(*) FROM curation_decision WHERE curate_status = 'rejected'
@@ -248,6 +267,9 @@ def cmd_status(db_path):
         click.echo(f"  approved:                 {approved_total}")
         click.echo(f"    - publish_link:         {approved_link}")
         click.echo(f"    - publish_summary:      {approved_summary}")
+        click.echo(f"  withdrawn:                {withdrawn_total}")
+        click.echo(f"    - publish_link:         {withdrawn_link}")
+        click.echo(f"    - publish_summary:      {withdrawn_summary}")
         click.echo(f"  rejected:                 {rejected_total}")
         click.echo(f"    - edit_rewrite:         {rejected_rewrite}")
         click.echo(f"    - reject_discard:       {rejected_discard}")
@@ -256,6 +278,126 @@ def cmd_status(db_path):
 
     except Exception as e:
         click.echo(f"Error querying curation status: {str(e)}", err=True)
+        sys.exit(1)
+    finally:
+        conn.close()
+
+
+@cli.command("withdraw")
+@click.option(
+    "--db-path",
+    type=click.Path(path_type=pathlib.Path),
+    default=DEFAULT_DB_PATH,
+    help="Custom SQLite canonical database path"
+)
+@click.option(
+    "--reason",
+    required=True,
+    help="Manual withdrawal reason written into decision_reason"
+)
+@click.argument("source-item-id", type=int)
+@click.pass_context
+def cmd_withdraw(ctx, db_path, reason, source_item_id):
+    """Manually withdraw a published item by source_item_id (sets status to 'withdrawn')"""
+    migrations_dir = ctx.obj["migrations_dir"]
+    try:
+        run_migrations(db_path, migrations_dir)
+    except Exception as e:
+        click.echo(f"Auto-migration failed before execution: {str(e)}", err=True)
+        sys.exit(1)
+
+    if not db_path.exists():
+        click.echo(f"Database file does not exist: {db_path}", err=True)
+        sys.exit(1)
+
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT curate_status FROM curation_decision WHERE source_item_id = ?", (source_item_id,))
+        row = cursor.fetchone()
+        if not row:
+            click.echo(f"No curation decision found for item ID {source_item_id}.", err=True)
+            sys.exit(1)
+        
+        status = row["curate_status"]
+        if status != "approved":
+            click.echo(f"Item ID {source_item_id} is in status '{status}', only 'approved' items can be withdrawn.", err=True)
+            sys.exit(1)
+
+        now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with transaction(conn):
+            cursor.execute("""
+                UPDATE curation_decision 
+                SET curate_status = 'withdrawn',
+                    decision_reason = ?,
+                    decision_actor = 'operator',
+                    updated_at = ?
+                WHERE source_item_id = ?
+            """, (reason, now, source_item_id))
+        
+        click.echo(f"Successfully withdrew item ID {source_item_id} (status set to 'withdrawn').")
+    except Exception as e:
+        click.echo(f"Error withdrawing item: {e}", err=True)
+        sys.exit(1)
+    finally:
+        conn.close()
+
+
+@cli.command("reapprove")
+@click.option(
+    "--db-path",
+    type=click.Path(path_type=pathlib.Path),
+    default=DEFAULT_DB_PATH,
+    help="Custom SQLite canonical database path"
+)
+@click.option(
+    "--reason",
+    required=True,
+    help="Manual re-approval reason written into decision_reason"
+)
+@click.argument("source-item-id", type=int)
+@click.pass_context
+def cmd_reapprove(ctx, db_path, reason, source_item_id):
+    """Re-approve a previously withdrawn item (restores status to 'approved')"""
+    migrations_dir = ctx.obj["migrations_dir"]
+    try:
+        run_migrations(db_path, migrations_dir)
+    except Exception as e:
+        click.echo(f"Auto-migration failed before execution: {str(e)}", err=True)
+        sys.exit(1)
+
+    if not db_path.exists():
+        click.echo(f"Database file does not exist: {db_path}", err=True)
+        sys.exit(1)
+
+    conn = get_connection(db_path)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT curate_status FROM curation_decision WHERE source_item_id = ?", (source_item_id,))
+        row = cursor.fetchone()
+        if not row:
+            click.echo(f"No curation decision found for item ID {source_item_id}.", err=True)
+            sys.exit(1)
+
+        status = row["curate_status"]
+        if status != "withdrawn":
+            click.echo(f"Item ID {source_item_id} is in status '{status}', only 'withdrawn' items can be re-approved.", err=True)
+            sys.exit(1)
+
+        now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with transaction(conn):
+            cursor.execute("""
+                UPDATE curation_decision 
+                SET curate_status = 'approved',
+                    decision_reason = ?,
+                    decision_actor = 'operator',
+                    updated_at = ?
+                WHERE source_item_id = ?
+            """, (reason, now, source_item_id))
+
+        click.echo(f"Successfully re-approved item ID {source_item_id} (status restored to 'approved').")
+    except Exception as e:
+        click.echo(f"Error re-approving item: {e}", err=True)
         sys.exit(1)
     finally:
         conn.close()

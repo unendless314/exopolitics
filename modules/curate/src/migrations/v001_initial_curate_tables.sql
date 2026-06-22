@@ -4,19 +4,22 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS curation_decision (
     curation_decision_id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_item_id INTEGER NOT NULL UNIQUE,
-    curate_status TEXT NOT NULL CHECK (curate_status IN ('approved', 'rejected', 'failed')),
+    curate_status TEXT NOT NULL CHECK (curate_status IN ('approved', 'rejected', 'failed', 'withdrawn')),
     downstream_action TEXT CHECK (downstream_action IS NULL OR downstream_action IN ('publish_link', 'publish_summary', 'edit_rewrite', 'reject_discard')),
     decision_reason TEXT,
+    decision_actor TEXT NOT NULL CHECK (decision_actor IN ('system', 'operator')),
     retry_count INTEGER NOT NULL DEFAULT 0 CHECK (retry_count >= 0),
     model_name TEXT NOT NULL,
     prompt_version TEXT NOT NULL,
     curated_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
     FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE,
     CHECK (
         (curate_status = 'failed' AND downstream_action IS NULL) OR
         (curate_status = 'approved' AND downstream_action IN ('publish_link', 'publish_summary')) OR
-        (curate_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard'))
+        (curate_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard')) OR
+        (curate_status = 'withdrawn' AND downstream_action IN ('publish_link', 'publish_summary'))
     )
 );
 

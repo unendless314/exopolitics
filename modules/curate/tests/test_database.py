@@ -324,5 +324,75 @@ class TestDatabaseRepository(unittest.TestCase):
                 })
                 conn.commit()
 
+            # Constraint 4: curate_status='withdrawn' and downstream_action IN ('publish_link', 'publish_summary') is valid
+            repo.upsert_curation_decision({
+                "source_item_id": 10,
+                "curate_status": "withdrawn",
+                "downstream_action": "publish_link",
+                "model_name": "gpt-5.4-mini",
+                "prompt_version": "v1"
+            })
+            conn.commit()
+
+            # Constraint 5: curate_status='withdrawn' and downstream_action IN ('edit_rewrite', 'reject_discard') is invalid
+            with self.assertRaises(sqlite3.IntegrityError):
+                repo.upsert_curation_decision({
+                    "source_item_id": 10,
+                    "curate_status": "withdrawn",
+                    "downstream_action": "edit_rewrite", # invalid for withdrawn
+                    "model_name": "gpt-5.4-mini",
+                    "prompt_version": "v1"
+                })
+                conn.commit()
+
+        finally:
+            conn.close()
+
+    def test_decision_metadata(self) -> None:
+        conn = get_connection(self.db_path)
+        try:
+            repo = CurationRepository(conn)
+            self.seed_upstream_item(conn, 10, "Metadata Test", "Body text", "core")
+
+            # 1. decision_actor defaults to 'system'
+            repo.upsert_curation_decision({
+                "source_item_id": 10,
+                "curate_status": "approved",
+                "downstream_action": "publish_link",
+                "model_name": "gpt-5.4-mini",
+                "prompt_version": "v1"
+            })
+            decision = repo.get_curation_decision(10)
+            self.assertEqual(decision["decision_actor"], "system")
+            self.assertIsNotNone(decision["updated_at"])
+
+            # 2. decision_actor constraint: only 'system' or 'operator'
+            with self.assertRaises(sqlite3.IntegrityError):
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO curation_decision (
+                        source_item_id, curate_status, downstream_action, decision_actor, model_name, prompt_version, curated_at, created_at, updated_at
+                    ) VALUES (10, 'approved', 'publish_link', 'invalid_actor', 'gpt', 'v1', 'now', 'now', 'now')
+                """)
+                conn.commit()
+
+            # 3. updated_at updates on upsert
+            first_updated_at = decision["updated_at"]
+            
+            repo.upsert_curation_decision({
+                "source_item_id": 10,
+                "curate_status": "approved",
+                "downstream_action": "publish_link",
+                "decision_actor": "operator",
+                "model_name": "gpt-5.4-mini",
+                "prompt_version": "v1_updated",
+                "updated_at": "2026-06-22T10:00:00Z"
+            })
+            decision_updated = repo.get_curation_decision(10)
+            self.assertEqual(decision_updated["decision_actor"], "operator")
+            self.assertEqual(decision_updated["prompt_version"], "v1_updated")
+            self.assertEqual(decision_updated["updated_at"], "2026-06-22T10:00:00Z")
+            self.assertNotEqual(decision_updated["updated_at"], first_updated_at)
+
         finally:
             conn.close()

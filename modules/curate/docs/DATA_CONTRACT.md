@@ -37,14 +37,16 @@ Stores workflow-level metadata indicating whether a feed item is approved and it
 | :--- | :--- | :--- | :--- |
 | `curation_decision_id` | `INTEGER` | `NOT NULL PRIMARY KEY AUTOINCREMENT` | Surrogate key. |
 | `source_item_id` | `INTEGER` | `NOT NULL UNIQUE` | FK to `source_item(source_item_id) ON DELETE CASCADE`. |
-| `curate_status` | `TEXT` | `NOT NULL` | Outcome state: `'approved'`, `'rejected'`, or `'failed'`. |
+| `curate_status` | `TEXT` | `NOT NULL` | Outcome state: `'approved'`, `'rejected'`, `'failed'`, or `'withdrawn'`. |
 | `downstream_action` | `TEXT` | `NULL` | Routing target: `'publish_link'`, `'publish_summary'`, `'edit_rewrite'`, or `'reject_discard'`. Must be `NULL` if `curate_status = 'failed'`, and `NOT NULL` otherwise. |
 | `decision_reason` | `TEXT` | `NULL` | Concise reason behind the curation decision or runner exception message. |
+| `decision_actor` | `TEXT` | `NOT NULL` | Author of the state transition: `'system'` (automated run) or `'operator'` (manual action). |
 | `retry_count` | `INTEGER` | `NOT NULL` | Number of times this curation has failed to complete (default `0`). |
 | `model_name` | `TEXT` | `NOT NULL` | Curation LLM model name (e.g., `'gpt-5.4-mini'`). |
 | `prompt_version` | `TEXT` | `NOT NULL` | Active curation prompt version. |
 | `curated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SSZ`). |
 | `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SSZ`). |
+| `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp of last mutation by any actor (`YYYY-MM-DDTHH:MM:SSZ`). |
 
 ### 2.2 `editor_brief`
 Stores editorial analysis and guidelines that describe the item's core parameters without hardcoding frontend-facing text. Required and created for any item where `downstream_action IN ('publish_link', 'publish_summary', 'edit_rewrite')`.
@@ -91,19 +93,22 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS curation_decision (
     curation_decision_id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_item_id INTEGER NOT NULL UNIQUE,
-    curate_status TEXT NOT NULL CHECK (curate_status IN ('approved', 'rejected', 'failed')),
+    curate_status TEXT NOT NULL CHECK (curate_status IN ('approved', 'rejected', 'failed', 'withdrawn')),
     downstream_action TEXT CHECK (downstream_action IS NULL OR downstream_action IN ('publish_link', 'publish_summary', 'edit_rewrite', 'reject_discard')),
     decision_reason TEXT,
+    decision_actor TEXT NOT NULL CHECK (decision_actor IN ('system', 'operator')),
     retry_count INTEGER NOT NULL DEFAULT 0 CHECK (retry_count >= 0),
     model_name TEXT NOT NULL,
     prompt_version TEXT NOT NULL,
     curated_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
     FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE,
     CHECK (
         (curate_status = 'failed' AND downstream_action IS NULL) OR
         (curate_status = 'approved' AND downstream_action IN ('publish_link', 'publish_summary')) OR
-        (curate_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard'))
+        (curate_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard')) OR
+        (curate_status = 'withdrawn' AND downstream_action IN ('publish_link', 'publish_summary'))
     )
 );
 

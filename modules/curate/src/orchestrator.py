@@ -452,7 +452,7 @@ async def curate_item(
     existing_retry_count = 0
     if existing:
         existing_retry_count = existing["retry_count"]
-        if existing["curate_status"] in ("approved", "rejected"):
+        if existing["curate_status"] in ("approved", "rejected", "withdrawn"):
             was_completed = True
 
     try:
@@ -482,6 +482,7 @@ async def curate_item(
                     "curate_status": status,
                     "downstream_action": action,
                     "decision_reason": reason,
+                    "decision_actor": "system",
                     "retry_count": 0,
                     "model_name": config.active_provider.model_name,
                     "prompt_version": config.active_template.version
@@ -535,6 +536,7 @@ async def curate_item(
                             "curate_status": "failed",
                             "downstream_action": None,
                             "decision_reason": str(exc)[:245],
+                            "decision_actor": "system",
                             "retry_count": existing_retry_count + 1,
                             "model_name": config.active_provider.model_name,
                             "prompt_version": config.active_template.version
@@ -587,7 +589,7 @@ async def orchestrate_run(
             
             existing = repo.get_curation_decision(source_item_id)
             if existing and not force:
-                if existing["curate_status"] in ("approved", "rejected"):
+                if existing["curate_status"] in ("approved", "rejected", "withdrawn"):
                     raise ValueError(f"Source item with ID {source_item_id} has already been curated (status: {existing['curate_status']}, action: {existing['downstream_action']}). Use --force to re-curate.")
                 elif existing["curate_status"] == "failed" and existing["retry_count"] >= 3:
                     raise ValueError(f"Source item with ID {source_item_id} is locked (failed {existing['retry_count']} times). Use --force to override.")

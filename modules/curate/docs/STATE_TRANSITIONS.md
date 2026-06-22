@@ -21,6 +21,7 @@ Every source item selected for curation moves through a set of distinct workflow
   * If `downstream_action = 'reject_discard'`, both `editor_brief` and `curation_output` are absent.
 * **`failed`**: A transient error occurred during processing (e.g. rate limit, API timeout, JSON parsing failure). A row exists with `curate_status = 'failed'` and `retry_count < 3`.
 * **`locked` (Failed Permanently)**: The item has failed 3 consecutive curation attempts. A row exists in `curation_decision` with `curate_status = 'failed'` and `retry_count >= 3`. It is excluded from automatic retry queues and requires manual override or deletion to be reprocessed.
+* **`withdrawn`**: A previously approved item that was manually withdrawn/taken down by an operator. A row exists in `curation_decision` with `curate_status = 'withdrawn'`. Corresponding records in `editor_brief`, `curation_output`, `approved_content_record`, and `translation_output` remain present in the database to serve as cache anchors, but are no longer active for public export.
 
 ---
 
@@ -43,6 +44,12 @@ The table below defines how an item transitions from its **Old State** to a **Ne
 | **approved / rejected** | Forced Re-run Success (`edit_rewrite`) | **rejected** | Update `curation_decision` (status='rejected', action='edit_rewrite', retry_count=0) | Update/Insert `editor_brief`. Delete existing `curation_output` row if present. |
 | **approved / rejected** | Forced Re-run Success (`reject_discard`) | **rejected** | Update `curation_decision` (status='rejected', action='reject_discard', retry_count=0) | Delete existing `editor_brief` and `curation_output` rows if present. |
 | **approved / rejected** | Forced Re-run Failure | **Unchanged** | None. Transaction rolled back. | No database changes. Keep previous successful curation results. |
+| **approved** | Operator triggers `withdraw` | **withdrawn** | Update `curation_decision` (status='withdrawn', reason, actor='operator', updated_at=now) | Keep existing `editor_brief` and `curation_output` rows (protect translation cache). |
+| **withdrawn** | Operator triggers `reapprove` | **approved** | Update `curation_decision` (status='approved', reason, actor='operator', updated_at=now) | Keep existing `editor_brief` and `curation_output` rows. |
+| **withdrawn** | Forced Re-run Success (`publish_*`) | **approved** | Update `curation_decision` (status='approved', action, actor='system', retry_count=0, updated_at=now) | Update/Insert `editor_brief` and `curation_output`. |
+| **withdrawn** | Forced Re-run Success (`edit_rewrite`) | **rejected** | Update `curation_decision` (status='rejected', action='edit_rewrite', actor='system', retry_count=0, updated_at=now) | Update/Insert `editor_brief`. Delete existing `curation_output` row if present. |
+| **withdrawn** | Forced Re-run Success (`reject_discard`) | **rejected** | Update `curation_decision` (status='rejected', action='reject_discard', actor='system', retry_count=0, updated_at=now) | Delete existing `editor_brief` and `curation_output` rows if present. |
+| **withdrawn** | Forced Re-run Failure | **Unchanged** | None. Transaction rolled back. | No database changes. Keep previous curation results. |
 
 ---
 

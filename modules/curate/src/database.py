@@ -194,30 +194,34 @@ class CurationRepository:
             "curate_status": decision_data["curate_status"],
             "downstream_action": decision_data.get("downstream_action"),
             "decision_reason": decision_data.get("decision_reason"),
+            "decision_actor": decision_data.get("decision_actor", "system"),
             "retry_count": decision_data.get("retry_count", 0),
             "model_name": decision_data["model_name"],
             "prompt_version": decision_data["prompt_version"],
             "curated_at": decision_data.get("curated_at", now),
             "created_at": decision_data.get("created_at", now),
+            "updated_at": decision_data.get("updated_at", now),
         }
 
         cursor = self.conn.cursor()
         cursor.execute("""
             INSERT INTO curation_decision (
                 source_item_id, curate_status, downstream_action, decision_reason,
-                retry_count, model_name, prompt_version, curated_at, created_at
+                decision_actor, retry_count, model_name, prompt_version, curated_at, created_at, updated_at
             ) VALUES (
                 :source_item_id, :curate_status, :downstream_action, :decision_reason,
-                :retry_count, :model_name, :prompt_version, :curated_at, :created_at
+                :decision_actor, :retry_count, :model_name, :prompt_version, :curated_at, :created_at, :updated_at
             )
             ON CONFLICT(source_item_id) DO UPDATE SET
                 curate_status = excluded.curate_status,
                 downstream_action = excluded.downstream_action,
                 decision_reason = excluded.decision_reason,
+                decision_actor = excluded.decision_actor,
                 retry_count = excluded.retry_count,
                 model_name = excluded.model_name,
                 prompt_version = excluded.prompt_version,
-                curated_at = excluded.curated_at
+                curated_at = excluded.curated_at,
+                updated_at = excluded.updated_at
         """, fields)
         return cursor.lastrowid
 

@@ -73,7 +73,16 @@ The `curate` module uses typed YAML configurations parsed into Pydantic models a
 
 ---
 
-## 5. Minimal CLI Usage
+## 5. Pre-production Schema Reset Policy
+
+Since the system is in pre-production and data can be rebuilt from upstream sources (as per [IMPLEMENTATION_ROADMAP.md](file:///C:/Users/user/Documents/derived-work/docs/IMPLEMENTATION_ROADMAP.md)), we explicitly choose to update the initial DDL script [v001_initial_curate_tables.sql](file:///C:/Users/user/Documents/derived-work/modules/curate/src/migrations/v001_initial_curate_tables.sql) directly.
+* This refactoring is a **pre-production schema reset**.
+* We do **not** provide incremental schema migration scripts (like `v002`) for existing local databases.
+* To apply this refactoring locally, you must either drop/recreate the curation tables (`curation_decision`, `editor_brief`, `curation_output`) and remove the `'v001_initial_curate_tables.sql'` row from `schema_migrations`, or delete and rebuild the `canonical.db` database entirely.
+
+---
+
+## 6. Minimal CLI Usage
 
 Validate configurations:
 
@@ -111,13 +120,16 @@ Check curation queue status and stats:
 python -m modules.curate.src.cli status --db-path data/canonical.db
 ```
 
-### 5.1 Status Output Definition
+### 6.1 Status Output Definition
 The `status` command queries `data/canonical.db` and must print a standardized, formatted summary of the curation queue:
 * **`pending`**: Count of items eligible for curation (source_item status 'ingested', classification topic 'core'/'adjacent', and no curation decision OR status 'failed' with retry_count < 3).
 * **`locked` (Failed permanently)**: Count of items that failed curation and reached `retry_count >= 3`.
 * **`approved`**: Count of approved items, showing a breakdown:
   * `publish_link` (Bookmark Mode)
   * `publish_summary` (Full Summary Mode)
+* **`withdrawn`**: Count of manually withdrawn items, showing a breakdown:
+  * `publish_link` (Withdrawn Bookmark Mode)
+  * `publish_summary` (Withdrawn Full Summary Mode)
 * **`rejected`**: Count of rejected items, showing a breakdown:
   * `edit_rewrite` (Soft Reject Mode)
   * `reject_discard` (Hard Reject Mode)
