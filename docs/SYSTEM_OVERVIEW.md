@@ -65,8 +65,8 @@ Canonical storage exists to keep the durable system record for:
 - curation decisions
 - site-owned edit records
 - approved content records (`approved_content_record`) as canonical handoff artifacts assembled from finalized editorial state
-- translation outputs (`translation_output`), metadata (status, fingerprints), and frozen slugs
-- publishable content references and metadata
+- translation outputs (`translation_output`) and metadata (status, fingerprints)
+- publishable content references, frozen slugs, and metadata
 
 Canonical storage is not required to retain every raw payload forever.
 Retention policy is a separate concern from canonical identity.
@@ -91,7 +91,7 @@ The rewritten system recognizes at least four important content representations:
 
 ### 5.3 Translation Representation
 
-- spliced and translated content (display titles, markdown body, and source notes) for each language code
+- spliced and translated content (display titles and markdown body) for each language code
 - kept in canonical storage, mapping to the upstream approved content fingerprint
 
 ### 5.4 Publish Representation
