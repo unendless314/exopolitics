@@ -15,7 +15,7 @@ This repository is currently in a documentation reset phase:
 - define the top-level product and architecture direction
 - preserve RSS source research and category definitions
 - establish module boundaries before implementation expands
-- document the development order for `ingest`, `classify`, `curate`, `edit`, `publish`, and `site`
+- document the development order for `ingest`, `classify`, `curate`, `edit`, `translate`, `publish`, and `site`
 - reserve a compliant path for future edit content with source attribution and AI disclosure
 
 ## Architecture Summary
@@ -31,6 +31,8 @@ The current system direction is:
 - `edit`
   - reserved for near-term site-native drafts, summaries, rewrites, and synthesis
   - in early stages, low-volume edit flow can remain inside `curate` before separate extraction
+- `translate`
+  - read approved `approved_content_record` mother drafts, generate multilingual translations, and write `translation_output`
 - `publish`
   - export approved content into a publish layer
 - `site`
@@ -42,10 +44,11 @@ The current system direction is:
 2. `classify`
 3. `curate`
 4. `edit` (only when the workflow becomes stable)
-5. `publish`
-6. `site`
+5. `translate`
+6. `publish`
+7. `site`
 
-This order is intentional. The project should first stabilize data ingestion and curation before introducing a dedicated standalone edit workflow.
+This order is intentional. The project first stabilized ingestion, classification, curation, and translation around the canonical content handoff before moving on to a dedicated publish/export layer. The standalone `edit` module remains reserved for when that workflow becomes stable enough to justify extraction.
 
 ## Content Model Direction
 
@@ -122,14 +125,21 @@ modules/
 │   ├── docs/
 │   ├── src/
 │   └── tests/
-└── curate/
-    ├── config/
-    ├── docs/
-    ├── src/
-    └── tests/
+├── curate/
+│   ├── config/
+│   ├── docs/
+│   ├── src/
+│   └── tests/
+├── translate/
+│   ├── config/
+│   ├── docs/
+│   ├── src/
+│   └── tests/
+└── publish/
+    └── docs/
 ```
 
-At this stage, `modules/ingest/` and `modules/classify/` are fully implemented and executable, and the `modules/curate/` scaffold and technical proposal have been initialized.
+At this stage, `modules/ingest/`, `modules/classify/`, and `modules/curate/` are fully implemented and executable. `modules/translate/` is also implemented with an executable CLI and module test coverage, but has not yet been fully runtime-validated in a live operator run. `modules/publish/` is currently in the planning and documentation phase.
 
 Pre-reset module docs and code now live under `modules_archive/`.
 

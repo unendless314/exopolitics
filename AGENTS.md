@@ -4,7 +4,7 @@
 This repository is a phased, modular UAP/UFO aggregation system plan. Top-level contracts live in `docs/`; implementation work belongs in `modules/<module>/` with `docs/`, `config/`, `src/`, and `tests/`.
 
 Planned module sequence:
-`ingest -> classify -> curate -> edit (when needed) -> publish -> site`
+`ingest -> classify -> curate -> edit (when needed) -> translate -> publish -> site`
 
 The active module workspace has been reset. Archived pre-reset module trees live under `modules_archive/`; new implementation work should restart under `modules/` and preserve future module boundaries.
 
@@ -34,6 +34,7 @@ Respect module boundaries from `docs/MODULE_BOUNDARIES.md`:
 - `classify`: LLM classification contracts
 - `curate`: editorial curation, triage, formatting, and routing decisions
 - `edit`: edit-draft provenance and responsibility metadata
+- `translate`: multilingual translations and display title refinement
 - `publish`: export and disclosure emission
 - `site`: render published outputs only; no canonical DB writes
 
