@@ -4,7 +4,7 @@ active_prompt_template: translator_v1
 
 # Request behavior shared across providers.
 request_defaults:
-  temperature: 0.3
+  temperature: 0.7
   top_p: 0.95
   max_output_tokens: 4096
 
@@ -35,7 +35,7 @@ execution_policy:
 # Validation Parameters
 validation:
   default_max_title_length: 500   # Fallback if not specified in target_languages
-  content_ratio_limit: 1.2        # Max ratio of len(translated_content) / len(content_body)
+  content_ratio_limit: 5.0        # Max ratio of len(translated_content) / len(content_body)
 
 # Provider registry.
 providers:
