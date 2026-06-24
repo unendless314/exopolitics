@@ -28,13 +28,13 @@ The transition trigger for publish eligibility is not `publish_status` itself. I
 
 | Old State | Trigger / Event | New State | Publish Table Updates | File-System Side-Effects |
 | :--- | :--- | :--- | :--- | :--- |
-| **None / Pending** | Item becomes export-eligible and passes coverage policy | **published** | Insert `publish_record` if absent; insert `publish_language_status` with status=`published`, `published_at`, fingerprint | Write item JSON; rebuild index/feed/stats |
-| **withdrawn** | Previously withdrawn item becomes eligible again | **published** | Update `publish_language_status` to status=`published`, clear/retain `withdrawn_at` per implementation rule, refresh fingerprint, update `published_at` | Recreate item JSON; rebuild index/feed/stats |
+| **None / Pending** | Item becomes export-eligible and passes coverage policy | **published** | Insert `publish_record` if absent; insert `publish_language_status` with status=`published`, `published_at`, fingerprint | Write item JSON; rebuild index/stats |
+| **withdrawn** | Previously withdrawn item becomes eligible again | **published** | Update `publish_language_status` to status=`published`, retain previous `withdrawn_at` value to preserve audit history, refresh fingerprint, update `published_at` | Recreate item JSON; rebuild index/stats |
 | **published** | Current export is re-run with unchanged fingerprint | **published** | No semantic change required; row should keep existing fingerprint and timestamps | File content may remain untouched if identical |
-| **published** | Mother-draft fingerprint changes and new completed translation becomes available | **published** | Update `source_fingerprint`, `published_at` | Overwrite item JSON; rebuild index/feed/stats |
-| **published** | Upstream curation state changes to `withdrawn` | **withdrawn** | Update `publish_language_status` to status=`withdrawn`, set `withdrawn_at`, preserve prior `published_at` | Delete item JSON; rebuild index/feed/stats |
-| **published** | Required language coverage becomes incomplete under `strict_match` | **withdrawn** | Update affected language rows to status=`withdrawn`, set `withdrawn_at` | Delete item JSON for all public languages of that item; rebuild index/feed/stats |
-| **published** | Translation row disappears from current eligible set because status is no longer `completed` or fingerprint no longer matches | **withdrawn** | Update `publish_language_status` to status=`withdrawn`, set `withdrawn_at` | Delete item JSON; rebuild index/feed/stats |
+| **published** | Mother-draft fingerprint changes and new completed translation becomes available | **published** | Update `source_fingerprint`, `published_at` | Overwrite item JSON; rebuild index/stats |
+| **published** | Upstream curation state changes to `withdrawn` | **withdrawn** | Update `publish_language_status` to status=`withdrawn`, set `withdrawn_at`, preserve prior `published_at` | Delete item JSON; rebuild index/stats |
+| **published** | Required language coverage becomes incomplete under `strict_match` | **withdrawn** | Update affected language rows to status=`withdrawn`, set `withdrawn_at` | Delete item JSON for all public languages of that item; rebuild index/stats |
+| **published** | Translation row disappears from current eligible set because status is no longer `completed` or fingerprint no longer matches | **withdrawn** | Update `publish_language_status` to status=`withdrawn`, set `withdrawn_at` | Delete item JSON; rebuild index/stats |
 
 ---
 
@@ -48,7 +48,7 @@ The module must:
 2. Resolve the `slug` from `publish_record`.
 3. Delete `data/publish_export/<language_code>/items/<slug>.json` if it exists.
 4. Mark the corresponding `publish_language_status` row as `withdrawn`.
-5. Rebuild language indexes, feeds, and stats so withdrawn items no longer appear publicly.
+5. Rebuild language indexes and stats so withdrawn items no longer appear publicly.
 
 The module must not delete:
 

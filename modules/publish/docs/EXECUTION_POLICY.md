@@ -35,7 +35,7 @@ For a normal `run`, the orchestrator should execute in this order:
 6. Write or overwrite item JSON files.
 7. Detect previously published rows that are no longer exportable.
 8. Remove obsolete item JSON files and mark those language rows as `withdrawn`.
-9. Rebuild `index.json`, `feed.xml`, and `stats.json` from the final active published set.
+9. Rebuild `index.json` and `stats.json` from the final active published set.
 
 This sequencing ensures aggregate files are built from the post-sync state rather than a stale intermediate snapshot.
 
@@ -66,7 +66,7 @@ Expected properties:
 - no duplicate `publish_record` rows
 - no duplicate `publish_language_status` rows
 - no slug regeneration for already-published items
-- no reappearance of withdrawn items in indexes or feeds
+- no reappearance of withdrawn items in indexes
 - optional avoidance of rewriting unchanged files when content bytes are identical
 
 Idempotency matters more than micro-optimizing file writes in the current phase.
@@ -82,7 +82,7 @@ Required behavior:
 - clear or recreate the export directory
 - reload canonical publish eligibility from the database
 - reuse existing frozen slugs from `publish_record`
-- regenerate all item files, indexes, feeds, and stats from scratch
+- regenerate all item files, indexes, and stats from scratch
 - keep withdrawn items absent from the rebuilt output
 
 The rebuild command must not fabricate new slugs for source items that already have `publish_record` rows.
@@ -95,7 +95,9 @@ The rebuild command must not fabricate new slugs for source items that already h
 
 Before executing synchronization, the runner must validate the active configuration:
 
-- **Target Language Existence**: Every language code specified in the publish configuration's target/public languages must exist in the database as a recognized translation output (i.e. present in `translation_output.language_code`). If a configured language has no translation records in the database, the runner should abort execution (or issue a blocking warning if the database is completely empty on cold starts) to prevent system lockouts under strict coverage policies.
+- **Target Language Existence**: Every language code specified in the publish configuration's target/public languages should ideally exist in the database as a recognized translation output (i.e. present in `translation_output.language_code`). 
+  - **For the `validate` command**: If a configured target language has zero translation records in the database, the validator must issue a blocking validation failure.
+  - **For the `run` and `rebuild` commands**: Instead of aborting execution completely (which makes early bootstrap environments fragile when some languages haven't been translated yet), the runner must issue a warning and exclude items from publication if the missing language blocks the configured coverage policy (e.g. `strict_match` will naturally prevent items from being published, but the process will exit gracefully with a warning rather than crashing or aborting). To prevent command-line output and log pollution, warnings for missing configured target languages must be emitted only once per missing language per command execution run, rather than repeatedly per evaluated item.
 
 ### 7.2 Artifact Validation
 
@@ -107,7 +109,7 @@ Before exporting an individual language artifact, the runner should validate at 
 - `translation_output.source_fingerprint = approved_content_record.content_fingerprint`
 - upstream `curate_status = 'approved'`
 - required route components (`language_code`, `slug`) are available
-- `author_metadata` is present as a well-formed JSON string that parses to a JSON object containing at least `source_module` and `writer_type`. Under the conditional schema rule, if `writer_type` is `'human'` or `'hybrid'`, it must also contain a non-empty `editor` field. If the value is `NULL`, invalid JSON, not an object, missing required keys, or violates this conditional rule, the runner must abort compilation for this item and raise a validation error.
+- `author_metadata` is required and must be present as a well-formed JSON string that parses to a JSON object containing at least `source_module` and `writer_type`. Under the conditional schema rule, if `writer_type` is `'human'` or `'hybrid'`, it must also contain a non-empty `editor` field. If the value is `NULL` in the database, invalid JSON, not an object, missing required keys, or violates this conditional rule, the runner must abort compilation for this item and raise a validation error.
 
 If any of these fail, the artifact must not be exported.
 
@@ -142,7 +144,6 @@ To support high volume data growth (e.g. 100k+ source items) while reducing the 
 - When writing item JSON files to disk (especially during a full `rebuild` command), the runner **must not** load the entire dataset of content bodies into memory at once.
 - The runner must process records in chunks (e.g., using paginated SQL queries or SQLite cursors with `fetchmany(1000)`). The memory footprint during file emission must be bounded by the chunk size and aggregate writer buffers, and must not scale linearly with the total number of published items.
 
-### 9.3 Lightweight Index & Feed Compilation
-- In this system, `summary_short` is a preview text extracted from the first paragraph (or a configured character limit) of the translated content body during compilation. Aggregate compilation for `index.json` and `feed.xml` may query `content` only when needed to derive this preview text. When `content` is read for aggregate compilation, the runner should still process rows in bounded batches rather than loading the full dataset at once. The condensed nature of the content reduces per-row cost, but does not remove the need for bounded processing at large scale.
-- The RSS feed (`feed.xml`) must be capped at a reasonable limit (e.g., the latest 50 to 100 published items by `published_at` timestamp) to prevent generating bloated XML files that degrade network performance.
+### 9.3 Lightweight Index Compilation
+- In this system, `summary_short` is a preview text extracted from the first paragraph (or a configured character limit) of the translated content body during compilation. Aggregate compilation for `index.json` may query `content` only when needed to derive this preview text. When `content` is read for aggregate compilation, the runner should still process rows in bounded batches rather than loading the full dataset at once. The condensed nature of the content reduces per-row cost, but does not remove the need for bounded processing at large scale.
 - The primary language index (`index.json`) must remain lightweight by containing only metadata and short summaries. To avoid browser performance degradation when total dataset size grows extremely large, pagination or sharded index files should be the planned scaling path once active published item counts exceed a configured threshold.

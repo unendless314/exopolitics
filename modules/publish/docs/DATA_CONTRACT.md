@@ -56,6 +56,7 @@ Tracks language-specific export state as a downstream synchronization record.
 - `publish_status = 'withdrawn'` represents downstream file removal state only; it does not mean the item is deleted from canonical storage.
 - `source_fingerprint` lets `publish` detect whether a previously exported language artifact corresponds to the current mother-draft version.
 - slug generation occurs only when a `publish_record` row does not yet exist for the `source_item_id`.
+- `publish_language_status` deliberately omits an `updated_at` column by design to keep the schema simple; modification events are traced through `published_at` and `withdrawn_at` fields depending on the active state.
 
 ---
 
@@ -216,9 +217,9 @@ The `publish` runner reads `approved_content_record.author_metadata` as a serial
 
 Contract requirements:
 
-- If `author_metadata` is present, it must parse successfully as a JSON object.
+- `author_metadata` is required for every exportable artifact and must parse successfully as a JSON object.
 - The parsed object must contain at least `source_module` and `writer_type`.
-- If `author_metadata` is `NULL`, invalid JSON, not a JSON object, or missing required keys, the artifact fails validation and must not be exported.
+- If `author_metadata` is `NULL` in the database, invalid JSON, not a JSON object, or missing required keys, the artifact fails validation and must not be exported.
 - `publish` must not emit mixed output types for this field. The exported item JSON always uses the object form.
 - **Disclosure Note Generation**: The `disclosure_note` text is determined directly from `writer_type` without heuristic guessing:
   - If `writer_type` is `'human'` or `'hybrid'`, the note must be: `"This item is AI-assisted and human-curated."`
@@ -277,17 +278,7 @@ Contract example:
 
 The list must be sorted by `published_at DESC`, with a deterministic tiebreaker such as `slug ASC`.
 
-### 6.3 Feed XML
-
-Path:
-
-```text
-data/publish_export/<language_code>/feed.xml
-```
-
-The feed must be derived only from active published items in that language and must not retain withdrawn items.
-
-### 6.4 Global Stats JSON
+### 6.3 Global Stats JSON
 
 Path:
 
@@ -322,8 +313,6 @@ Reasons:
 - the site remains insulated from canonical schema churn
 - the same publish artifacts can later feed other downstream consumers
 
-The older discussion has been preserved in `archive/docs/WHY_JSON.md`.
-
 ---
 
 ## 9. Module Configuration
@@ -348,8 +337,6 @@ execution_policy:
   default_export_dir: "data/publish_export"
   # Batch size for chunked database queries and file writes
   batch_size: 1000
-  # Maximum number of items in RSS feed.xml
-  rss_feed_limit: 100
   # Number of items before sharding or paginating the primary index.json
   index_pagination_threshold: 50000
 ```
@@ -359,8 +346,7 @@ execution_policy:
 - `target_languages` must contain a non-empty dictionary of language mappings.
 - `coverage_policy` must be a supported string matching active strategies (currently `'strict_match'`).
 - `execution_policy.batch_size` must be a positive integer greater than zero.
-- `execution_policy.rss_feed_limit` must be a positive integer greater than zero.
 - `execution_policy.index_pagination_threshold` must be a positive integer greater than zero.
 
-If configuration validation fails during execution (e.g. CLI `validate` command), the runner must abort immediately.
+If configuration validation fails due to structural or schema errors (such as missing required keys, negative bounds, or invalid data types), the runner must abort immediately. Warning-level runtime validation rules (such as missing database records for a configured target language during cold start) are handled per the rules defined in [EXECUTION_POLICY.md](./EXECUTION_POLICY.md) to allow graceful warning output and bypass.
 

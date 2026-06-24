@@ -36,7 +36,6 @@ The active implementation should deliver a production-usable `publish` module th
 
 - write item JSON files under `data/publish_export/<language>/items/`
 - rebuild `index.json` per language from active published rows
-- generate `feed.xml` per language
 - generate `stats.json`
 
 ### Phase 4: CLI And Operational Commands
@@ -80,4 +79,3 @@ For this phase:
 
 - update the initial publish migration directly if needed
 - do not preserve backward compatibility for earlier draft publish tables unless a real persisted environment requires it
-- treat archived docs as reference only, not active contract

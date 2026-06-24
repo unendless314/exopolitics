@@ -31,7 +31,11 @@ The effective handoff for `publish` is:
 
 This means `publish` must not treat translation completion alone as publication eligibility. A translated item is exportable only when the upstream editorial state is still actively approved.
 
-### 1.2 Boundary Rules
+### 1.2 Downstream Handoff to `site`
+
+The output artifacts produced by `publish` (specifically `data/publish_export/<language_code>/index.json` and per-item JSON exports under `data/publish_export/<language_code>/items/<slug>.json`) serve as the handoff contract for the downstream presentation layer. The `site` module consumes these files to render final web pages and may derive additional presentation-layer artifacts from the structured fields in the language index and per-item JSON exports.
+
+### 1.3 Boundary Rules
 
 - `publish` does not decide approval, rejection, rewrite, or withdrawal
 - `publish` does not invoke LLMs or regenerate translated content
@@ -45,7 +49,7 @@ This means `publish` must not treat translation completion alone as publication 
 1. Select export-eligible translated records whose upstream curation status remains active.
 2. Generate and persist a stable slug on first publication.
 3. Emit per-language public artifacts under the export directory.
-4. Rebuild language indexes, feeds, and global stats from canonical publish-layer state.
+4. Rebuild language indexes and global stats from canonical publish-layer state.
 5. Detect upstream withdrawals or eligibility loss and remove corresponding public files.
 6. Preserve attribution, disclosure, and source provenance fields in exported payloads.
 7. Keep the export layer rebuildable without turning publish-layer tables into the editorial source of truth.
@@ -92,8 +96,6 @@ If the repository later adopts partial-language export, that must be introduced 
 - [STATE_TRANSITIONS.md](./STATE_TRANSITIONS.md): Publish states, withdrawal synchronization, and file cleanup behavior.
 - [EXECUTION_POLICY.md](./EXECUTION_POLICY.md): Runner sequencing, rebuild rules, transaction boundaries, and idempotency expectations.
 - [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md): Development phases, test focus, and implementation milestones.
-
-Historical planning material has been moved under `modules/publish/archive/docs/` and is no longer the active source of truth.
 
 ---
 
