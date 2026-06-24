@@ -50,7 +50,7 @@ This sequencing ensures aggregate files are built from the post-sync state rathe
 
 Recommended safety model:
 
-1. Compute export decisions in memory.
+1. Compute export decisions using lightweight metadata only, in memory or in bounded batches.
 2. Perform short database upserts for the affected item or language row.
 3. Write the concrete file artifact.
 4. If a write fails, stop the run, report the failure, and avoid silently marking success for aggregate outputs.
@@ -124,3 +124,21 @@ The `status` command should provide a concise publish-layer summary, for example
 - source items blocked by incomplete language coverage
 
 This command should reflect publish-layer projection state, not attempt to redefine upstream editorial counts.
+
+---
+
+## 9. Memory Management & Scalability Rules
+
+To support high volume data growth (e.g. 100k+ source items) without causing memory exhaustion (OOM) or system lockups, the runner must adhere to the following execution constraints:
+
+### 9.1 Lightweight Reconciliation
+- During the initial reconciliation, state check, and slug assignment phases, the runner **must not** query the large `content` (Markdown body) column from the database. The database queries for reconciliation must select only lightweight metadata fields (e.g., `source_item_id`, `parent_content_id`, `slug`, `language_code`, `publish_status`, `content_fingerprint`, `source_fingerprint`).
+
+### 9.2 Chunked/Streaming File Emission
+- When writing item JSON files to disk (especially during a full `rebuild` command), the runner **must not** load the entire dataset of content bodies into memory at once.
+- The runner must process records in chunks (e.g., using paginated SQL queries or SQLite cursors with `fetchmany(1000)`). The memory footprint during file emission must be bounded by the chunk size and aggregate writer buffers, and must not scale linearly with the total number of published items.
+
+### 9.3 Lightweight Index & Feed Compilation
+- The database query used to build aggregate index files (`index.json` and `feed.xml`) **must not** select the large `content` column. It must only load the summary and metadata fields (e.g., `slug`, `display_title`, `summary_short`, dates).
+- The RSS feed (`feed.xml`) must be capped at a reasonable limit (e.g., the latest 50 to 100 published items by `published_at` timestamp) to prevent generating bloated XML files that degrade network performance.
+- The primary language index (`index.json`) must remain lightweight by containing only metadata and short summaries. To avoid browser performance degradation when total dataset size grows extremely large, pagination or sharded index files should be the planned scaling path once active published item counts exceed a configured threshold.
