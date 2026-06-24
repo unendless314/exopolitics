@@ -115,13 +115,17 @@ If any of these fail, the artifact must not be exported.
 
 ## 8. Status Command Expectations
 
-The `status` command should provide a concise publish-layer summary, for example:
+The `status` command should provide a concise publish-layer summary. To prevent terminal flooding when dealing with large datasets (thousands of items), the command must output **aggregated counts and statistics** rather than lists of individual items or full payloads.
 
-- active published language artifacts
-- withdrawn language artifacts
-- total source items with frozen slugs
-- source items currently eligible under the active coverage policy
-- source items blocked by incomplete language coverage
+The summary should display metrics such as:
+
+- count of active published language artifacts
+- count of withdrawn language artifacts
+- count of total source items with frozen slugs
+- count of source items currently eligible under the active coverage policy
+- count of source items blocked by incomplete language coverage
+
+Optional verbose flags (e.g. `--verbose` or `--limit`) may be implemented to inspect specific items, but the default behavior must remain lightweight and summary-only.
 
 This command should reflect publish-layer projection state, not attempt to redefine upstream editorial counts.
 
