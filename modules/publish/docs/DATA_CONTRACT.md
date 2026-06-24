@@ -328,7 +328,7 @@ The older discussion has been preserved in `archive/docs/WHY_JSON.md`.
 
 ## 9. Module Configuration
 
-The `publish` module requires a configuration file located at `modules/publish/config/publish_settings.yaml`. This file defines the active language set, publication policies, and batch constraints.
+The `publish` module requires a configuration file following this schema. The default configuration file path is `modules/publish/config/publish_settings.yaml`, but the system must allow specifying a custom configuration file path during runtime execution. This configuration defines the active language set, publication policies, and batch constraints.
 
 ### 9.1 Schema Specification
 
