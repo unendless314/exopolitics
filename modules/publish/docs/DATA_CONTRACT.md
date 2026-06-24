@@ -272,6 +272,9 @@ Contract example:
 ]
 ```
 
+**Summary Short Parsing Rule**:
+- `summary_short` is a short preview text. Since the system's translated content is already a highly condensed summary, this field is derived from the first paragraph (or a configured character limit) of the translated `content` body during publish compilation.
+
 The list must be sorted by `published_at DESC`, with a deterministic tiebreaker such as `slug ASC`.
 
 ### 6.3 Feed XML
