@@ -1,0 +1,21 @@
+# Publish Module Configuration Settings (v1.0)
+
+# Target languages that are configured for public display.
+# Every code listed here must exist in translation_output.language_code.
+target_languages:
+  zh: "Traditional Chinese"
+  en: "English"
+
+# Coverage policy for publication eligibility:
+# - strict_match: require completed translation for all target_languages before exporting.
+coverage_policy: "strict_match"
+
+execution_policy:
+  # Default path for static export files
+  default_export_dir: "data/publish_export"
+  # Batch size for chunked database queries and file writes
+  batch_size: 1000
+  # Maximum number of items in RSS feed.xml
+  rss_feed_limit: 100
+  # Number of items before sharding or paginating the primary index.json
+  index_pagination_threshold: 50000

@@ -323,3 +323,44 @@ Reasons:
 - the same publish artifacts can later feed other downstream consumers
 
 The older discussion has been preserved in `archive/docs/WHY_JSON.md`.
+
+---
+
+## 9. Module Configuration
+
+The `publish` module requires a configuration file located at `modules/publish/config/publish_settings.yaml`. This file defines the active language set, publication policies, and batch constraints.
+
+### 9.1 Schema Specification
+
+```yaml
+# Target languages that are configured for public display.
+# Every code listed here must exist in translation_output.language_code.
+target_languages:
+  zh: "Traditional Chinese"
+  en: "English"
+
+# Coverage policy for publication eligibility.
+# - strict_match: require completed translation for all target_languages before exporting.
+coverage_policy: "strict_match"
+
+execution_policy:
+  # Default path for static export files
+  default_export_dir: "data/publish_export"
+  # Batch size for chunked database queries and file writes
+  batch_size: 1000
+  # Maximum number of items in RSS feed.xml
+  rss_feed_limit: 100
+  # Number of items before sharding or paginating the primary index.json
+  index_pagination_threshold: 50000
+```
+
+### 9.2 Validation Rules
+
+- `target_languages` must contain a non-empty dictionary of language mappings.
+- `coverage_policy` must be a supported string matching active strategies (currently `'strict_match'`).
+- `execution_policy.batch_size` must be a positive integer greater than zero.
+- `execution_policy.rss_feed_limit` must be a positive integer greater than zero.
+- `execution_policy.index_pagination_threshold` must be a positive integer greater than zero.
+
+If configuration validation fails during execution (e.g. CLI `validate` command), the runner must abort immediately.
+
