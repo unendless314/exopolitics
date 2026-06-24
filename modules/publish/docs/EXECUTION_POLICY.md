@@ -107,7 +107,7 @@ Before exporting an individual language artifact, the runner should validate at 
 - `translation_output.source_fingerprint = approved_content_record.content_fingerprint`
 - upstream `curate_status = 'approved'`
 - required route components (`language_code`, `slug`) are available
-- `author_metadata` is present as a well-formed JSON string that parses to a JSON object containing at least `source_module` and `writer_type`; if the value is `NULL`, invalid JSON, not an object, or missing required keys, the runner must abort compilation for this item and raise a validation error.
+- `author_metadata` is present as a well-formed JSON string that parses to a JSON object containing at least `source_module` and `writer_type`. Under the conditional schema rule, if `writer_type` is `'human'` or `'hybrid'`, it must also contain a non-empty `editor` field. If the value is `NULL`, invalid JSON, not an object, missing required keys, or violates this conditional rule, the runner must abort compilation for this item and raise a validation error.
 
 If any of these fail, the artifact must not be exported.
 

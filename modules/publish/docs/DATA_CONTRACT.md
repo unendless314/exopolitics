@@ -220,6 +220,10 @@ Contract requirements:
 - The parsed object must contain at least `source_module` and `writer_type`.
 - If `author_metadata` is `NULL`, invalid JSON, not a JSON object, or missing required keys, the artifact fails validation and must not be exported.
 - `publish` must not emit mixed output types for this field. The exported item JSON always uses the object form.
+- **Disclosure Note Generation**: The `disclosure_note` text is determined directly from `writer_type` without heuristic guessing:
+  - If `writer_type` is `'human'` or `'hybrid'`, the note must be: `"This item is AI-assisted and human-curated."`
+  - If `writer_type` is `'AI'` or `'machine'`, the note must be: `"This item is AI-generated."`
+  - **Validation Rule**: To ensure reliability, when `writer_type` is `'human'` or `'hybrid'`, the `author_metadata` must contain a non-empty `editor` field. If `editor` is missing or empty for human/hybrid content, the artifact fails validation and must not be published (see [EXECUTION_POLICY.md](file:///C:/Users/user/Documents/derived-work/modules/publish/docs/EXECUTION_POLICY.md)).
 
 Contract example:
 
@@ -240,8 +244,7 @@ Contract example:
     "source_module": "edit",
     "writer_type": "human",
     "editor": "john_doe"
-  },
-  "source_fingerprint": "sha256:example"
+  }
 }
 ```
 
