@@ -28,13 +28,13 @@ The transition trigger for publish eligibility is not `publish_status` itself. I
 
 | Old State | Trigger / Event | New State | Publish Table Updates | File-System Side-Effects |
 | :--- | :--- | :--- | :--- | :--- |
-| **None / Pending** | Item becomes export-eligible and passes coverage policy | **published** | Insert `publish_record` if absent; insert `publish_language_status` with status=`published`, `published_at`, fingerprint | Write item JSON; rebuild index/stats |
-| **withdrawn** | Previously withdrawn item becomes eligible again | **published** | Update `publish_language_status` to status=`published`, retain previous `withdrawn_at` value to preserve audit history, refresh fingerprint, update `published_at` | Recreate item JSON; rebuild index/stats |
+| **None / Pending** | Item becomes export-eligible and passes coverage policy | **published** | Insert `publish_record` if absent; insert `publish_language_status` with status=`published`, `published_at`, fingerprint | Write item JSON; rebuild index, affected monthly archives, archive manifest & stats |
+| **withdrawn** | Previously withdrawn item becomes eligible again | **published** | Update `publish_language_status` to status=`published`, retain previous `withdrawn_at` value to preserve audit history, refresh fingerprint, update `published_at` | Recreate item JSON; rebuild index, affected monthly archives, archive manifest & stats |
 | **published** | Current export is re-run with unchanged fingerprint | **published** | No semantic change required; row should keep existing fingerprint and timestamps | File content may remain untouched if identical |
-| **published** | Mother-draft fingerprint changes and new completed translation becomes available | **published** | Update `source_fingerprint`, `published_at` | Overwrite item JSON; rebuild index/stats |
-| **published** | Upstream curation state changes to `withdrawn` | **withdrawn** | Update `publish_language_status` to status=`withdrawn`, set `withdrawn_at`, preserve prior `published_at` | Delete item JSON; rebuild index/stats |
-| **published** | Required language coverage becomes incomplete under `strict_match` | **withdrawn** | Update affected language rows to status=`withdrawn`, set `withdrawn_at` | Delete item JSON for all public languages of that item; rebuild index/stats |
-| **published** | Translation row disappears from current eligible set because status is no longer `completed` or fingerprint no longer matches | **withdrawn** | Update `publish_language_status` to status=`withdrawn`, set `withdrawn_at` | Delete item JSON; rebuild index/stats |
+| **published** | Mother-draft fingerprint changes and new completed translation becomes available | **published** | Update `source_fingerprint`, `published_at` | Overwrite item JSON; rebuild index, affected monthly archives, archive manifest & stats |
+| **published** | Upstream curation state changes to `withdrawn` | **withdrawn** | Update `publish_language_status` to status=`withdrawn`, set `withdrawn_at`, preserve prior `published_at` | Delete item JSON; rebuild index, affected monthly archives, archive manifest & stats |
+| **published** | Required language coverage becomes incomplete under `strict_match` | **withdrawn** | Update affected language rows to status=`withdrawn`, set `withdrawn_at` | Delete item JSON for all public languages of that item; rebuild index, affected monthly archives, archive manifest & stats |
+| **published** | Translation row disappears from current eligible set because status is no longer `completed` or fingerprint no longer matches | **withdrawn** | Update `publish_language_status` to status=`withdrawn`, set `withdrawn_at` | Delete item JSON; rebuild index, affected monthly archives, archive manifest & stats |
 
 ---
 
@@ -48,7 +48,10 @@ The module must:
 2. Resolve the `slug` from `publish_record`.
 3. Delete `data/publish_export/<language_code>/items/<slug>.json` if it exists.
 4. Mark the corresponding `publish_language_status` row as `withdrawn`.
-5. Rebuild language indexes and stats so withdrawn items no longer appear publicly.
+5. Remove the item from `index.json`.
+6. Locate the monthly archive file `archive_YYYY_MM.json` (using the calendar month derived strictly from the item's `source_published_at` mapping to `source_item.published_at`) and rewrite it with the withdrawn item removed.
+7. If the monthly archive file becomes empty after removal, the runner **must delete** the empty `archive_YYYY_MM.json` file from disk and **must remove** its corresponding entry from the archives index manifest `archives/index.json` (rather than keeping an empty file or registering a 0-item count).
+8. Rebuild the archives index manifest `archives/index.json` and stats `stats.json` (see data aggregation source rules in [EXECUTION_POLICY.md](./EXECUTION_POLICY.md)) to reflect the updated metrics.
 
 The module must not delete:
 

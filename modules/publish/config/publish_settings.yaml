@@ -15,5 +15,10 @@ execution_policy:
   default_export_dir: "data/publish_export"
   # Batch size for chunked database queries and file writes
   batch_size: 1000
-  # Number of items before sharding or paginating the primary index.json
-  index_pagination_threshold: 50000
+
+# Index and archive generation policy
+index_policy:
+  # Maximum items retained in the latest index.json file
+  latest_limit: 1000
+  # Granularity for partitioning historical content (only 'month' is supported)
+  archive_granularity: "month"

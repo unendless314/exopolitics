@@ -33,7 +33,7 @@ This means `publish` must not treat translation completion alone as publication 
 
 ### 1.2 Downstream Handoff to `site`
 
-The output artifacts produced by `publish` (specifically `data/publish_export/<language_code>/index.json` and per-item JSON exports under `data/publish_export/<language_code>/items/<slug>.json`) serve as the handoff contract for the downstream presentation layer. The `site` module consumes these files to render final web pages and may derive additional presentation-layer artifacts from the structured fields in the language index and per-item JSON exports.
+The output artifacts produced by `publish` (specifically the latest items index `data/publish_export/<language_code>/index.json`, the monthly archives index `data/publish_export/<language_code>/archives/index.json`, the monthly archives `data/publish_export/<language_code>/archives/archive_YYYY_MM.json`, and per-item JSON exports under `data/publish_export/<language_code>/items/<slug>.json`) serve as the handoff contract for the downstream presentation layer. The `site` module consumes these files to render final web pages and may derive additional presentation-layer artifacts from the structured fields in the language index, monthly archives, and per-item JSON exports.
 
 ### 1.3 Boundary Rules
 

@@ -35,7 +35,7 @@ For a normal `run`, the orchestrator should execute in this order:
 6. Write or overwrite item JSON files.
 7. Detect previously published rows that are no longer exportable.
 8. Remove obsolete item JSON files and mark those language rows as `withdrawn`.
-9. Rebuild `index.json` and `stats.json` from the final active published set.
+9. Rebuild `index.json`, `stats.json`, the archives index (`archives/index.json`), and the monthly archive files (`archives/archive_YYYY_MM.json`) that are affected by this run (see Section 6 for incremental vs. full rebuild rules) from the final active published set.
 
 This sequencing ensures aggregate files are built from the post-sync state rather than a stale intermediate snapshot.
 
@@ -77,15 +77,18 @@ Idempotency matters more than micro-optimizing file writes in the current phase.
 
 The `rebuild` command must treat `data/publish_export/` as disposable output.
 
-Required behavior:
-
-- clear or recreate the export directory
-- reload canonical publish eligibility from the database
-- reuse existing frozen slugs from `publish_record`
-- regenerate all item files, indexes, and stats from scratch
-- keep withdrawn items absent from the rebuilt output
-
-The rebuild command must not fabricate new slugs for source items that already have `publish_record` rows.
+### 6.1 Rebuild vs. Incremental Run Granularity
+- **Incremental Run (`run` command)**:
+  - Latest Index: The runner always rebuilds `index.json` (containing the latest $N$ items).
+  - Monthly Archives: To avoid unnecessary disk I/O, the runner must compute the calendar months affected by items newly published, updated, or withdrawn in the current execution run. It must only overwrite or create those specific `archive_YYYY_MM.json` files. Other historical month archives must not be read or written.
+  - Manifest & Stats: The archives manifest `archives/index.json` and `stats.json` must be regenerated to reflect correct totals and timestamps. To strictly respect the policy that unaffected historical archive files are not read during incremental runs, the runner must derive all manifest and statistics counts by performing SQL aggregation queries directly over the SQLite canonical tables (`publish_record` and `publish_language_status`). It must not load, parse, or scan historical monthly archive files from disk to compute these metrics.
+- **Full Rebuild (`rebuild` command)**:
+  - The runner must clear or recreate the export directory.
+  - It must reload canonical publish eligibility from the database.
+  - It must reuse existing frozen slugs from `publish_record`.
+  - It must regenerate all item files, the latest index, the archive manifest, and **all** historical monthly archive files from scratch.
+  - It must keep withdrawn items absent from all rebuilt outputs.
+  - The rebuild command must not fabricate new slugs for source items that already have `publish_record` rows.
 
 ---
 
@@ -145,5 +148,5 @@ To support high volume data growth (e.g. 100k+ source items) while reducing the 
 - The runner must process records in chunks (e.g., using paginated SQL queries or SQLite cursors with `fetchmany(1000)`). The memory footprint during file emission must be bounded by the chunk size and aggregate writer buffers, and must not scale linearly with the total number of published items.
 
 ### 9.3 Lightweight Index Compilation
-- In this system, `summary_short` is a preview text extracted from the first paragraph (or a configured character limit) of the translated content body during compilation. Aggregate compilation for `index.json` may query `content` only when needed to derive this preview text. When `content` is read for aggregate compilation, the runner should still process rows in bounded batches rather than loading the full dataset at once. The condensed nature of the content reduces per-row cost, but does not remove the need for bounded processing at large scale.
-- The primary language index (`index.json`) must remain lightweight by containing only metadata and short summaries. To avoid browser performance degradation when total dataset size grows extremely large, pagination or sharded index files should be the planned scaling path once active published item counts exceed a configured threshold.
+- In this system, `summary_short` is a preview text extracted from the first paragraph (or a configured character limit) of the translated `content` body during compilation. Aggregate compilation for `index.json` and monthly `archive_YYYY_MM.json` files may query `content` only when needed to derive this preview text. When `content` is read for aggregate compilation, the runner must still process rows in bounded batches (e.g. chunked SQLite queries) rather than loading all content bodies at once. The condensed nature of the content reduces per-row cost, but does not remove the need for bounded processing at large scale.
+- The primary language index (`index.json`) must remain lightweight by containing only metadata and short summaries. To avoid browser performance degradation when the total dataset size grows extremely large, the system adopts a dual-track indexing strategy (Latest N items `index.json` + Monthly Archive `archive_YYYY_MM.json`). This replaces quantity-based index sharding or pagination. Memory footprint during aggregate index/archive compilation must be bounded by batch size and must not scale linearly with total records.

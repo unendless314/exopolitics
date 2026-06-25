@@ -35,8 +35,9 @@ The active implementation should deliver a production-usable `publish` module th
 ### Phase 3: File Emission
 
 - write item JSON files under `data/publish_export/<language>/items/`
-- rebuild `index.json` per language from active published rows
-- generate `stats.json`
+- rebuild `index.json` (latest $N$ items) and affected `archives/archive_YYYY_MM.json` monthly archives
+- rebuild monthly archive index manifest `archives/index.json`
+- generate `stats.json` with archive observation metrics
 
 ### Phase 4: CLI And Operational Commands
 
@@ -56,9 +57,12 @@ Tests should cover at least the following:
 2. Strict-match eligibility when one language is missing, failed, stale, or fingerprint-mismatched.
 3. Withdrawal synchronization when upstream `curate_status` changes from `approved` to `withdrawn`.
 4. Re-publication when a withdrawn item becomes approved again.
-5. Rebuild correctness with pre-existing publish rows and frozen slugs.
+5. Rebuild correctness with pre-existing publish rows and frozen slugs, ensuring all monthly archives are fully reconstructed.
 6. Idempotent reruns against unchanged database state.
 7. Aggregate file generation excluding withdrawn items.
+8. Historical archive withdrawal synchronization (when an item is withdrawn, ensure it is removed from both `index.json` and its specific monthly `archive_YYYY_MM.json` file, and that the manifest `archives/index.json` is updated).
+9. Monthly archive rebuild correctness (validation of full directory clean rebuild vs. incremental execution granularity).
+10. Latest index and monthly archive overlap consistency (verifying that items can exist in both `index.json` and `archive_YYYY_MM.json` as expected).
 
 ---
 

@@ -276,9 +276,60 @@ Contract example:
 **Summary Short Parsing Rule**:
 - `summary_short` is a short preview text. Since the system's translated content is already a highly condensed summary, this field is derived from the first paragraph (or a configured character limit) of the translated `content` body during publish compilation.
 
-The list must be sorted by `published_at DESC`, with a deterministic tiebreaker such as `slug ASC`.
+**Sorting Rule**:
+- The list must be sorted by `source_published_at DESC`, with a deterministic tiebreaker `slug ASC`.
+- The `published_at` timestamp is preserved strictly for publisher audit purposes (recording when the runner emitted the entry) and must not be used for sharding or sorting.
 
-### 6.3 Global Stats JSON
+**Overlap & Limit Policy**:
+- This index file is limited to the latest $N$ items (configured via `index_policy.latest_limit`).
+- Because historical archives contain all items for a given month, items in recent months may exist in both `index.json` and the corresponding monthly archive. This overlap is intended by design and does not represent a duplicate data error.
+
+### 6.3 Monthly Archive JSON
+
+Path:
+
+```text
+data/publish_export/<language_code>/archives/archive_YYYY_MM.json
+```
+
+- Each file contains all items published within a specific calendar month, mapped strictly by their `source_published_at` (derived from `source_item.published_at`). Other fields like `approved_at` or `published_at` must not be used for classification to prevent month drifting.
+- The structure of the JSON array is identical to `index.json` (see Section 6.2).
+- Items inside the archive must be sorted by `source_published_at DESC` with a deterministic tiebreaker `slug ASC`.
+- Historical archives are append-stable (immutable for normal incremental runs) but may be rewritten for compliance-driven withdrawal or correction synchronization. If a monthly archive file becomes empty after withdrawal, it must be deleted from disk and its entry must be removed from the archives index manifest.
+
+### 6.4 Monthly Archive Index JSON (Manifest)
+
+Path:
+
+```text
+data/publish_export/<language_code>/archives/index.json
+```
+
+Provides a manifest of available archives so downstream consumers (e.g. `site` module) can discover available monthly packages without scanning directory contents.
+
+Contract example:
+
+```json
+[
+  {
+    "archive_month": "2026-06",
+    "file_name": "archive_2026_06.json",
+    "item_count": 89,
+    "updated_at": "2026-06-25T02:00:00Z"
+  },
+  {
+    "archive_month": "2026-05",
+    "file_name": "archive_2026_05.json",
+    "item_count": 142,
+    "updated_at": "2026-06-24T10:00:00Z"
+  }
+]
+```
+
+- The list must be sorted by `archive_month DESC`.
+- `updated_at` tracks the UTC ISO-8601 timestamp of the most recent write to that specific monthly archive file.
+
+### 6.5 Global Stats JSON
 
 Path:
 
@@ -286,11 +337,14 @@ Path:
 data/publish_export/stats.json
 ```
 
-This file should expose lightweight aggregate counts such as:
+This file exposes lightweight aggregate counts and operational observation metrics:
 
-- total active published items by language
-- total withdrawn language artifacts
-- last export run timestamp
+- `total_active_published_items_by_language`: dictionary mapping language codes to total count of active published items
+- `total_withdrawn_items_by_language`: dictionary mapping language codes to total count of withdrawn items
+- `latest_index_count_by_language`: dictionary mapping language codes to count of items in their `index.json`
+- `archive_month_count_by_language`: dictionary mapping language codes to count of historical monthly archive files
+- `oldest_archive_month_by_language`: dictionary mapping language codes to their earliest archive month string (e.g., `"2026-05"`)
+- `last_export_run_timestamp`: UTC ISO-8601 timestamp of the last export execution
 
 ---
 
@@ -337,8 +391,13 @@ execution_policy:
   default_export_dir: "data/publish_export"
   # Batch size for chunked database queries and file writes
   batch_size: 1000
-  # Number of items before sharding or paginating the primary index.json
-  index_pagination_threshold: 50000
+
+# Index and archive generation policy
+index_policy:
+  # Maximum items retained in the latest index.json file
+  latest_limit: 1000
+  # Granularity for partitioning historical content (only 'month' is supported)
+  archive_granularity: "month"
 ```
 
 ### 9.2 Validation Rules
@@ -346,7 +405,8 @@ execution_policy:
 - `target_languages` must contain a non-empty dictionary of language mappings.
 - `coverage_policy` must be a supported string matching active strategies (currently `'strict_match'`).
 - `execution_policy.batch_size` must be a positive integer greater than zero.
-- `execution_policy.index_pagination_threshold` must be a positive integer greater than zero.
+- `index_policy.latest_limit` must be a positive integer greater than zero.
+- `index_policy.archive_granularity` must equal `"month"`.
 
 If configuration validation fails due to structural or schema errors (such as missing required keys, negative bounds, or invalid data types), the runner must abort immediately. Warning-level runtime validation rules (such as missing database records for a configured target language during cold start) are handled per the rules defined in [EXECUTION_POLICY.md](./EXECUTION_POLICY.md) to allow graceful warning output and bypass.
 
