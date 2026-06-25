@@ -278,7 +278,7 @@ This guide establishes the concrete rules for borrowing code, logic, and layout 
 
 | Reference Template | Sampling Strategy | What to Borrow | What to Exclude |
 | :--- | :--- | :--- | :--- |
-| **`astro-sienna`** | **Visual & Layout Core** | Spacing system, Typography tokens, CSS variables, Light/Dark mode transitions, CSS-Grid timeline timeline layout. | Default markdown mock data. |
+| **`astro-sienna`** | **Visual & Layout Core** | Spacing system, Typography tokens, CSS variables, Light/Dark mode transitions, CSS-Grid timeline layout. | Default markdown mock data. |
 | **`astro-i18n-starter` / `astro-paper-i18n` / `astroplate-multilingual`** | **Engineering & Routing Reference Only** | `astro:i18n` configuration patterns, page directory routing hierarchy, alternate sitemap tags, dynamic `getLocalePaths` helper logic. | Visual UI components, header layouts, spacing styles, card/list layouts. |
 | **`astro-theme-retypeset`** | **Prose Typography Reference Only** | Article detail layout limits (`max-width: 64ch`), line-height rhythm, blockquote styling. | Default font faces, navigation UI elements. |
 | **`bcms-podcast`** | **Conceptual Audio Reference Only** | Extensible metadata properties (e.g. `audio_url`), basic play controls layout. | Complex React context, Tailwind-heavy player styles, custom image rendering loaders. |
@@ -289,7 +289,7 @@ This guide establishes the concrete rules for borrowing code, logic, and layout 
 All components created for the `site` module (e.g. `LanguageSelector`, `Timeline`, `AudioPlayer`) must inherit spacing, borders, and colors exclusively from the CSS variables defined in `src/styles/global.css` (initially sourced from `astro-sienna`). Hardcoded hex values or conflicting spacing tokens (e.g. ad-hoc Tailwind margin offsets) must be avoided.
 
 #### 2. Keep the Ingestion Layer Decoupled
-UI components must be independent of how the data is loaded. The data loading adapter (e.g., build-time JSON to markdown generator in Phase 1) must output clean, normalized data fields. Components consume these standard data fields, ensuring that transitioning from Phase 1 to Phase 2 does not require rewriting UI layout layouts.
+UI components must be independent of how the data is loaded. The data loading adapter (e.g., build-time JSON to markdown generator in Phase 1) must output clean, normalized data fields. Components consume these standard data fields, ensuring that transitioning from Phase 1 to Phase 2 does not require rewriting UI layouts.
 
 #### 3. Standardize Markdown Rendering
 Do not use raw marked injections inside custom theme structures. Rely on Astro's native markdown styles (specifically `prose` style wrappers configured via CSS variables) to render markdown content, ensuring that plugins (syntax highlighting, TOC, external link behaviors) behave identically across the website.
