@@ -1,0 +1,19 @@
+---
+import { getLocalePaths, localeProfiles } from "../utils/i18n";
+const currentUrl = Astro.url;
+const paths = getLocalePaths(currentUrl);
+---
+
+<div class="lang-selector">
+  <select
+    id="langSelect"
+    onchange="window.location.href = this.value"
+    class="bg-transparent text-textColor border border-hairline rounded px-2.5 py-1 font-sans text-sm cursor-pointer hover:border-accent focus:border-accent focus:outline-none transition-colors duration-200"
+  >
+    {paths.map(({ lang, path }) => (
+      <option class="bg-bgColor text-textColor" value={path} selected={Astro.currentLocale === lang}>
+        {localeProfiles[lang].label}
+      </option>
+    ))}
+  </select>
+</div>

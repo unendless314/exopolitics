@@ -1,0 +1,70 @@
+---
+import fs from "node:fs";
+import path from "node:path";
+import Base from "../../../layouts/Base.astro";
+import Timeline from "../../../components/Timeline.astro";
+import { useTranslations } from "../../../utils/i18n";
+
+export function getStaticPaths() {
+  const languages = ["zh", "en", "ja"];
+  const paths = [];
+
+  for (const lang of languages) {
+    const archivesIndexFile = path.resolve(`../../data/publish_export/${lang}/archives/index.json`);
+    if (fs.existsSync(archivesIndexFile)) {
+      const archives = JSON.parse(fs.readFileSync(archivesIndexFile, "utf8"));
+      for (const archive of archives) {
+        paths.push({
+          params: { lang, month: archive.archive_month },
+          props: { fileName: archive.file_name },
+        });
+      }
+    }
+  }
+
+  return paths;
+}
+
+const { lang = "zh", month } = Astro.params;
+const { fileName } = Astro.props;
+const t = useTranslations(lang);
+
+// Read the archive list for this month
+const archiveFile = path.resolve(`../../data/publish_export/${lang}/archives/${fileName}`);
+let archiveItems = [];
+if (fs.existsSync(archiveFile)) {
+  archiveItems = JSON.parse(fs.readFileSync(archiveFile, "utf8"));
+}
+
+// Map simple catalog items to conform to the post shape expected by the Timeline component
+const mappedPosts = archiveItems.map((item: any) => ({
+  id: `generated/${lang}/${item.slug}.md`,
+  data: {
+    title: item.display_title,
+    publishDate: new Date(item.source_published_at),
+    description: item.summary_short || item.display_title,
+  }
+}));
+
+const pageTitle = `UAP Aggregator - ${t('archive.monthTitle', { month })}`;
+const pageDesc = `Historical aggregated UAP and UFO news alerts for the month of ${month}.`;
+---
+
+<Base title={pageTitle} description={pageDesc} lang={lang}>
+  <section class="mt-4">
+    <div class="mb-8">
+      <h1 class="font-serif text-3xl font-bold text-textColor mb-2">
+        {t('archive.monthTitle', { month })}
+      </h1>
+      <p class="text-sm text-textColor/60 font-sans">
+        {pageDesc} ({t('archive.totalItems', { count: archiveItems.length })})
+      </p>
+    </div>
+
+    {archiveItems.length > 0 ? (
+      <Timeline posts={mappedPosts as any} lang={lang} />
+    ) : (
+      <p class="text-textColor/60 font-sans">{t('archive.empty')}</p>
+    )}
+  </section>
+</Base>

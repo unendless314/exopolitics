@@ -1,0 +1,44 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import Timeline from "../../components/Timeline.astro";
+import { useTranslations } from "../../utils/i18n";
+
+export function getStaticPaths() {
+  return [
+    { params: { lang: "zh" } },
+    { params: { lang: "en" } },
+    { params: { lang: "ja" } },
+  ];
+}
+
+const { lang } = Astro.params;
+const t = useTranslations(lang);
+
+// Get and filter posts for this language
+const allPosts = await getCollection("posts");
+const filteredPosts = allPosts
+  .filter((post) => post.id.startsWith(`generated/${lang}/`))
+  .sort((a, b) => b.data.publishDate.getTime() - a.data.publishDate.getTime());
+
+// Take latest posts for the homepage feed (e.g. latest 100 posts to keep page size reasonable, or show all. Let's show all or first 200, wait, index has 1000 items, let's render all filtered posts, or limit it to 300 to keep it extremely fast)
+const displayPosts = filteredPosts.slice(0, 300);
+
+const pageTitle = `UAP Aggregator - ${t('nav.timeline')}`;
+const pageDesc = `Latest news alerts and disclosure updates about UAP/UFO aggregated from global scientific and official sources.`;
+---
+
+<Base title={pageTitle} description={pageDesc} lang={lang}>
+  <section class="mt-4">
+    <div class="mb-8">
+      <h1 class="font-serif text-3xl font-bold text-textColor mb-2">
+        {t('nav.timeline')}
+      </h1>
+      <p class="text-sm text-textColor/60 font-sans">
+        {pageDesc}
+      </p>
+    </div>
+    
+    <Timeline posts={displayPosts} lang={lang} />
+  </section>
+</Base>

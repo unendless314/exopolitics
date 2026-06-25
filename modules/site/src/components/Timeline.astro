@@ -1,0 +1,40 @@
+---
+import { formatAbsoluteDateTime } from "../utils/i18n";
+import type { CollectionEntry } from "astro:content";
+
+interface Props {
+  posts: CollectionEntry<"posts">[];
+  lang: string;
+}
+
+const { posts, lang } = Astro.props;
+---
+
+<div class="timeline mt-8">
+  {posts.map((post) => {
+    const filename = post.id.split('/').pop() || "";
+    const realSlug = filename.replace(/\.md$/, "");
+    const postRoute = `/${lang}/posts/${realSlug}/`;
+
+    return (
+      <article class="post group">
+        <div class="post-rail">
+          <time class="post-date" datetime={post.data.publishDate.toISOString()}>
+            {formatAbsoluteDateTime(post.data.publishDate.toISOString())}
+          </time>
+          <div class="post-dot" />
+        </div>
+        <div class="post-body">
+          <h2 class="post-title">
+            <a href={postRoute} class="focus:outline-none">
+              {post.data.title}
+            </a>
+          </h2>
+          <p class="post-preview">
+            {post.data.description}
+          </p>
+        </div>
+      </article>
+    );
+  })}
+</div>

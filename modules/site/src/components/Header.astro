@@ -1,0 +1,78 @@
+---
+import { useTranslations } from "../utils/i18n";
+import LanguageSelector from "./LanguageSelector.astro";
+
+const lang = Astro.currentLocale || "zh";
+const t = useTranslations(lang);
+
+const homeRoute = `/${lang}/`;
+const archivesRoute = `/${lang}/archives/`;
+const statsRoute = `/${lang}/stats/`;
+---
+
+<header class="sticky top-0 z-40 w-full border-b border-hairline bg-bgColor/80 backdrop-blur-md transition-colors duration-300">
+  <div class="mx-auto flex max-w-4xl items-center justify-between px-4 sm:px-6 py-4">
+    <div class="flex items-center gap-4 sm:gap-6">
+      <a href={homeRoute} class="font-serif text-base sm:text-lg font-bold text-textColor hover:text-accent transition-colors duration-200">
+        UAP Aggregator
+      </a>
+      <nav class="flex items-center gap-4 sm:gap-6 font-sans text-xs sm:text-sm font-medium">
+        <a href={homeRoute} class="text-textColor/80 hover:text-accent transition-colors duration-200">{t('nav.home')}</a>
+        <a href={archivesRoute} class="text-textColor/80 hover:text-accent transition-colors duration-200">{t('nav.archives')}</a>
+        <a href={statsRoute} class="text-textColor/80 hover:text-accent transition-colors duration-200">{t('nav.stats')}</a>
+      </nav>
+    </div>
+    
+    <div class="flex items-center gap-2 sm:gap-4">
+      <LanguageSelector />
+      
+      <!-- Theme Toggle Button -->
+      <button
+        id="themeToggle"
+        class="theme-toggle p-2 rounded-lg border border-hairline hover:border-accent text-textColor/80 hover:text-accent transition-colors duration-200"
+        aria-label={t('theme.toggle')}
+      >
+        <!-- Light Icon -->
+        <svg id="themeToggleLightIcon" class="hidden w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.46 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path>
+        </svg>
+        <!-- Dark Icon -->
+        <svg id="themeToggleDarkIcon" class="hidden w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<script>
+  const themeToggleBtn = document.getElementById('themeToggle');
+  const themeToggleLightIcon = document.getElementById('themeToggleLightIcon');
+  const themeToggleDarkIcon = document.getElementById('themeToggleDarkIcon');
+
+  const updateToggleIcons = (theme: string) => {
+    if (theme === 'dark') {
+      themeToggleLightIcon?.classList.remove('hidden');
+      themeToggleDarkIcon?.classList.add('hidden');
+    } else {
+      themeToggleLightIcon?.classList.add('hidden');
+      themeToggleDarkIcon?.classList.remove('hidden');
+    }
+  };
+
+  const getTheme = () => {
+    return document.documentElement.getAttribute('data-theme') || 'light';
+  };
+
+  // Initial update
+  updateToggleIcons(getTheme());
+
+  themeToggleBtn?.addEventListener('click', () => {
+    const currentTheme = getTheme();
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateToggleIcons(newTheme);
+  });
+</script>

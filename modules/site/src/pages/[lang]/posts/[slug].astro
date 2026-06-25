@@ -1,0 +1,36 @@
+---
+import { getCollection } from "astro:content";
+import PostLayout from "../../../layouts/Post.astro";
+
+export async function getStaticPaths() {
+  const allPosts = await getCollection("posts");
+  return allPosts.map((post) => {
+    const parts = post.id.split('/');
+    const lang = parts[1];
+    const filename = parts[parts.length - 1];
+    const slug = filename.replace(/\.md$/, "");
+    
+    return {
+      params: { lang, slug },
+      props: { post },
+    };
+  });
+}
+
+const { post } = Astro.props;
+const { Content } = await post.render();
+const { lang = "zh" } = Astro.params;
+---
+
+<PostLayout
+  title={post.data.title}
+  description={post.data.description}
+  publishDate={post.data.publishDate}
+  canonicalUrl={post.data.canonicalUrl}
+  disclosureNote={post.data.disclosureNote}
+  authorMetadata={post.data.authorMetadata}
+  content={post.body}
+  lang={lang}
+>
+  <Content />
+</PostLayout>

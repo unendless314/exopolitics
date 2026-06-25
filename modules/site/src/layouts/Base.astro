@@ -1,0 +1,32 @@
+---
+import BaseHead from "../components/BaseHead.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { localeProfiles } from "../utils/i18n";
+import type { SupportedLanguages } from "../utils/i18n";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+  lang?: string;
+}
+
+const { title, description, lang = "zh" } = Astro.props;
+const currentLang = (lang in localeProfiles ? lang : "zh") as SupportedLanguages;
+const profile = localeProfiles[currentLang];
+---
+
+<!DOCTYPE html>
+<html lang={profile.langTag} dir={profile.dir} class="scroll-smooth">
+  <head>
+    <BaseHead title={title} description={description} lang={currentLang} />
+  </head>
+  <body class="min-h-screen flex flex-col bg-bgColor text-textColor transition-colors duration-300">
+    <Header />
+    <main class="flex-grow w-full max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

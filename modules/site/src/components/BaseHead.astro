@@ -1,0 +1,55 @@
+---
+import { getLocalePaths, localeProfiles } from "../utils/i18n";
+import type { SupportedLanguages } from "../utils/i18n";
+
+interface Props {
+  title: string;
+  description: string;
+  lang: string;
+}
+
+const { title, description, lang } = Astro.props;
+const currentLang = (lang in localeProfiles ? lang : "en") as SupportedLanguages;
+const profile = localeProfiles[currentLang];
+const currentUrl = Astro.url;
+
+// Generate alternate links for SEO
+const alternates = getLocalePaths(currentUrl).map(({ lang: altLang, path }) => {
+  const absoluteUrl = new URL(path, currentUrl.origin).href;
+  return {
+    langTag: localeProfiles[altLang].langTag,
+    href: absoluteUrl,
+  };
+});
+
+// Primary canonical URL
+const canonicalHref = new URL(currentUrl.pathname, currentUrl.origin).href;
+---
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="generator" content={Astro.generator} />
+
+<!-- Primary Meta Tags -->
+<title>{title}</title>
+<meta name="title" content={title} />
+<meta name="description" content={description} />
+<link rel="canonical" href={canonicalHref} />
+
+<!-- hreflang alternate links for SEO -->
+{alternates.map(({ langTag, href }) => (
+  <link rel="alternate" hreflang={langTag} href={href} />
+))}
+<link rel="alternate" hreflang="x-default" href={new URL("/zh/", currentUrl.origin).href} />
+
+<!-- Theme script to prevent flash of wrong theme -->
+<script is:inline>
+  const getTheme = () => {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+      return localStorage.getItem('theme');
+    }
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  };
+  document.documentElement.setAttribute('data-theme', getTheme());
+</script>

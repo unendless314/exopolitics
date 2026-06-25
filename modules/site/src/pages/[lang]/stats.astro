@@ -1,0 +1,102 @@
+---
+import Base from "../../layouts/Base.astro";
+import { formatAbsoluteDateTime, useTranslations } from "../../utils/i18n";
+import stats from "../../../../../data/publish_export/stats.json";
+
+export function getStaticPaths() {
+  return [
+    { params: { lang: "zh" } },
+    { params: { lang: "en" } },
+    { params: { lang: "ja" } },
+  ];
+}
+
+const { lang = "zh" } = Astro.params;
+const t = useTranslations(lang);
+const lastRun = stats.last_export_run_timestamp;
+
+const pageTitle = `UAP Aggregator - ${t('nav.stats')}`;
+const pageDesc = `Global database synchronization and publishing statistics for UAP/UFO aggregated content.`;
+---
+
+<Base title={pageTitle} description={pageDesc} lang={lang}>
+  <section class="mt-4">
+    <div class="mb-8">
+      <h1 class="font-serif text-3xl font-bold text-textColor mb-2">
+        {t('stats.title')}
+      </h1>
+      <p class="text-sm text-textColor/60 font-sans">
+        {pageDesc}
+      </p>
+    </div>
+
+    <!-- Overview Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div class="p-6 rounded-lg border border-hairline bg-paper">
+        <h3 class="font-sans text-xs font-semibold uppercase tracking-wider text-textColor/60 mb-2">
+          {t('stats.lastRun')}
+        </h3>
+        <time datetime={lastRun} class="font-mono text-lg font-bold text-accent">
+          {formatAbsoluteDateTime(lastRun)}
+        </time>
+      </div>
+
+      <div class="p-6 rounded-lg border border-hairline bg-paper">
+        <h3 class="font-sans text-xs font-semibold uppercase tracking-wider text-textColor/60 mb-2">
+          {t('stats.totalActive')} ({lang.toUpperCase()})
+        </h3>
+        <span class="font-mono text-2xl font-bold text-textColor">
+          {stats.total_active_published_items_by_language[lang as 'zh'|'en'|'ja'].toLocaleString()}
+        </span>
+      </div>
+    </div>
+
+    <!-- Comparative Stats Table -->
+    <div class="rounded-lg border border-hairline overflow-hidden bg-paper transition-all duration-300">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-hairline bg-bgColor/30">
+              <th class="p-4 font-serif font-semibold text-textColor">Metric</th>
+              <th class="p-4 font-mono font-semibold text-textColor text-center">繁體中文 (ZH)</th>
+              <th class="p-4 font-mono font-semibold text-textColor text-center">English (EN)</th>
+              <th class="p-4 font-mono font-semibold text-textColor text-center">日本語 (JA)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-hairline">
+            <tr>
+              <td class="p-4 font-sans text-sm font-medium text-textColor/80">{t('stats.totalActive')}</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.total_active_published_items_by_language.zh}</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.total_active_published_items_by_language.en}</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.total_active_published_items_by_language.ja}</td>
+            </tr>
+            <tr>
+              <td class="p-4 font-sans text-sm font-medium text-textColor/80">{t('stats.totalWithdrawn')}</td>
+              <td class="p-4 font-mono text-sm text-center text-textColor/60">{stats.total_withdrawn_items_by_language.zh}</td>
+              <td class="p-4 font-mono text-sm text-center text-textColor/60">{stats.total_withdrawn_items_by_language.en}</td>
+              <td class="p-4 font-mono text-sm text-center text-textColor/60">{stats.total_withdrawn_items_by_language.ja}</td>
+            </tr>
+            <tr>
+              <td class="p-4 font-sans text-sm font-medium text-textColor/80">Latest Index Capacity</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.latest_index_count_by_language.zh}</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.latest_index_count_by_language.en}</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.latest_index_count_by_language.ja}</td>
+            </tr>
+            <tr>
+              <td class="p-4 font-sans text-sm font-medium text-textColor/80">{t('stats.archiveMonthCount')}</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.archive_month_count_by_language.zh}</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.archive_month_count_by_language.en}</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.archive_month_count_by_language.ja}</td>
+            </tr>
+            <tr>
+              <td class="p-4 font-sans text-sm font-medium text-textColor/80">{t('stats.oldestArchive')}</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.oldest_archive_month_by_language.zh}</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.oldest_archive_month_by_language.en}</td>
+              <td class="p-4 font-mono text-sm text-center">{stats.oldest_archive_month_by_language.ja}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</Base>

@@ -1,0 +1,19 @@
+---
+import { useTranslations, formatAbsoluteDateTime } from "../utils/i18n";
+import stats from "../../../../data/publish_export/stats.json";
+
+const lang = Astro.currentLocale || "zh";
+const t = useTranslations(lang);
+const lastRun = stats.last_export_run_timestamp;
+---
+
+<footer class="w-full border-t border-hairline py-8 mt-12 bg-bgColor transition-colors duration-300">
+  <div class="mx-auto max-w-4xl px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-sans text-textColor/60">
+    <div>
+      <p>&copy; {new Date().getFullYear()} UAP Aggregator. All rights reserved.</p>
+    </div>
+    <div class="text-center md:text-right">
+      <p>{t('stats.lastRun')}: <time datetime={lastRun} class="font-mono">{formatAbsoluteDateTime(lastRun)}</time></p>
+    </div>
+  </div>
+</footer>

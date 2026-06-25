@@ -1,0 +1,58 @@
+---
+import fs from "node:fs";
+import path from "node:path";
+import Base from "../../../layouts/Base.astro";
+import { useTranslations } from "../../../utils/i18n";
+
+export function getStaticPaths() {
+  return [
+    { params: { lang: "zh" } },
+    { params: { lang: "en" } },
+    { params: { lang: "ja" } },
+  ];
+}
+
+const { lang = "zh" } = Astro.params;
+const t = useTranslations(lang);
+
+const archivesIndexFile = path.resolve(`../../data/publish_export/${lang}/archives/index.json`);
+let archives = [];
+if (fs.existsSync(archivesIndexFile)) {
+  archives = JSON.parse(fs.readFileSync(archivesIndexFile, "utf8"));
+}
+
+const pageTitle = `UAP Aggregator - ${t('archive.title')}`;
+const pageDesc = `Browse all historical aggregated UAP and UFO news alerts by month.`;
+---
+
+<Base title={pageTitle} description={pageDesc} lang={lang}>
+  <section class="mt-4">
+    <div class="mb-8">
+      <h1 class="font-serif text-3xl font-bold text-textColor mb-2">
+        {t('archive.title')}
+      </h1>
+      <p class="text-sm text-textColor/60 font-sans">
+        {pageDesc}
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
+      {archives.map((archive) => {
+        const monthUrl = `/${lang}/archives/${archive.archive_month}/`;
+        return (
+          <a
+            href={monthUrl}
+            class="block p-5 rounded-lg border border-hairline bg-paper hover:border-accent group transition-all duration-200"
+          >
+            <h2 class="font-serif text-lg font-bold text-textColor group-hover:text-accent transition-colors duration-200">
+              {archive.archive_month}
+            </h2>
+            <p class="text-xs font-sans text-textColor/60 mt-1">
+              {t('archive.totalItems', { count: archive.item_count })}
+            </p>
+          </a>
+        );
+      })}
+    </div>
+  </section>
+</Base>
