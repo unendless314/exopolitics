@@ -4,10 +4,13 @@ import pathlib
 import shutil
 import sqlite3
 import re
+import logging
 from typing import Dict, Any, List, Set, Tuple, Optional
 
 from .config import PublishConfig
 from .database import PublishRepository, get_connection, transaction, get_utc_now_iso8601
+
+logger = logging.getLogger("publish.orchestrator")
 
 class ValidationError(Exception):
     """Custom exception raised when artifact validation fails."""
@@ -129,6 +132,72 @@ def get_disclosure_note(author_metadata_str: str) -> str:
         return "This item is AI-assisted and human-curated."
     else:
         return "This item is AI-generated."
+def rollback_db_state(conn: sqlite3.Connection, db_compensations: List[Dict[str, Any]]) -> None:
+    repo = PublishRepository(conn)
+    # We rollback in reverse order of modifications
+    for comp in reversed(db_compensations):
+        item_id = comp["source_item_id"]
+        lang = comp["language_code"]
+        
+        with transaction(conn, commit=True):
+            if comp["type"] == "publish":
+                # Rollback publish
+                if comp["had_lang_status"]:
+                    # Restore previous language status
+                    prev = comp["lang_status"]
+                    repo.upsert_publish_language_status(
+                        publish_record_id=prev["publish_record_id"],
+                        language_code=lang,
+                        publish_status=prev["publish_status"],
+                        published_at=prev["published_at"],
+                        withdrawn_at=prev["withdrawn_at"],
+                        source_fingerprint=prev["source_fingerprint"]
+                    )
+                else:
+                    # Delete newly created language status row
+                    if comp["had_pub_rec"] and comp["pub_rec"]:
+                        pub_rec_id = comp["pub_rec"]["publish_record_id"]
+                    else:
+                        pub_rec = repo.get_publish_record_by_source_item_id(item_id)
+                        pub_rec_id = pub_rec["publish_record_id"] if pub_rec else None
+                        
+                    if pub_rec_id is not None:
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "DELETE FROM publish_language_status WHERE publish_record_id = ? AND language_code = ?",
+                            (pub_rec_id, lang)
+                        )
+                
+                # Restore publish_record updated_at
+                if comp["had_pub_rec"] and comp["pub_rec"]:
+                    repo.update_publish_record_updated_at(
+                        comp["pub_rec"]["publish_record_id"],
+                        comp["pub_rec"]["updated_at"]
+                    )
+                elif not comp["had_pub_rec"]:
+                    # Delete newly created publish record
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM publish_record WHERE source_item_id = ?", (item_id,))
+            
+            elif comp["type"] == "withdraw":
+                # Rollback withdraw
+                if comp["had_lang_status"]:
+                    prev = comp["lang_status"]
+                    repo.upsert_publish_language_status(
+                        publish_record_id=prev["publish_record_id"],
+                        language_code=lang,
+                        publish_status=prev["publish_status"],
+                        published_at=prev["published_at"],
+                        withdrawn_at=prev["withdrawn_at"],
+                        source_fingerprint=prev["source_fingerprint"]
+                    )
+                # Restore publish_record updated_at
+                if comp["had_pub_rec"] and comp["pub_rec"]:
+                    repo.update_publish_record_updated_at(
+                        comp["pub_rec"]["publish_record_id"],
+                        comp["pub_rec"]["updated_at"]
+                    )
+
 async def orchestrate_run(
     config: PublishConfig,
     db_path: pathlib.Path,
@@ -140,6 +209,9 @@ async def orchestrate_run(
     """
     # Initialize connection
     conn = get_connection(db_path)
+    staging_dir = export_dir / ".staging"
+    db_compensations = []
+    
     try:
         repo = PublishRepository(conn)
         
@@ -156,7 +228,7 @@ async def orchestrate_run(
         for lang in config.target_languages:
             if lang not in completed_languages:
                 if lang not in emitted_warnings:
-                    print(f"Warning: Target language '{lang}' has zero completed translations in the database.")
+                    logger.warning(f"Target language '{lang}' has zero completed translations in the database.")
                     emitted_warnings.add(lang)
 
         # 2. Reconciliation Candidate Selection
@@ -218,14 +290,8 @@ async def orchestrate_run(
         # 3. Slug Assignment & DB updates
         existing_slugs = repo.get_all_frozen_slugs()
         
-        # Create map of existing status rows to track prior states (Issue 2 compensation fix)
-        existing_status_rows = {(row["source_item_id"], row["language_code"]): row for row in active_statuses}
-
         # We track which items and languages were mutated in this run
         mutated_pairs: Set[Tuple[int, str]] = set()
-        
-        # Set up export directory
-        export_dir.mkdir(parents=True, exist_ok=True)
         
         published_count = 0
         withdrawn_count = 0
@@ -236,8 +302,11 @@ async def orchestrate_run(
             # 1. Fetch or generate slug in memory first and capture initial state
             pub_rec = repo.get_publish_record_by_source_item_id(item_id)
             had_pub_rec = pub_rec is not None
-            prior_lang_status = repo.get_publish_language_status(pub_rec["publish_record_id"], lang) if pub_rec else None
+            prior_lang_status = None
+            if pub_rec:
+                prior_lang_status = repo.get_publish_language_status(pub_rec["publish_record_id"], lang)
             had_lang_status = prior_lang_status is not None
+            
             if not pub_rec:
                 title_src = ""
                 lang_map = candidates_by_item[item_id]
@@ -263,6 +332,17 @@ async def orchestrate_run(
             payload["slug"] = slug  # Populate slug for validation
             validate_item_payload(payload)
 
+            # Record prior state for database compensation if something fails later
+            db_compensations.append({
+                "type": "publish",
+                "source_item_id": item_id,
+                "language_code": lang,
+                "had_pub_rec": had_pub_rec,
+                "pub_rec": dict(pub_rec) if pub_rec else None,
+                "had_lang_status": had_lang_status,
+                "lang_status": dict(prior_lang_status) if prior_lang_status else None
+            })
+
             # 3. DB Transaction: Update metadata & status
             with transaction(conn, commit=True):
                 # Re-query inside transaction to ensure concurrency/idempotency safety
@@ -285,66 +365,25 @@ async def orchestrate_run(
                     source_fingerprint=fingerprint
                 )
 
-            # If incremental, emit the file immediately
-            if not rebuild:
-                author_metadata = json.loads(payload["author_metadata"])
-                disclosure_note = get_disclosure_note(payload["author_metadata"])
-
-                item_json = {
-                    "source_item_id": payload["source_item_id"],
-                    "language_code": payload["language_code"],
-                    "slug": slug,
-                    "display_title": payload["display_title"],
-                    "content": payload["content"],
-                    "canonical_url": payload["canonical_url"],
-                    "source_published_at": payload["source_published_at"],
-                    "approved_at": payload["approved_at"],
-                    "published_at": get_utc_now_iso8601(),
-                    "downstream_action": payload["downstream_action"],
-                    "disclosure_note": disclosure_note,
-                    "author_metadata": author_metadata
-                }
-
-                item_file_dir = export_dir / lang / "items"
-                item_file_dir.mkdir(parents=True, exist_ok=True)
-                item_file_path = item_file_dir / f"{slug}.json"
-                try:
-                    with open(item_file_path, "w", encoding="utf-8") as f:
-                        json.dump(item_json, f, indent=2, ensure_ascii=False)
-                except Exception as write_err:
-                    # Compensating transaction to restore database state (Issue 2 fix)
-                    with transaction(conn, commit=True):
-                        if had_lang_status:
-                            # Restore previous status
-                            prev_status = prior_lang_status
-                            repo.upsert_publish_language_status(
-                                publish_record_id=publish_record_id,
-                                language_code=lang,
-                                publish_status=prev_status["publish_status"],
-                                published_at=prev_status["published_at"],
-                                withdrawn_at=prev_status["withdrawn_at"],
-                                source_fingerprint=prev_status["source_fingerprint"]
-                            )
-                        else:
-                            # First time publish failure: delete the new status row to restore pending state
-                            cursor = conn.cursor()
-                            cursor.execute(
-                                "DELETE FROM publish_language_status WHERE publish_record_id = ? AND language_code = ?",
-                                (publish_record_id, lang)
-                            )
-                            if not had_pub_rec:
-                                # First time publish record: delete the parent record too
-                                cursor.execute(
-                                    "DELETE FROM publish_record WHERE publish_record_id = ?",
-                                    (publish_record_id,)
-                                )
-                    raise write_err
-
-                mutated_pairs.add((item_id, lang))
-                published_count += 1
+            mutated_pairs.add((item_id, lang))
 
         # Second, update database status for withdrawals
         for item_id, lang, slug, fingerprint in items_to_withdraw:
+            pub_rec = repo.get_publish_record_by_source_item_id(item_id)
+            prior_lang_status = None
+            if pub_rec:
+                prior_lang_status = repo.get_publish_language_status(pub_rec["publish_record_id"], lang)
+            
+            db_compensations.append({
+                "type": "withdraw",
+                "source_item_id": item_id,
+                "language_code": lang,
+                "had_pub_rec": pub_rec is not None,
+                "pub_rec": dict(pub_rec) if pub_rec else None,
+                "had_lang_status": prior_lang_status is not None,
+                "lang_status": dict(prior_lang_status) if prior_lang_status else None
+            })
+
             with transaction(conn, commit=True):
                 pub_rec = repo.get_publish_record_by_source_item_id(item_id)
                 if pub_rec:
@@ -358,28 +397,16 @@ async def orchestrate_run(
                     )
                     repo.update_publish_record_updated_at(pub_rec["publish_record_id"], get_utc_now_iso8601())
 
-            # If incremental, delete the file immediately
-            if not rebuild:
-                item_file_path = export_dir / lang / "items" / f"{slug}.json"
-                if item_file_path.exists():
-                    os.remove(item_file_path)
-                mutated_pairs.add((item_id, lang))
-                withdrawn_count += 1
+            mutated_pairs.add((item_id, lang))
+            withdrawn_count += 1
 
-        # --- B. File Emission Phase ---
+        # Set up staging directory (clear it first to start clean)
+        if staging_dir.exists():
+            shutil.rmtree(staging_dir)
+        staging_dir.mkdir(parents=True, exist_ok=True)
+
+        # --- B. File Emission Phase into Staging ---
         if rebuild:
-            # Clear all target directories
-            for lang in config.target_languages:
-                lang_items_dir = export_dir / lang / "items"
-                if lang_items_dir.exists():
-                    shutil.rmtree(lang_items_dir)
-                lang_archives_dir = export_dir / lang / "archives"
-                if lang_archives_dir.exists():
-                    shutil.rmtree(lang_archives_dir)
-                lang_index_file = export_dir / lang / "index.json"
-                if lang_index_file.exists():
-                    os.remove(lang_index_file)
-
             # Re-fetch all published status records from DB to rebuild all eligible files
             cursor.execute("""
                 SELECT pr.source_item_id, pls.language_code, pr.slug, pls.published_at
@@ -388,58 +415,63 @@ async def orchestrate_run(
                 WHERE pls.publish_status = 'published'
             """)
             published_rows = cursor.fetchall()
+        else:
+            # Incremental run: only write the new/updated items to staging
+            # Reconstruct the fields for newly published/updated items
+            published_rows = []
+            for item_id, lang, fingerprint in items_to_publish_or_update:
+                pub_rec = repo.get_publish_record_by_source_item_id(item_id)
+                pls_row = repo.get_publish_language_status(pub_rec["publish_record_id"], lang)
+                published_rows.append({
+                    "source_item_id": item_id,
+                    "language_code": lang,
+                    "slug": pub_rec["slug"],
+                    "published_at": pls_row["published_at"]
+                })
 
-            for row in published_rows:
-                item_id, lang, slug, published_at = row["source_item_id"], row["language_code"], row["slug"], row["published_at"]
-                
-                payload_row = repo.fetch_canonical_item_payload(item_id, lang)
-                if not payload_row:
-                    raise ValidationError(f"Canonical data missing for published item {item_id} lang {lang}")
+        for row in published_rows:
+            item_id, lang, slug, published_at = row["source_item_id"], row["language_code"], row["slug"], row["published_at"]
+            
+            payload_row = repo.fetch_canonical_item_payload(item_id, lang)
+            if not payload_row:
+                raise ValidationError(f"Canonical data missing for published item {item_id} lang {lang}")
 
-                payload = dict(payload_row)
-                payload["slug"] = slug  # Populate slug for validation
-                validate_item_payload(payload)
+            payload = dict(payload_row)
+            payload["slug"] = slug  # Populate slug for validation
+            validate_item_payload(payload)
 
-                author_metadata = json.loads(payload["author_metadata"])
-                disclosure_note = get_disclosure_note(payload["author_metadata"])
+            author_metadata = json.loads(payload["author_metadata"])
+            disclosure_note = get_disclosure_note(payload["author_metadata"])
 
-                item_json = {
-                    "source_item_id": payload["source_item_id"],
-                    "language_code": payload["language_code"],
-                    "slug": slug,
-                    "display_title": payload["display_title"],
-                    "content": payload["content"],
-                    "canonical_url": payload["canonical_url"],
-                    "source_published_at": payload["source_published_at"],
-                    "approved_at": payload["approved_at"],
-                    "published_at": published_at,
-                    "downstream_action": payload["downstream_action"],
-                    "disclosure_note": disclosure_note,
-                    "author_metadata": author_metadata
-                }
+            item_json = {
+                "source_item_id": payload["source_item_id"],
+                "language_code": payload["language_code"],
+                "slug": slug,
+                "display_title": payload["display_title"],
+                "content": payload["content"],
+                "canonical_url": payload["canonical_url"],
+                "source_published_at": payload["source_published_at"],
+                "approved_at": payload["approved_at"],
+                "published_at": published_at,
+                "downstream_action": payload["downstream_action"],
+                "disclosure_note": disclosure_note,
+                "author_metadata": author_metadata
+            }
 
-                item_file_dir = export_dir / lang / "items"
-                item_file_dir.mkdir(parents=True, exist_ok=True)
-                item_file_path = item_file_dir / f"{slug}.json"
-                with open(item_file_path, "w", encoding="utf-8") as f:
-                    json.dump(item_json, f, indent=2, ensure_ascii=False)
+            item_file_dir = staging_dir / lang / "items"
+            item_file_dir.mkdir(parents=True, exist_ok=True)
+            item_file_path = item_file_dir / f"{slug}.json"
+            
+            with open(item_file_path, "w", encoding="utf-8") as f:
+                json.dump(item_json, f, indent=2, ensure_ascii=False)
+            published_count += 1
 
-                published_count += 1
-                mutated_pairs.add((item_id, lang))
-
-            # Withdrawn count is simply the count of items we withdrew in the DB phase
-            withdrawn_count = len(items_to_withdraw)
-
-
-        # 4. Rebuilding Aggregate Files
+        # 4. Rebuilding Aggregate Files into Staging
         # Compute affected months
-        # For rebuild, we affect all months with published items.
-        # For incremental, we only affect months of mutated items.
         affected_months_by_lang: Dict[str, Set[str]] = {lang: set() for lang in config.target_languages}
         
         if rebuild:
             # Find all months for active published items in DB
-            cursor = conn.cursor()
             for lang in config.target_languages:
                 cursor.execute("""
                     SELECT DISTINCT SUBSTR(s.published_at, 1, 7)
@@ -448,10 +480,9 @@ async def orchestrate_run(
                     JOIN source_item s ON s.source_item_id = pr.source_item_id
                     WHERE pls.language_code = ? AND pls.publish_status = 'published'
                 """, (lang,))
-                affected_months_by_lang[lang] = {row[0] for row in cursor.fetchall() if row[0]}
+                affected_months_by_lang[lang] = {r[0] for r in cursor.fetchall() if r[0]}
         else:
             # Find months for mutated items
-            cursor = conn.cursor()
             for item_id, lang in mutated_pairs:
                 cursor.execute("SELECT published_at FROM source_item WHERE source_item_id = ?", (item_id,))
                 res = cursor.fetchone()
@@ -466,8 +497,9 @@ async def orchestrate_run(
             # --- 4.1 Rebuild Latest Index.json ---
             index_items = []
             offset = 0
-            while True:
+            while len(index_items) < latest_limit:
                 # Query in batches to respect Section 9.3 memory scalability
+                query_limit = min(batch_size, latest_limit - len(index_items))
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT
@@ -486,7 +518,7 @@ async def orchestrate_run(
                     WHERE pls.language_code = ? AND pls.publish_status = 'published'
                     ORDER BY source_published_at DESC, pr.slug ASC
                     LIMIT ? OFFSET ?
-                """, (lang, batch_size, offset))
+                """, (lang, query_limit, offset))
                 
                 rows = cursor.fetchall()
                 if not rows:
@@ -504,12 +536,9 @@ async def orchestrate_run(
                         "published_at": row["published_at"]
                     })
                 
-                offset += batch_size
-                if len(index_items) >= latest_limit:
-                    index_items = index_items[:latest_limit]
-                    break
+                offset += len(rows)
 
-            lang_dir = export_dir / lang
+            lang_dir = staging_dir / lang
             lang_dir.mkdir(parents=True, exist_ok=True)
             index_path = lang_dir / "index.json"
             with open(index_path, "w", encoding="utf-8") as f:
@@ -558,7 +587,7 @@ async def orchestrate_run(
                             "approved_at": row["approved_at"],
                             "published_at": row["published_at"]
                         })
-                    offset += batch_size
+                    offset += len(rows)
 
                 month_file_name = f"archive_{month.replace('-', '_')}.json"
                 archive_file_path = archives_dir / month_file_name
@@ -566,13 +595,8 @@ async def orchestrate_run(
                 if archive_items:
                     with open(archive_file_path, "w", encoding="utf-8") as f:
                         json.dump(archive_items, f, indent=2, ensure_ascii=False)
-                else:
-                    # Section 3.7: Delete empty archive file
-                    if archive_file_path.exists():
-                        os.remove(archive_file_path)
 
             # --- 4.3 Rebuild Archives Manifest ---
-            # Retrieve counts and updated_at directly from DB to avoid scanning historical files
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT
@@ -609,18 +633,14 @@ async def orchestrate_run(
             if manifest_json:
                 with open(manifest_path, "w", encoding="utf-8") as f:
                     json.dump(manifest_json, f, indent=2, ensure_ascii=False)
-            else:
-                if manifest_path.exists():
-                    os.remove(manifest_path)
 
-        # --- 5. Rebuild Global Stats.json ---
+        # --- 5. Rebuild Global Stats.json into Staging ---
         stats_json = {}
         
         # 5.1 total_active_published_items_by_language
         cursor = conn.cursor()
         cursor.execute("SELECT language_code, COUNT(*) FROM publish_language_status WHERE publish_status = 'published' GROUP BY language_code")
         stats_json["total_active_published_items_by_language"] = {row[0]: row[1] for row in cursor.fetchall()}
-        # Ensure all configured languages exist in dict
         for lang in config.target_languages:
             if lang not in stats_json["total_active_published_items_by_language"]:
                 stats_json["total_active_published_items_by_language"][lang] = 0
@@ -656,9 +676,142 @@ async def orchestrate_run(
 
         stats_json["last_export_run_timestamp"] = get_utc_now_iso8601()
 
-        stats_path = export_dir / "stats.json"
+        stats_path = staging_dir / "stats.json"
         with open(stats_path, "w", encoding="utf-8") as f:
             json.dump(stats_json, f, indent=2, ensure_ascii=False)
+
+        # --- C. Safe Replace / Promotion Phase with Backup & Restore ---
+        export_dir.mkdir(parents=True, exist_ok=True)
+        backup_dir = export_dir / ".backup"
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Collect staging relative file paths
+        staging_files = set()
+        for root, dirs, files in os.walk(staging_dir):
+            for file in files:
+                src_path = pathlib.Path(root) / file
+                rel_path = src_path.relative_to(staging_dir)
+                staging_files.add(rel_path)
+
+        promoted_actions = []
+        try:
+            # Promote staging files
+            for rel_path in staging_files:
+                src_path = staging_dir / rel_path
+                dest_path = export_dir / rel_path
+                
+                if dest_path.exists():
+                    # Backup existing file
+                    backup_path = backup_dir / rel_path
+                    backup_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(dest_path, backup_path)
+                    promoted_actions.append({"type": "replace", "rel_path": rel_path, "had_existing": True})
+                else:
+                    promoted_actions.append({"type": "replace", "rel_path": rel_path, "had_existing": False})
+                
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(src_path, dest_path)
+
+            # Clean up / delete obsolete files
+            if rebuild:
+                # For rebuild, delete any .json file in export_dir that was not in staging
+                for lang in config.target_languages:
+                    items_dir = export_dir / lang / "items"
+                    if items_dir.exists():
+                        for p in items_dir.glob("*.json"):
+                            rel_p = p.relative_to(export_dir)
+                            if rel_p not in staging_files:
+                                backup_path = backup_dir / rel_p
+                                backup_path.parent.mkdir(parents=True, exist_ok=True)
+                                os.replace(p, backup_path)
+                                promoted_actions.append({"type": "delete", "rel_path": rel_p})
+                    
+                    archives_dir = export_dir / lang / "archives"
+                    if archives_dir.exists():
+                        for p in archives_dir.glob("*.json"):
+                            rel_p = p.relative_to(export_dir)
+                            if rel_p not in staging_files:
+                                backup_path = backup_dir / rel_p
+                                backup_path.parent.mkdir(parents=True, exist_ok=True)
+                                os.replace(p, backup_path)
+                                promoted_actions.append({"type": "delete", "rel_path": rel_p})
+                                
+                    manifest_path = export_dir / lang / "archives" / "index.json"
+                    if manifest_path.exists() and (pathlib.Path(lang) / "archives" / "index.json") not in staging_files:
+                        rel_p = manifest_path.relative_to(export_dir)
+                        backup_path = backup_dir / rel_p
+                        backup_path.parent.mkdir(parents=True, exist_ok=True)
+                        os.replace(manifest_path, backup_path)
+                        promoted_actions.append({"type": "delete", "rel_path": rel_p})
+            else:
+                # Incremental run:
+                # 1. Clean up withdrawn item files
+                for item_id, lang, slug, fingerprint in items_to_withdraw:
+                    rel_p = pathlib.Path(lang) / "items" / f"{slug}.json"
+                    item_file_path = export_dir / rel_p
+                    if item_file_path.exists():
+                        backup_path = backup_dir / rel_p
+                        backup_path.parent.mkdir(parents=True, exist_ok=True)
+                        os.replace(item_file_path, backup_path)
+                        promoted_actions.append({"type": "delete", "rel_path": rel_p})
+                    
+                # 2. Clean up any monthly archives that are no longer present in staging but were affected
+                for lang in config.target_languages:
+                    for month in affected_months_by_lang[lang]:
+                        archive_rel_path = pathlib.Path(lang) / "archives" / f"archive_{month.replace('-', '_')}.json"
+                        if archive_rel_path not in staging_files:
+                            archive_path = export_dir / archive_rel_path
+                            if archive_path.exists():
+                                backup_path = backup_dir / archive_rel_path
+                                backup_path.parent.mkdir(parents=True, exist_ok=True)
+                                os.replace(archive_path, backup_path)
+                                promoted_actions.append({"type": "delete", "rel_path": archive_rel_path})
+                    
+                    # Check archives/index.json (manifest)
+                    manifest_rel_path = pathlib.Path(lang) / "archives" / "index.json"
+                    if manifest_rel_path not in staging_files:
+                        manifest_path = export_dir / manifest_rel_path
+                        if manifest_path.exists():
+                            backup_path = backup_dir / manifest_rel_path
+                            backup_path.parent.mkdir(parents=True, exist_ok=True)
+                            os.replace(manifest_path, backup_path)
+                            promoted_actions.append({"type": "delete", "rel_path": manifest_rel_path})
+
+            # If all promotion succeeds, clean up backup
+            if backup_dir.exists():
+                shutil.rmtree(backup_dir)
+
+        except Exception:
+            # File system Rollback / Restore
+            for action in reversed(promoted_actions):
+                rel_path = action["rel_path"]
+                dest_path = export_dir / rel_path
+                backup_path = backup_dir / rel_path
+                
+                if action["type"] == "replace":
+                    if action["had_existing"]:
+                        # Restore original from backup
+                        if backup_path.exists():
+                            dest_path.parent.mkdir(parents=True, exist_ok=True)
+                            os.replace(backup_path, dest_path)
+                    else:
+                        # Delete newly created file
+                        dest_path.unlink(missing_ok=True)
+                elif action["type"] == "delete":
+                    # Restore deleted file from backup
+                    if backup_path.exists():
+                        dest_path.parent.mkdir(parents=True, exist_ok=True)
+                        os.replace(backup_path, dest_path)
+            
+            # Clean up backup_dir
+            if backup_dir.exists():
+                try:
+                    shutil.rmtree(backup_dir)
+                except Exception:
+                    pass
+            raise
 
         return {
             "status": "success",
@@ -667,14 +820,16 @@ async def orchestrate_run(
             "errors": []
         }
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return {
-            "status": "failure",
-            "published_count": 0,
-            "withdrawn_count": 0,
-            "errors": [str(e)]
-        }
+    except Exception:
+        # DB rollback state
+        rollback_db_state(conn, db_compensations)
+        raise
+        
     finally:
+        # Always clean up staging directory
+        if staging_dir.exists():
+            try:
+                shutil.rmtree(staging_dir)
+            except Exception:
+                pass
         conn.close()

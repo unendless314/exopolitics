@@ -191,11 +191,6 @@ class PublishRepository:
         cursor.execute("SELECT * FROM publish_record WHERE source_item_id = ?", (source_item_id,))
         return cursor.fetchone()
 
-    def get_publish_record_by_slug(self, slug: str) -> Optional[sqlite3.Row]:
-        cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM publish_record WHERE slug = ?", (slug,))
-        return cursor.fetchone()
-
     def insert_publish_record(self, source_item_id: int, slug: str, first_published_at: str) -> int:
         now = get_utc_now_iso8601()
         cursor = self.conn.cursor()
@@ -248,61 +243,6 @@ class PublishRepository:
         cursor = self.conn.cursor()
         cursor.execute("SELECT slug FROM publish_record")
         return {row["slug"] for row in cursor.fetchall()}
-
-    def fetch_item_payload(self, source_item_id: int, language_code: str) -> Optional[sqlite3.Row]:
-        """
-        Fetch full details for publishing an item file (includes the translation content body).
-        """
-        cursor = self.conn.cursor()
-        query = """
-            SELECT
-                a.source_item_id,
-                t.language_code,
-                pr.slug,
-                t.display_title,
-                t.content,
-                s.canonical_url,
-                s.published_at AS source_published_at,
-                a.approved_at,
-                pls.published_at,
-                c.downstream_action,
-                a.author_metadata
-            FROM approved_content_record a
-            JOIN curation_decision c ON c.source_item_id = a.source_item_id
-            JOIN translation_output t ON t.parent_content_id = a.parent_content_id AND t.source_fingerprint = a.content_fingerprint
-            JOIN source_item s ON s.source_item_id = a.source_item_id
-            JOIN publish_record pr ON pr.source_item_id = a.source_item_id
-            JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id AND pls.language_code = t.language_code
-            WHERE a.source_item_id = ? AND t.language_code = ?;
-        """
-        cursor.execute(query, (source_item_id, language_code))
-        return cursor.fetchone()
-
-    def fetch_all_published_items_metadata(self, language_code: str) -> List[sqlite3.Row]:
-        """
-        Fetches metadata for all active published items for a given language.
-        Query joins translation_output to get display_title and content (only first part for summary_short).
-        We only query what we need.
-        """
-        cursor = self.conn.cursor()
-        query = """
-            SELECT
-                pr.slug,
-                t.display_title,
-                t.content,
-                s.canonical_url,
-                s.published_at AS source_published_at,
-                a.approved_at,
-                pls.published_at
-            FROM publish_record pr
-            JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
-            JOIN approved_content_record a ON a.source_item_id = pr.source_item_id
-            JOIN translation_output t ON t.parent_content_id = a.parent_content_id AND t.source_fingerprint = a.content_fingerprint AND t.language_code = pls.language_code
-            JOIN source_item s ON s.source_item_id = pr.source_item_id
-            WHERE pls.language_code = ? AND pls.publish_status = 'published';
-        """
-        cursor.execute(query, (language_code,))
-        return cursor.fetchall()
 
     def fetch_canonical_item_payload(self, source_item_id: int, language_code: str) -> Optional[sqlite3.Row]:
         """
