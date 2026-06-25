@@ -136,10 +136,14 @@ modules/
 │   ├── src/
 │   └── tests/
 └── publish/
-    └── docs/
+    ├── config/
+    ├── docs/
+    ├── src/
+    └── tests/
 ```
 
-At this stage, `modules/ingest/`, `modules/classify/`, and `modules/curate/` are fully implemented and executable. `modules/translate/` is also implemented with an executable CLI and module test coverage, but has not yet been fully runtime-validated in a live operator run. `modules/publish/` is currently in the planning and documentation phase.
+At this stage, `modules/ingest/`, `modules/classify/`, `modules/curate/`, `modules/translate/`, and `modules/publish/` are fully implemented, executable, and validated in run execution against canonical database records.
+
 
 Pre-reset module docs and code now live under `modules_archive/`.
 

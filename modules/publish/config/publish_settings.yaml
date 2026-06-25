@@ -5,6 +5,8 @@
 target_languages:
   zh: "Traditional Chinese"
   en: "English"
+  ja: "Japanese"
+
 
 # Coverage policy for publication eligibility:
 # - strict_match: require completed translation for all target_languages before exporting.
