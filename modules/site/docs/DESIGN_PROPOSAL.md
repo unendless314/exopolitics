@@ -2,7 +2,7 @@
 
 This document outlines the evaluation of the reference templates and provides a comprehensive architectural design for the custom `site` module.
 
-Since the downstream handoff is fully defined in the `publish` module (which exports static JSON files to `data/publish_export/`), the `site` module will serve as a **static site generator (SSG)** that reads these JSON files during build time. This ensures 100/100 Lighthouse performance, absolute separation of concerns, and zero security exposure for the canonical database.
+Since the downstream handoff is fully defined in the `publish` module (which exports static JSON files to `data/publish_export/`), the `site` module will serve as a **static site generator (SSG)**. In the active MVP phase (Phase 1), a build-time script reads these JSON files to generate temporary Markdown files parsed via Content Collections; in Phase 2, Astro will ingest the JSON files directly. In both phases, the canonical source remains the `publish_export` JSON files. This ensures 100/100 Lighthouse performance, absolute separation of concerns, and zero security exposure for the canonical database.
 
 ---
 
@@ -12,21 +12,23 @@ By analyzing the templates in `references/`, we can synthesize their key feature
 
 ### 1.1 `astro-sienna` (The Visual & Layout Foundation)
 - **Timeline Aesthetic**: Sienna uses a beautiful CSS Grid-based timeline layout. This is highly suitable for chronologically ordered news alerts or RSS feeds. We can display items along a vertical timeline with dots indicating the publishing sequence.
-- **Styling Philosophy**: It uses standard CSS variables (`--theme-bg`, `--theme-text`, etc.) for theme toggling (light/dark mode). This aligns with the preference for clean, high-performance vanilla styling rather than heavy utility classes.
+- **Styling Philosophy**: It uses Tailwind CSS (v3) for utility class styling alongside CSS variables (`--theme-bg`, `--theme-text`, etc.) for theme toggling (light/dark mode).
+- **MVP Styling Choice**: To accelerate MVP prototyping, maximize layout fidelity, and leverage AI code generation efficiency, we adopt Tailwind CSS v3 for the MVP. However, to ensure long-term maintainability, the styling is designed such that we can refactor and peel Tailwind utility classes back to pure Vanilla CSS variables in a post-MVP phase.
 - **Micro-animations**: Subtle scale-down and opacity transitions on hover make the interface feel responsive and premium.
 
-### 1.2 `astro-i18n-starter`, `astro-paper-i18n`, & `astroplate-multilingual` (Multilingual Integration)
-- **Astro Native i18n**: They leverage Astro's native internationalization features (`astro:i18n`), mapping routes to subdirectories (e.g. `/zh/`, `/en/`, `/ja/`) with a redirect wrapper on the root (`/`).
-- **Translation Dictionaries**: They use a simple key-value structure for UI translation strings (e.g., "Read More", "Latest Alerts"). We will implement this to localize UI labels dynamically depending on the current locale path.
+### 1.2 `astro-i18n-starter` & `astro-paper-i18n` (Multilingual Integration)
+- **Astro Native i18n**: They leverage Astro's native internationalization features (`astro:i18n`), mapping routes to stable locale-key subdirectories (e.g. `/zh/`, `/en/`, `/ja/`) with a redirect wrapper on the root (`/`). Locale keys remain aligned with the `publish_export` directory contract, while richer BCP-47 tags are stored separately in locale metadata.
+- **Translation Dictionaries**: They use a simple key-value structure for UI translation strings. We will implement this to localize UI labels dynamically depending on the current locale path.
+- **Unit Testing**: `astro-paper-i18n` is the only reference template with real unit tests for its translation and path helper functions. We adopt this testing strategy for our `site` module.
 - **SEO & Alternate Links**: They automatically inject `<link rel="alternate" hreflang="..." />` meta tags to inform search engines of language variants.
 
-### 1.3 `astro-theme-retypeset` (Prose Aesthetics & Reading Metrics)
-- **Typography Focus**: Retypeset is heavily optimized for long-form reading, setting precise leading, font families, and line-widths (`max-width: 60ch`).
-- **Estimated Reading Time**: While not explicitly bundled, we can implement a custom, CJK-aware (Chinese, Japanese, Korean) reading time estimator. English averages **200 words per minute**, whereas Chinese/Japanese averages **300-400 characters per minute**. We will compute this dynamically at compile time from the Markdown content body.
+### 1.3 `astro-theme-retypeset` (Prose Typography & Metrics)
+- **Typography Focus**: Retypeset is heavily optimized for long-form reading, setting precise leading, font families, and line-widths (`max-width: 64ch`). We borrow these spacing constraints and typography rhythms.
+- **Estimated Reading Time**: Standard templates rely on NPM packages like `reading-time`, which only count whitespace-separated words. This fails for CJK languages (Chinese, Japanese, Korean) which do not use word spaces. We will implement a custom, CJK-aware reading time estimator.
 
-### 1.4 `bcms-podcast` (Audio & Playback Controls)
-- **Floating Audio Component**: Displays a fixed playback drawer at the bottom of the viewport when an audio file is playing. 
-- **Extensibility**: Even if you do not have voice read-aloud files today, we can build a reusable, hidden-by-default `<AudioPlayer>` component. If a post's JSON contains an audio narration link (e.g., `audio_url`), a play button will appear, and the player will float at the bottom when clicked.
+### 1.4 Dropped References
+- **`astroplate-multilingual`**: Dropped. This template contains a race condition bug during build-phase dynamic import resolution and its reading-time tool does not support CJK.
+- **`bcms-podcast`**: Dropped. It is heavily coupled to a commercial headless CMS and React state machinery. The audio narration feature is nice-to-have but is postponed/dropped for the MVP to keep the system lightweight.
 
 ---
 
@@ -80,8 +82,7 @@ modules/site/
 │   │   ├── Header.astro        # Header navigation and language picker
 │   │   ├── Footer.astro        # Footer metadata and copyright info
 │   │   ├── Timeline.astro      # The CSS Grid-based chronological feed
-│   │   ├── LanguageSelector.astro # Interactive language picker dropdown
-│   │   └── AudioPlayer.astro   # HTML5 narration player (floating drawer)
+│   │   └── LanguageSelector.astro # Interactive language picker dropdown
 │   ├── layouts/
 │   │   ├── Base.astro          # HTML structure, global CSS styles, theme toggler
 │   │   └── Post.astro          # Layout for reading articles
@@ -90,7 +91,7 @@ modules/site/
 │   │       └── generated/       # Build-time markdown artifacts for Phase 1 only
 │   ├── pages/
 │   │   ├── [lang]/
-│   │   │   ├── index.astro     # Timeline feed page (Chinese, English, Japanese)
+│   │   │   ├── index.astro     # Timeline feed page (Traditional Chinese, English, Japanese)
 │   │   │   ├── posts/
 │   │   │   │   └── [slug].astro # Article detailed content page
 │   │   │   └── archives/
@@ -103,8 +104,12 @@ modules/site/
 │   │   └── readingTime.ts      # CJK + English reading time estimator helper
 │   └── styles/
 │       └── global.css          # Theme CSS variables, fonts, reset, and base rules
-├── package.json                # Module dependencies (Astro, TypeScript)
-└── astro.config.mjs            # Astro config (defines locales and build target)
+├── tests/
+│   ├── i18n.test.ts            # Unit tests for the i18n helpers
+│   └── readingTime.test.ts     # Unit tests for the CJK reading estimator
+├── package.json                # Module dependencies (Astro, Tailwind, Vitest, TypeScript)
+├── tailwind.config.ts          # Tailwind CSS v3 configuration
+└── astro.config.ts             # Astro config (defines locales, Tailwind integration)
 ```
 
 ---
@@ -114,186 +119,138 @@ modules/site/
 To demonstrate feasibility, here are draft implementations of the key features:
 
 ### 4.1 CJK-Aware Reading Time Estimator (`src/utils/readingTime.ts`)
-This helper calculates reading time based on language density:
+This helper calculates reading time based on mixed-language character/word counts:
 
 ```typescript
 /**
- * Calculates estimated reading time for CJK and English mixed content.
- * English WPM (Words Per Minute): 200
+ * Calculates estimated reading time for CJK and Latin mixed content.
+ * Latin WPM (Words Per Minute): 200
  * CJK CPM (Characters Per Minute): 300
  */
-export function calculateReadingTime(content: string, lang: string): number {
-  // Strip Markdown markers
-  const cleanText = content.replace(/[#*`_\[\]()\-]/g, "");
+export function calculateReadingTime(content: string): number {
+  // Strip HTML tags and markdown punctuation
+  const cleanText = content
+    .replace(/<[^>]*>/g, "")
+    .replace(/[#*`_\[\]()\-!?,.;:"']/g, " ");
 
-  if (lang === "zh" || lang === "ja") {
-    const cjkChars = cleanText.replace(/\s+/g, "").length;
-    return Math.max(1, Math.ceil(cjkChars / 300));
-  } else {
-    const words = cleanText.trim().split(/\s+/).length;
-    return Math.max(1, Math.ceil(words / 200));
-  }
+  // Match CJK characters (Han, Hiragana, Katakana)
+  const cjkRegex = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]/g;
+  const cjkMatches = cleanText.match(cjkRegex);
+  const cjkCount = cjkMatches ? cjkMatches.length : 0;
+
+  // Strip CJK characters to count remaining Latin words
+  const nonCjkText = cleanText.replace(cjkRegex, " ");
+  const words = nonCjkText.trim().split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
+
+  // Sum the reading time for both scripts
+  const readingTime = (cjkCount / 300) + (wordCount / 200);
+
+  return Math.max(1, Math.ceil(readingTime));
 }
 ```
 
-### 4.2 Astro Native i18n Config (`astro.config.mjs`)
-Configures Astro's official routing mechanism matching your published languages:
+### 4.2 Astro Native i18n Config (`astro.config.ts`)
+Configures Astro's official routing mechanism matching your published languages and Tailwind integration:
 
-```javascript
+```typescript
 import { defineConfig } from "astro/config";
+import tailwind from "@astrojs/tailwind";
 
 export default defineConfig({
   site: "https://your-uap-disclosure-site.com",
   i18n: {
-    defaultLocale: "zh", // Set Traditional Chinese as default
+    defaultLocale: "zh", // Stable locale key matching publish_export/<language_code>/
     locales: ["zh", "en", "ja"],
     routing: {
       prefixDefaultLocale: true, // Output is /zh/, /en/, /ja/
       redirectToDefaultLocale: true, // Redirect / to /zh/
     }
   },
+  integrations: [
+    tailwind({
+      applyBaseStyles: false, // Prevent Tailwind from overriding global variables
+    }),
+  ],
   output: "static", // SSG build
 });
 ```
+
+Separately, the site keeps richer locale metadata in a dedicated i18n config layer, for
+example:
+
+```typescript
+export const localeProfiles = {
+  zh: { label: "繁體中文", langTag: "zh-Hant", dir: "ltr" },
+  en: { label: "English", langTag: "en-US", dir: "ltr" },
+  ja: { label: "日本語", langTag: "ja-JP", dir: "ltr" },
+} as const;
+```
+
+This separation preserves compatibility with the current `publish_export/zh/...`
+directory contract while still allowing correct `<html lang>`, `hreflang`, and
+`Intl.DateTimeFormat` behavior.
 
 ### 4.3 Interactive Language Selector (`src/components/LanguageSelector.astro`)
 Reads localized versions and shifts the URL route dynamically:
 
 ```astro
 ---
-import { getLocalePaths } from "../utils/i18n";
+import { getLocalePaths, getLocaleLabels } from "../utils/i18n";
 const currentUrl = Astro.url;
 const paths = getLocalePaths(currentUrl);
-
-const labels = {
-  zh: "繁體中文",
-  en: "English",
-  ja: "日本語",
-};
+const labels = getLocaleLabels(); // Reads from the dedicated localeProfiles config
 ---
 
 <div class="lang-selector">
-  <select onchange="window.location.href = this.value">
+  <select onchange="window.location.href = this.value" class="bg-theme-bg text-theme-text border border-hairline rounded px-2 py-1 font-sans text-sm cursor-pointer hover:border-theme-accent transition-colors duration-200">
     {paths.map(({ lang, path }) => (
       <option value={path} selected={Astro.currentLocale === lang}>
-        {labels[lang]}
+        {labels[lang] || lang}
       </option>
     ))}
   </select>
 </div>
-
-<style>
-  .lang-selector select {
-    background-color: hsl(var(--theme-bg));
-    color: hsl(var(--theme-text));
-    border: 1px solid var(--hairline);
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-family: var(--font-sans);
-    font-size: 13.5px;
-    cursor: pointer;
-    transition: border-color 0.2s ease;
-  }
-  .lang-selector select:hover {
-    border-color: hsl(var(--theme-accent));
-  }
-</style>
-```
-
-### 4.4 Narrator Audio Player Component (`src/components/AudioPlayer.astro`)
-This drawer resides in the site layout footer, activating dynamically if an `audioUrl` is present:
-
-```astro
----
-interface Props {
-  audioUrl?: string;
-  title?: string;
-}
-const { audioUrl, title } = Astro.props;
----
-
-{audioUrl && (
-  <div id="audio-bar" class="audio-bar">
-    <div class="audio-content">
-      <span class="audio-title">🎧 Narration: {title}</span>
-      <audio controls src={audioUrl} class="audio-element"></audio>
-    </div>
-  </div>
-)}
-
-<style>
-  .audio-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background-color: var(--paper);
-    border-top: 1px solid var(--hairline);
-    padding: 12px 24px;
-    z-index: 100;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
-  }
-  .audio-content {
-    max-width: 760px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-  }
-  .audio-title {
-    font-family: var(--font-sans);
-    font-size: 14px;
-    color: hsl(var(--theme-text-muted));
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .audio-element {
-    height: 36px;
-    max-width: 400px;
-    flex-grow: 1;
-  }
-</style>
 ```
 
 ---
 
 ## 5. Summary of Curation & Source Metadata Integration
 
-For each article loaded from `data/publish_export/<lang>/items/<slug>.json`, our layouts will display:
+For each article (loaded from `data/publish_export/<lang>/items/<slug>.json` by the adapter script and compiled as a temporary Markdown file for Astro Content Collections in Phase 1), our layouts will display:
 1. **Source Attribution**: Display the `canonical_url` clearly under the title (e.g., "Original Source").
-2. **AI Disclosure Note**: Display `disclosure_note` prominently (e.g. `"This item is AI-assisted and human-curated."` or `"This item is AI-generated."`) based on the data populated by `publish`.
-3. **Reading Metrics**: Show the calculated reading time (e.g., `5 min read`) alongside the publishing timestamp (`source_published_at`).
-4. **Time & Date Layout**: Format timestamps with high-precision absolute time indicators (e.g., `"Jun 24, 2026, 18:42"` in local timezone) to enhance the news alert aesthetic. The site will utilize standard `<time datetime="...">` tags for precise search engine parsing, while rendering build-time localized minute-precision absolute displays for readers to prevent hydration drift. (See [BUILD_AND_ROUTING_POLICY.md](./BUILD_AND_ROUTING_POLICY.md) for execution details).
+2. **AI Disclosure Note**: Display `disclosure_note` prominently based on the data populated by `publish`.
+3. **Reading Metrics**: Show the calculated reading time alongside the publishing timestamp (`source_published_at`).
+4. **Time & Date Layout**: Format timestamps with high-precision absolute time indicators (e.g., `"Jun 24, 2026, 18:42"` in local timezone) using `<time datetime="...">` tags.
+5. **Data Integrity Validation**: The site build process must perform structural validation on all ingested JSON files. If a file is malformed, missing required fields (e.g., `display_title`, `slug`), or contains incomplete translations, the build must fail immediately and clearly rather than outputting guessed UI states.
 
 ---
 
 ## 6. Design Sampling and Integration Guide
 
-This guide establishes the concrete rules for borrowing code, logic, and layout features from the reference templates under `references/`. To prevent visual incohesion ("Frankenstein UI") and technical conflict, the implementation must adhere to a strict **"One Core Theme + Auxiliary Engineering References"** rule.
-
 ### 6.1 Sampling Strategy Matrix
 
 | Reference Template | Sampling Strategy | What to Borrow | What to Exclude |
 | :--- | :--- | :--- | :--- |
-| **`astro-sienna`** | **Visual & Layout Core** | Spacing system, Typography tokens, CSS variables, Light/Dark mode transitions, CSS-Grid timeline layout. | Default markdown mock data. |
-| **`astro-i18n-starter` / `astro-paper-i18n` / `astroplate-multilingual`** | **Engineering & Routing Reference Only** | `astro:i18n` configuration patterns, page directory routing hierarchy, alternate sitemap tags, dynamic `getLocalePaths` helper logic. | Visual UI components, header layouts, spacing styles, card/list layouts. |
-| **`astro-theme-retypeset`** | **Prose Typography Reference Only** | Article detail layout limits (`max-width: 64ch`), line-height rhythm, blockquote styling. | Default font faces, navigation UI elements. |
-| **`bcms-podcast`** | **Conceptual Audio Reference Only** | Extensible metadata properties (e.g. `audio_url`), basic play controls layout. | Complex React context, Tailwind-heavy player styles, custom image rendering loaders. |
+| **`astro-sienna`** | **Visual & Layout Core** | Spacing system, Typography tokens, CSS variables, Light/Dark mode transitions, CSS-Grid timeline layout, Tailwind utility setup. | Default markdown mock data, heavy packages (Partytown, KaTeX, expressive-code). *Note: Option to refactor to vanilla CSS in post-MVP.* |
+| **`astro-i18n-starter` / `astro-paper-i18n`** | **Engineering & Routing Reference** | `astro:i18n` configuration patterns, page directory routing hierarchy, alternate sitemap tags, dynamic `getLocalePaths` helper logic, and Vitest testing framework setup. | Visual UI components, header layouts, spacing styles, card/list layouts. |
+| **`astro-theme-retypeset`** | **Prose Typography Reference Only** | Article detail layout limits (`max-width: 64ch`), line-height rhythm, blockquote styling. | UnoCSS configuration, custom markdown-it parser, heavy packages. |
 
 ### 6.2 Key Integration Guidelines
 
 #### 1. Maintain Spacing and Variable Cohesion
-All components created for the `site` module (e.g. `LanguageSelector`, `Timeline`, `AudioPlayer`) must inherit spacing, borders, and colors exclusively from the CSS variables defined in `src/styles/global.css` (initially sourced from `astro-sienna`). Hardcoded hex values or conflicting spacing tokens (e.g. ad-hoc Tailwind margin offsets) must be avoided.
+All components created for the `site` module (e.g. `LanguageSelector`, `Timeline`) must inherit spacing, borders, and colors from the design tokens defined in `src/styles/global.css`. Avoid hardcoded colors outside of Tailwind utility classes aligned with our design palette.
 
 #### 2. Keep the Ingestion Layer Decoupled
-UI components must be independent of how the data is loaded. The data loading adapter (e.g., build-time JSON to markdown generator in Phase 1) must output clean, normalized data fields. Components consume these standard data fields, ensuring that transitioning from Phase 1 to Phase 2 does not require rewriting UI layouts.
+UI components must remain independent of how data is fetched. In Phase 1, components consume standard data objects from Content Collections (which are generated from the `publish_export` JSON files), ensuring that transitioning to Phase 2 (direct JSON ingestion) does not require rewriting page layouts.
+
+Locale routing keys must also stay decoupled from locale presentation metadata. In the
+current contract, `zh`, `en`, and `ja` are stable route/export keys, while values such
+as `zh-Hant`, `en-US`, and `ja-JP` belong in locale metadata used for HTML attributes,
+SEO, and date formatting.
 
 #### 3. Standardize Markdown Rendering
-Do not use raw marked injections inside custom theme structures. Rely on Astro's native markdown styles (specifically `prose` style wrappers configured via CSS variables) to render markdown content, ensuring that plugins (syntax highlighting, TOC, external link behaviors) behave identically across the website.
+Rely on Astro's native markdown styles (specifically `prose` style wrappers configured via CSS variables) to render markdown content, ensuring that plugins (syntax highlighting, TOC, external link behaviors) behave identically across the website.
 
-#### 4. Postpone Visual Narration Player Styling
-For the MVP, only the basic data contract (checking for `audio_url`) and a highly simplified, Sienna-styled audio tag element are integrated. A heavy custom media controls drawer will not be implemented until full audio read-aloud files are actively generated by upstream pipeline stages.
-
+#### 4. Roadmap to Vanilla CSS
+The styling system utilizes Tailwind CSS v3 for the initial MVP to maximize speed and template reuse. Class names and custom utility usages should be kept standard to allow straightforward refactoring to a pure Vanilla CSS variable system in subsequent development phases.

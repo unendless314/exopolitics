@@ -24,12 +24,12 @@ In the current architecture:
 ## 2. Key Responsibilities
 
 1. Read static JSON export catalogs, item entries, archives, and statistics from `data/publish_export/`.
-2. Manage internationalization (i18n) routing patterns using Astro's native routing features (referencing designs in `references/astro-i18n-starter/`, `references/astro-paper-i18n/`, and `references/astroplate-multilingual/`).
+2. Manage internationalization (i18n) routing patterns using Astro's native routing features (referencing designs in `references/astro-i18n-starter/` and `references/astro-paper-i18n/`).
 3. Render a highly optimized, responsive timeline UI (based on the `astro-sienna` design in `references/astro-sienna/`) to present articles chronologically.
 4. Calculate and display estimated reading time for mixed English and CJK text.
 5. Provide a language selection dropdown to easily switch between Traditional Chinese, English, and Japanese translations of the same content.
 6. Display AI authorship and curation disclosures prominently using source metadata.
-7. Support an optional floating audio narration player layout ready for future voice read-aloud services (referencing player layout structure in `references/bcms-podcast/`).
+7. Validate structural integrity of ingested JSON files at build time to prevent malformed page generation.
 
 ---
 

@@ -18,7 +18,7 @@ To allow rapid prototyping and layout updates, the data loading architecture fol
 To ensure that migrating from Phase 1 to Phase 2 does not break layouts, search engine placement, or functionality, the following attributes must remain unchanged:
 1. **Routing Scheme**: The URL pattern `/[lang]/posts/[slug]/` must be preserved exactly.
 2. **SEO Metadata Schema**: The structure of header elements (`title`, `description`, `canonical`, `hreflang` alternate links) must be identical.
-3. **UI Component Interfaces**: Visual components (Header, Footer, Timeline, LanguageSelector, AudioPlayer) must consume identical data structures.
+3. **UI Component Interfaces**: Visual components (Header, Footer, Timeline, LanguageSelector) must consume identical data structures.
 4. **Attribution and Disclosures**: The presentation of the AI disclosure note (`disclosure_note`) and original source link (`canonical_url`) must remain consistent.
 
 ---
