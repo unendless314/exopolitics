@@ -31,7 +31,14 @@ export const uiTranslations = {
     'archive.monthTitle': '{month} 歸檔項目',
     'archive.empty': '無項目',
     'archive.totalItems': '共 {count} 個項目',
-    'theme.toggle': '切換主題'
+    'theme.toggle': '切換主題',
+    'meta.homeDesc': '最新 UAP/UFO 新聞快報，來自全球科學與官方來源的彙整資訊。',
+    'meta.archivesDesc': '按月瀏覽所有歷史 UAP/UFO 新聞彙整存檔。',
+    'meta.archiveMonthDesc': '{month} 月份的 UAP/UFO 新聞存檔項目。',
+    'meta.statsDesc': 'UAP/UFO 彙整內容的全局資料庫同步與發布統計數據。',
+    'post.updatedUpstream': '上游更新時間',
+    'stats.metric': '指標',
+    'stats.latestIndexCapacity': '最新索引容量'
   },
   en: {
     'nav.home': 'Home',
@@ -57,7 +64,14 @@ export const uiTranslations = {
     'archive.monthTitle': 'Archives for {month}',
     'archive.empty': 'No items found',
     'archive.totalItems': '{count} items total',
-    'theme.toggle': 'Toggle theme'
+    'theme.toggle': 'Toggle theme',
+    'meta.homeDesc': 'Latest news alerts and disclosure updates about UAP/UFO aggregated from global scientific and official sources.',
+    'meta.archivesDesc': 'Browse all historical aggregated UAP and UFO news alerts by month.',
+    'meta.archiveMonthDesc': 'Historical aggregated UAP and UFO news alerts for the month of {month}.',
+    'meta.statsDesc': 'Global database synchronization and publishing statistics for UAP/UFO aggregated content.',
+    'post.updatedUpstream': 'Updated Upstream',
+    'stats.metric': 'Metric',
+    'stats.latestIndexCapacity': 'Latest Index Capacity'
   },
   ja: {
     'nav.home': 'ホーム',
@@ -83,7 +97,14 @@ export const uiTranslations = {
     'archive.monthTitle': '{month} のアーカイブ',
     'archive.empty': '記事が見つかりません',
     'archive.totalItems': '全 {count} 件',
-    'theme.toggle': 'テーマ切り替え'
+    'theme.toggle': 'テーマ切り替え',
+    'meta.homeDesc': 'UAP/UFOに関する最新ニュースアラートと開示情報。世界の科学・公式ソースから集約。',
+    'meta.archivesDesc': 'UAP/UFOニュースアラートの月別アーカイブを閲覧。',
+    'meta.archiveMonthDesc': '{month}のUAP/UFOニュースアーカイブ項目。',
+    'meta.statsDesc': 'UAP/UFO集約コンテンツのグローバルデータベース同期と公開統計。',
+    'post.updatedUpstream': 'アップストリーム更新',
+    'stats.metric': '指標',
+    'stats.latestIndexCapacity': '最新インデックス容量'
   }
 } as const;
 

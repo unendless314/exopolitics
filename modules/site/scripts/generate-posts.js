@@ -1,9 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 
 // Paths
-const exportBaseDir = path.resolve('../../data/publish_export');
-const generatedDir = path.resolve('src/content/posts/generated');
+const exportBaseDir = path.join(workspaceRoot, 'data', 'publish_export');
+const generatedDir = path.resolve(__dirname, '..', 'src', 'content', 'posts', 'generated');
 
 console.log(`Starting post generation...`);
 console.log(`Reading from: ${exportBaseDir}`);
@@ -18,6 +23,7 @@ fs.mkdirSync(generatedDir, { recursive: true });
 
 // 2. Identify languages
 const languages = ['en', 'ja', 'zh'];
+const translationMap = {};
 
 for (const lang of languages) {
   const langDir = path.join(exportBaseDir, lang);
@@ -147,8 +153,19 @@ for (const lang of languages) {
     // Write file
     const targetFile = path.join(targetLangDir, `${slug}.md`);
     fs.writeFileSync(targetFile, frontmatter, 'utf8');
+
+    // Add to translation map
+    if (!translationMap[slug]) {
+      translationMap[slug] = [];
+    }
+    translationMap[slug].push(lang);
   }
 }
+
+// Write translation map
+const translationMapFile = path.resolve(__dirname, '..', 'src', 'content', '_translation_map.json');
+fs.writeFileSync(translationMapFile, JSON.stringify(translationMap, null, 2), 'utf8');
+console.log(`Translation map written to: ${translationMapFile}`);
 
 console.log(`Post generation completed successfully!`);
 

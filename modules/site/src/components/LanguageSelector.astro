@@ -1,7 +1,26 @@
 ---
 import { getLocalePaths, localeProfiles } from "../utils/i18n";
+import translationMapRaw from "../content/_translation_map.json";
+
+// Safe casting for the imported JSON translation map
+const translationMap = translationMapRaw as Record<string, string[]>;
+
 const currentUrl = Astro.url;
-const paths = getLocalePaths(currentUrl);
+const pathname = currentUrl.pathname;
+
+// Check if we are on a post detail page: /[lang]/posts/[slug]/
+const postMatch = pathname.match(/^\/[a-z]{2}\/posts\/([^\/]+)/);
+let availableLangs: string[] = ["zh", "en", "ja"];
+
+if (postMatch) {
+  const slug = postMatch[1];
+  if (translationMap && translationMap[slug]) {
+    availableLangs = translationMap[slug];
+  }
+}
+
+const allPaths = getLocalePaths(currentUrl);
+const paths = allPaths.filter(({ lang }) => availableLangs.includes(lang));
 ---
 
 <div class="lang-selector">

@@ -1,6 +1,9 @@
 ---
 import { getLocalePaths, localeProfiles } from "../utils/i18n";
-import type { SupportedLanguages } from "../utils/i18n";
+import translationMapRaw from "../content/_translation_map.json";
+
+// Safe casting for the imported JSON translation map
+const translationMap = translationMapRaw as Record<string, string[]>;
 
 interface Props {
   title: string;
@@ -8,19 +11,37 @@ interface Props {
   lang: string;
 }
 
-const { title, description, lang } = Astro.props;
-const currentLang = (lang in localeProfiles ? lang : "en") as SupportedLanguages;
-const profile = localeProfiles[currentLang];
+const { title, description } = Astro.props;
 const currentUrl = Astro.url;
+const pathname = currentUrl.pathname;
 
-// Generate alternate links for SEO
-const alternates = getLocalePaths(currentUrl).map(({ lang: altLang, path }) => {
-  const absoluteUrl = new URL(path, currentUrl.origin).href;
-  return {
-    langTag: localeProfiles[altLang].langTag,
-    href: absoluteUrl,
-  };
-});
+// Check if we are on a post detail page: /[lang]/posts/[slug]/
+const postMatch = pathname.match(/^\/[a-z]{2}\/posts\/([^\/]+)/);
+let availableLangs: string[] = ["zh", "en", "ja"];
+
+if (postMatch) {
+  const slug = postMatch[1];
+  if (translationMap && translationMap[slug]) {
+    availableLangs = translationMap[slug];
+  }
+}
+
+// Generate alternate links for SEO, filtered by availability
+const alternates = getLocalePaths(currentUrl)
+  .filter(({ lang: altLang }) => availableLangs.includes(altLang))
+  .map(({ lang: altLang, path }) => {
+    const absoluteUrl = new URL(path, currentUrl.origin).href;
+    return {
+      lang: altLang,
+      langTag: localeProfiles[altLang].langTag,
+      href: absoluteUrl,
+    };
+  });
+
+// Determine x-default (usually default locale 'zh' if available, otherwise first available, or fallback to root /zh/)
+const defaultLocale = "zh";
+const defaultAlt = alternates.find(alt => alt.lang === defaultLocale) || alternates[0];
+const xDefaultHref = defaultAlt ? defaultAlt.href : new URL("/zh/", currentUrl.origin).href;
 
 // Primary canonical URL
 const canonicalHref = new URL(currentUrl.pathname, currentUrl.origin).href;
@@ -41,7 +62,7 @@ const canonicalHref = new URL(currentUrl.pathname, currentUrl.origin).href;
 {alternates.map(({ langTag, href }) => (
   <link rel="alternate" hreflang={langTag} href={href} />
 ))}
-<link rel="alternate" hreflang="x-default" href={new URL("/zh/", currentUrl.origin).href} />
+<link rel="alternate" hreflang="x-default" href={xDefaultHref} />
 
 <!-- Theme script to prevent flash of wrong theme -->
 <script is:inline>

@@ -1,7 +1,9 @@
 ---
+import fs from "node:fs";
+import path from "node:path";
 import Base from "../../layouts/Base.astro";
 import { formatAbsoluteDateTime, useTranslations } from "../../utils/i18n";
-import stats from "../../../../../data/publish_export/stats.json";
+import { publishExportDir } from "../../utils/paths";
 
 export function getStaticPaths() {
   return [
@@ -13,10 +15,14 @@ export function getStaticPaths() {
 
 const { lang = "zh" } = Astro.params;
 const t = useTranslations(lang);
+
+// Read stats.json dynamically
+const statsFile = path.join(publishExportDir, "stats.json");
+const stats = JSON.parse(fs.readFileSync(statsFile, "utf8"));
 const lastRun = stats.last_export_run_timestamp;
 
 const pageTitle = `UAP Aggregator - ${t('nav.stats')}`;
-const pageDesc = `Global database synchronization and publishing statistics for UAP/UFO aggregated content.`;
+const pageDesc = t('meta.statsDesc');
 ---
 
 <Base title={pageTitle} description={pageDesc} lang={lang}>
@@ -57,7 +63,7 @@ const pageDesc = `Global database synchronization and publishing statistics for 
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b border-hairline bg-bgColor/30">
-              <th class="p-4 font-serif font-semibold text-textColor">Metric</th>
+              <th class="p-4 font-serif font-semibold text-textColor">{t('stats.metric')}</th>
               <th class="p-4 font-mono font-semibold text-textColor text-center">繁體中文 (ZH)</th>
               <th class="p-4 font-mono font-semibold text-textColor text-center">English (EN)</th>
               <th class="p-4 font-mono font-semibold text-textColor text-center">日本語 (JA)</th>
@@ -77,7 +83,7 @@ const pageDesc = `Global database synchronization and publishing statistics for 
               <td class="p-4 font-mono text-sm text-center text-textColor/60">{stats.total_withdrawn_items_by_language.ja}</td>
             </tr>
             <tr>
-              <td class="p-4 font-sans text-sm font-medium text-textColor/80">Latest Index Capacity</td>
+              <td class="p-4 font-sans text-sm font-medium text-textColor/80">{t('stats.latestIndexCapacity')}</td>
               <td class="p-4 font-mono text-sm text-center">{stats.latest_index_count_by_language.zh}</td>
               <td class="p-4 font-mono text-sm text-center">{stats.latest_index_count_by_language.en}</td>
               <td class="p-4 font-mono text-sm text-center">{stats.latest_index_count_by_language.ja}</td>

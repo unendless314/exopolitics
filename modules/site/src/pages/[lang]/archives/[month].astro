@@ -4,15 +4,31 @@ import path from "node:path";
 import Base from "../../../layouts/Base.astro";
 import Timeline from "../../../components/Timeline.astro";
 import { useTranslations } from "../../../utils/i18n";
+import { publishExportDir } from "../../../utils/paths";
+
+interface ArchiveEntry {
+  archive_month: string;
+  file_name: string;
+  item_count: number;
+  updated_at: string;
+}
+
+interface CatalogItem {
+  slug: string;
+  display_title: string;
+  summary_short?: string;
+  canonical_url?: string;
+  source_published_at: string;
+}
 
 export function getStaticPaths() {
   const languages = ["zh", "en", "ja"];
   const paths = [];
 
   for (const lang of languages) {
-    const archivesIndexFile = path.resolve(`../../data/publish_export/${lang}/archives/index.json`);
+    const archivesIndexFile = path.join(publishExportDir, lang, 'archives', 'index.json');
     if (fs.existsSync(archivesIndexFile)) {
-      const archives = JSON.parse(fs.readFileSync(archivesIndexFile, "utf8"));
+      const archives: ArchiveEntry[] = JSON.parse(fs.readFileSync(archivesIndexFile, "utf8"));
       for (const archive of archives) {
         paths.push({
           params: { lang, month: archive.archive_month },
@@ -30,14 +46,14 @@ const { fileName } = Astro.props;
 const t = useTranslations(lang);
 
 // Read the archive list for this month
-const archiveFile = path.resolve(`../../data/publish_export/${lang}/archives/${fileName}`);
-let archiveItems = [];
+const archiveFile = path.join(publishExportDir, lang, 'archives', fileName);
+let archiveItems: CatalogItem[] = [];
 if (fs.existsSync(archiveFile)) {
   archiveItems = JSON.parse(fs.readFileSync(archiveFile, "utf8"));
 }
 
 // Map simple catalog items to conform to the post shape expected by the Timeline component
-const mappedPosts = archiveItems.map((item: any) => ({
+const mappedPosts = archiveItems.map((item: CatalogItem) => ({
   id: `generated/${lang}/${item.slug}.md`,
   data: {
     title: item.display_title,
@@ -47,7 +63,7 @@ const mappedPosts = archiveItems.map((item: any) => ({
 }));
 
 const pageTitle = `UAP Aggregator - ${t('archive.monthTitle', { month })}`;
-const pageDesc = `Historical aggregated UAP and UFO news alerts for the month of ${month}.`;
+const pageDesc = t('meta.archiveMonthDesc', { month });
 ---
 
 <Base title={pageTitle} description={pageDesc} lang={lang}>

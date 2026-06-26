@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import Base from "../../../layouts/Base.astro";
 import { useTranslations } from "../../../utils/i18n";
+import { publishExportDir } from "../../../utils/paths";
 
 export function getStaticPaths() {
   return [
@@ -15,14 +16,21 @@ export function getStaticPaths() {
 const { lang = "zh" } = Astro.params;
 const t = useTranslations(lang);
 
-const archivesIndexFile = path.resolve(`../../data/publish_export/${lang}/archives/index.json`);
-let archives = [];
+interface ArchiveEntry {
+  archive_month: string;
+  file_name: string;
+  item_count: number;
+  updated_at: string;
+}
+
+const archivesIndexFile = path.join(publishExportDir, lang, 'archives', 'index.json');
+let archives: ArchiveEntry[] = [];
 if (fs.existsSync(archivesIndexFile)) {
   archives = JSON.parse(fs.readFileSync(archivesIndexFile, "utf8"));
 }
 
 const pageTitle = `UAP Aggregator - ${t('archive.title')}`;
-const pageDesc = `Browse all historical aggregated UAP and UFO news alerts by month.`;
+const pageDesc = t('meta.archivesDesc');
 ---
 
 <Base title={pageTitle} description={pageDesc} lang={lang}>
@@ -37,7 +45,7 @@ const pageDesc = `Browse all historical aggregated UAP and UFO news alerts by mo
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
-      {archives.map((archive) => {
+      {archives.map((archive: ArchiveEntry) => {
         const monthUrl = `/${lang}/archives/${archive.archive_month}/`;
         return (
           <a

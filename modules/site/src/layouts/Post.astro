@@ -111,7 +111,7 @@ const readingTimeMins = calculateReadingTime(content);
             )}
             {authorMetadata.upstream_updated_at && (
               <div class="sm:col-span-2">
-                <span class="font-medium text-textColor/80">Updated Upstream:</span>{" "}
+                <span class="font-medium text-textColor/80">{t('post.updatedUpstream')}:</span>{" "}
                 <time datetime={authorMetadata.upstream_updated_at} class="font-mono text-textColor/80">
                   {formatAbsoluteDateTime(authorMetadata.upstream_updated_at)}
                 </time>

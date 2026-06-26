@@ -2,5 +2,6 @@ node_modules/
 dist/
 .astro/
 src/content/posts/generated/
+src/content/_translation_map.json
 .DS_Store
 *.log
