@@ -16,10 +16,10 @@
 
 | 文件名稱 | 評估結果 | 影響說明與修改必要性 |
 | :--- | :--- | :--- |
-| [`CANONICAL_ENTITY_CONTRACT.md`](file:///C:/Users/user/Documents/derived-work/docs/CANONICAL_ENTITY_CONTRACT.md) | **必須變更 (Must Update)** | 需更新 `Curation Decision` 實體欄位（新增 `decision_actor`、`updated_at`，狀態新增 `withdrawn`）與 `Approved Content Record` 的跨模組發布判定合約。 |
-| [`DATA_LIFECYCLE.md`](file:///C:/Users/user/Documents/derived-work/docs/DATA_LIFECYCLE.md) | **必須變更 (Must Update)** | 需在「審核生命週期」與「發布生命週期」中加入邏輯軟下架與磁碟靜態檔案物理清理的流程，並修正 Stage Flow。 |
-| [`MODULE_BOUNDARIES.md`](file:///C:/Users/user/Documents/derived-work/docs/MODULE_BOUNDARIES.md) | **必須變更 (Must Update)** | 需更新 `curate` 的狀態控制職責，並補充 `publish` 對於 withdrawn 項目進行磁碟檔案物理清理的同步邊界職責。 |
-| [`SYSTEM_OVERVIEW.md`](file:///C:/Users/user/Documents/derived-work/docs/SYSTEM_OVERVIEW.md) | **建議變更 (Should Update)** | 調整模組職責描述以與 `MODULE_BOUNDARIES.md` 保持對齊，確保語意連貫。 |
+| [`CANONICAL_ENTITY_CONTRACT.md`](file:///C:/Users/user/Documents/exopolitics/docs/CANONICAL_ENTITY_CONTRACT.md) | **必須變更 (Must Update)** | 需更新 `Curation Decision` 實體欄位（新增 `decision_actor`、`updated_at`，狀態新增 `withdrawn`）與 `Approved Content Record` 的跨模組發布判定合約。 |
+| [`DATA_LIFECYCLE.md`](file:///C:/Users/user/Documents/exopolitics/docs/DATA_LIFECYCLE.md) | **必須變更 (Must Update)** | 需在「審核生命週期」與「發布生命週期」中加入邏輯軟下架與磁碟靜態檔案物理清理的流程，並修正 Stage Flow。 |
+| [`MODULE_BOUNDARIES.md`](file:///C:/Users/user/Documents/exopolitics/docs/MODULE_BOUNDARIES.md) | **必須變更 (Must Update)** | 需更新 `curate` 的狀態控制職責，並補充 `publish` 對於 withdrawn 項目進行磁碟檔案物理清理的同步邊界職責。 |
+| [`SYSTEM_OVERVIEW.md`](file:///C:/Users/user/Documents/exopolitics/docs/SYSTEM_OVERVIEW.md) | **建議變更 (Should Update)** | 調整模組職責描述以與 `MODULE_BOUNDARIES.md` 保持對齊，確保語意連貫。 |
 | `PRD.md` / `STORAGE_AND_RETENTION.md` 等其他文件 | **無需變更 (No Change)** | 其餘文件屬於高層級業務與存留原則，設計已預留足夠彈性（例如 PRD 中已寫明發布判定在審核域，而儲存原則已說明翻譯需長期存留以防 API 成本浪費），無需修改。 |
 
 ---

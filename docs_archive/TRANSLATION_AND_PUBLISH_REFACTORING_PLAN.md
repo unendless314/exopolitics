@@ -36,7 +36,7 @@
 ### 2.3 統一 Slug 生成與永久凍結政策
 使用首次英文翻譯版本的 `display_title` 進行 Slugification。這可以產生對 SEO 友善、沒有中日文字元百分比編碼（Percent-encoding）的乾淨 URL（例如 `president-announces-new-agency`），且各語系共享此相同的 Slug。
 * **網址穩定契約**：為了防止 SEO 權重丟失與讀者點擊斷鏈，URL Slug 必須於**首次發布時永久凍結**並寫入 `publish_record`（即 frozen slug registry，或與母稿等價綁定的發布主表）。後續英文翻譯內容的任何變更、修飾或重寫，均**不得重算或覆寫**已凍結的 Slug。
-* **權衡說明**：此策略在「嚴格覆蓋策略（Strict Match）」下運作良好，因為所有語言均需翻譯完成才發布。但若未來引進「主語言優先策略」，英文翻譯延遲會導致主語言無法生成 URL，屆時需切換回以 `source_item_id` 或主語言拼音作為 Slug 的退路設計（詳細權衡見 [MULTILINGUAL_CONTENT_STRATEGY.md](file:///C:/Users/user/Documents/derived-work/docs/MULTILINGUAL_CONTENT_STRATEGY.md) 第 6 節）。
+* **權衡說明**：此策略在「嚴格覆蓋策略（Strict Match）」下運作良好，因為所有語言均需翻譯完成才發布。但若未來引進「主語言優先策略」，英文翻譯延遲會導致主語言無法生成 URL，屆時需切換回以 `source_item_id` 或主語言拼音作為 Slug 的退路設計（詳細權衡見 [MULTILINGUAL_CONTENT_STRATEGY.md](file:///C:/Users/user/Documents/exopolitics/docs/MULTILINGUAL_CONTENT_STRATEGY.md) 第 6 節）。
 
 ---
 

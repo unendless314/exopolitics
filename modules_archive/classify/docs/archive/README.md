@@ -22,11 +22,11 @@ It operates strictly on the boundary rules defined in `docs/MODULE_BOUNDARIES.md
 
 Use the following documents to understand classification scope, constraints, and DDL contracts:
 
-1. **[DATA_CONTRACT.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/DATA_CONTRACT.md)**  
+1. **[DATA_CONTRACT.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md)**  
    Defines database contracts, DDL schema, status definitions, and constraint matrices for `classification_result`.
-2. **[CLASSIFICATION_PROMPT.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/CLASSIFICATION_PROMPT.md)**  
+2. **[CLASSIFICATION_PROMPT.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/CLASSIFICATION_PROMPT.md)**  
    Defines model inputs, prompt structures, expected response formats, and classification criteria (`core`, `adjacent`, `irrelevant`, `unknown`).
-3. **[BATCH_POLICY.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/BATCH_POLICY.md)**  
+3. **[BATCH_POLICY.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/BATCH_POLICY.md)**  
    Defines rate limits, batch size, recovery behavior, concurrency parameters, and SLA queue constraints.
 
 ---

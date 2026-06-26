@@ -159,7 +159,7 @@
 2. 人工下架時，更新的是上游 editorial 狀態，而不是刪除 `approved_content_record`。
 3. `approved_content_record` 不宜再新增一個單純由 `curate_status` 派生出的 `publish_allowed` 或 `is_active`，避免同一語義分散成兩份狀態來源。
 4. `translation_output` 不應因 `approved_content_record` 的失效或移除而被級聯硬刪除。
-   *(註：目前 [v001_initial_translate_tables.sql](file:///C:/Users/user/Documents/derived-work/modules/translate/src/migrations/v001_initial_translate_tables.sql) 對 `translation_output` 設有指向 `approved_content_record` 的 `ON DELETE CASCADE` 外鍵約束。只要我們維持不刪除 `approved_content_record` 紀錄列的設計，此級聯刪除就不會被觸發，因此現有機制是安全的。若未來調整了刪除邏輯，須同步注意此 FK 約束。)*
+   *(註：目前 [v001_initial_translate_tables.sql](file:///C:/Users/user/Documents/exopolitics/modules/translate/src/migrations/v001_initial_translate_tables.sql) 對 `translation_output` 設有指向 `approved_content_record` 的 `ON DELETE CASCADE` 外鍵約束。只要我們維持不刪除 `approved_content_record` 紀錄列的設計，此級聯刪除就不會被觸發，因此現有機制是安全的。若未來調整了刪除邏輯，須同步注意此 FK 約束。)*
 5. `curation_decision.decision_reason` 可繼續沿用為共用欄位，但其語義需明確調整為「目前狀態的原因」，而不是僅限於初次 AI 審核理由。
 6. 為避免混淆自動與人工寫入來源，建議在 `curation_decision` 增加 `decision_actor` 欄位，值限定為 `system` 或 `operator`：
    * `system`: 由自動 curation pipeline 產生並寫入的狀態。

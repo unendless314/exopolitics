@@ -10,7 +10,7 @@ In context=(), 'additionalProperties' is required to be supplied and to be false
 ---
 
 ## 2. 根本原因分析 (Root Cause)
-此錯誤發生在 Client 端的 [orchestrator.py](file:///C:/Users/user/Documents/derived-work/modules/classify/src/orchestrator.py) 模組，具體與 [JSON_SCHEMA](file:///C:/Users/user/Documents/derived-work/modules/classify/src/orchestrator.py#L21-L71) 的定義及呼叫參數有關。
+此錯誤發生在 Client 端的 [orchestrator.py](file:///C:/Users/user/Documents/exopolitics/modules/classify/src/orchestrator.py) 模組，具體與 [JSON_SCHEMA](file:///C:/Users/user/Documents/exopolitics/modules/classify/src/orchestrator.py#L21-L71) 的定義及呼叫參數有關。
 
 ### (1) OpenAI 結構化輸出 (Structured Outputs) 的嚴格限制
 在 `orchestrator.py` 中，系統判斷當 Provider 支援結構化輸出時，會使用以下設定進行 API 請求：
@@ -38,7 +38,7 @@ payload["response_format"] = {
 針對此問題，有以下兩種修改方向（依據業務需求選擇）：
 
 ### 方案 A：修正 Schema 以符合 `strict: True` 的規範（推薦）
-若要保留 `strict: True` 以確保 LLM 輸出的 100% 穩定度，需要調整 [JSON_SCHEMA](file:///C:/Users/user/Documents/derived-work/modules/classify/src/orchestrator.py#L21-L71) 定義：
+若要保留 `strict: True` 以確保 LLM 輸出的 100% 穩定度，需要調整 [JSON_SCHEMA](file:///C:/Users/user/Documents/exopolitics/modules/classify/src/orchestrator.py#L21-L71) 定義：
 
 1. 最外層加入 `"additionalProperties": false`。
 2. 將所有屬性加入 `"required"` 列表。
@@ -115,4 +115,4 @@ JSON_SCHEMA = {
         }
 ```
 * **影響**：OpenAI 將不會對 Schema 進行語法級的硬性校驗，因此原本的 Schema 可以直接通過。
-* **副作用**：LLM 的輸出格式可能偶爾會偏離 Schema。不過，由於 `orchestrator.py` 內建有 [validate_classification_response](file:///C:/Users/user/Documents/derived-work/modules/classify/src/orchestrator.py#L164-L242) 的手動校驗，若遇到格式錯誤會觸發自動重試，但這會增加額外的 Token 開銷和延遲。
+* **副作用**：LLM 的輸出格式可能偶爾會偏離 Schema。不過，由於 `orchestrator.py` 內建有 [validate_classification_response](file:///C:/Users/user/Documents/exopolitics/modules/classify/src/orchestrator.py#L164-L242) 的手動校驗，若遇到格式錯誤會觸發自動重試，但這會增加額外的 Token 開銷和延遲。

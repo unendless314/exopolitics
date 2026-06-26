@@ -38,17 +38,17 @@ In this revised MVP rewrite:
 
 ## 3. Document Map
 
-* [DATA_CONTRACT.md](file:///C:/Users/user/documents/derived-work/modules/curate/docs/DATA_CONTRACT.md)  
+* [DATA_CONTRACT.md](file:///C:/Users/user/documents/exopolitics/modules/curate/docs/DATA_CONTRACT.md)  
   Defines the database schema for `curation_decision`, `editor_brief`, and `curation_output`, including table indexes, foreign keys, and retry count tracking.
-* [STATE_TRANSITIONS.md](file:///C:/Users/user/documents/derived-work/modules/curate/docs/STATE_TRANSITIONS.md)  
+* [STATE_TRANSITIONS.md](file:///C:/Users/user/documents/exopolitics/modules/curate/docs/STATE_TRANSITIONS.md)  
   Defines curation workflow states, retry loops, transition rules, and re-curation data cleanup side-effects.
-* [CURATION_POLICY.md](file:///C:/Users/user/documents/derived-work/modules/curate/docs/CURATION_POLICY.md)  
+* [CURATION_POLICY.md](file:///C:/Users/user/documents/exopolitics/modules/curate/docs/CURATION_POLICY.md)  
   Defines editorial criteria for triage (approval vs. rejection), noise filtering rules, and downstream routing guidelines.
-* [PROMPT_CONTRACT.md](file:///C:/Users/user/documents/derived-work/modules/curate/docs/PROMPT_CONTRACT.md)  
+* [PROMPT_CONTRACT.md](file:///C:/Users/user/documents/exopolitics/modules/curate/docs/PROMPT_CONTRACT.md)  
   Defines the model instructions, prompt variables, and the single-pass JSON output schema (strictly excluding runner-side failed states).
-* [EXECUTION_POLICY.md](file:///C:/Users/user/documents/derived-work/modules/curate/docs/EXECUTION_POLICY.md)  
+* [EXECUTION_POLICY.md](file:///C:/Users/user/documents/exopolitics/modules/curate/docs/EXECUTION_POLICY.md)  
   Defines the execution orchestration including batch processing, rate-limit handlers, database transaction blocks, and preview options.
-* [IMPLEMENTATION_PLAN.md](file:///C:/Users/user/documents/derived-work/modules/curate/docs/IMPLEMENTATION_PLAN.md)  
+* [IMPLEMENTATION_PLAN.md](file:///C:/Users/user/documents/exopolitics/modules/curate/docs/IMPLEMENTATION_PLAN.md)  
   Outlines the project roadmap broken down into epics, migration scripts, testing strategies, and MVP constraints.
 
 ---
@@ -75,7 +75,7 @@ The `curate` module uses typed YAML configurations parsed into Pydantic models a
 
 ## 5. Pre-production Schema Reset Policy
 
-Since the system is in pre-production and data can be rebuilt from upstream sources (as per [IMPLEMENTATION_ROADMAP.md](file:///C:/Users/user/Documents/derived-work/docs/IMPLEMENTATION_ROADMAP.md)), we explicitly choose to update the initial DDL script [v001_initial_curate_tables.sql](file:///C:/Users/user/Documents/derived-work/modules/curate/src/migrations/v001_initial_curate_tables.sql) directly.
+Since the system is in pre-production and data can be rebuilt from upstream sources (as per [IMPLEMENTATION_ROADMAP.md](file:///C:/Users/user/Documents/exopolitics/docs/IMPLEMENTATION_ROADMAP.md)), we explicitly choose to update the initial DDL script [v001_initial_curate_tables.sql](file:///C:/Users/user/Documents/exopolitics/modules/curate/src/migrations/v001_initial_curate_tables.sql) directly.
 * This refactoring is a **pre-production schema reset**.
 * We do **not** provide incremental schema migration scripts (like `v002`) for existing local databases.
 * To apply this refactoring locally, you must either drop/recreate the curation tables (`curation_decision`, `editor_brief`, `curation_output`) and remove the `'v001_initial_curate_tables.sql'` row from `schema_migrations`, or delete and rebuild the `canonical.db` database entirely.

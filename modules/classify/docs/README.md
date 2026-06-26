@@ -37,15 +37,15 @@ In this rewrite, `classify` is decoupled from text cleanup and raw data parsing:
 
 ## 3. Document Map
 
-* [DATA_CONTRACT.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/DATA_CONTRACT.md)  
+* [DATA_CONTRACT.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md)  
   Defines the `classification_result` table schema, index strategy, and pending item query semantics.
-* [CLASSIFICATION_POLICY.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/CLASSIFICATION_POLICY.md)  
+* [CLASSIFICATION_POLICY.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/CLASSIFICATION_POLICY.md)  
   Defines the classification categories (`core`, `adjacent`, `irrelevant`, `unknown`) and policies for low-context detection and descriptive tagging.
-* [PROMPT_CONTRACT.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/PROMPT_CONTRACT.md)  
+* [PROMPT_CONTRACT.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/PROMPT_CONTRACT.md)  
   Defines model instruction templates, prompt variables, and JSON response schema guidelines.
-* [EXECUTION_POLICY.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/EXECUTION_POLICY.md)  
+* [EXECUTION_POLICY.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/EXECUTION_POLICY.md)  
   Defines execution controls including batch size, rate limits, retry policies, and transaction boundaries.
-* [IMPLEMENTATION_PLAN.md](file:///C:/Users/user/documents/derived-work/modules/classify/docs/IMPLEMENTATION_PLAN.md)  
+* [IMPLEMENTATION_PLAN.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/IMPLEMENTATION_PLAN.md)  
   Defines the development plan broken down into epics, stories, and tasks, including contract requirements and MVP choices.
 
 ## 4. Config Map

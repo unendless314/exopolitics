@@ -10,7 +10,7 @@
 
 本系統的靜態網頁（`site` 模組）預計在初期支援**中、英、日**三種語系。為了提供絕佳的讀者體驗與控制營運成本，多語系翻譯必須在後端批次處理完成，再導出為靜態 JSON，避免讓讀者瀏覽器直接呼叫 LLM 進行翻譯。
 
-然而，現有的審核模組（`curate`）之 [Prompt 模板](file:///C:/Users/user/Documents/derived-work/modules/curate/config/prompt_templates.yaml) 已經極為複雜。如果強行在 `curate` 的 Prompt 中加入多語系翻譯要求，會導致以下問題：
+然而，現有的審核模組（`curate`）之 [Prompt 模板](file:///C:/Users/user/Documents/exopolitics/modules/curate/config/prompt_templates.yaml) 已經極為複雜。如果強行在 `curate` 的 Prompt 中加入多語系翻譯要求，會導致以下問題：
 1. **AI 指令稀釋與格式錯誤**：過多限制會降低 AI 遵循字數與邏輯規範的成功率。
 2. **Token 浪費**：我們會花費額外的 API 費用去翻譯那些「最終被拒絕」或「需要重寫」的文章。
 3. **結構耦合（Schema Coupling）**：若翻譯與發布直接使用 `curate` 的多欄位結構（`summary_short`、`bullet_1` ~ `bullet_3`），一旦未來審核格式調整，整個翻譯和發布模組都需要跟著重構。

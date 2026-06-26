@@ -92,7 +92,7 @@ This document serves as the shared discussion record between the **User (Product
     * **JSON Stream / Metadata updates:**
       * *Pros:* Permits calling scripts or parent agents to parse progress programmatically.
     * *Recommendation:* 
-      1. Establish a **cross-module CLI standard** in [TECH_SPEC.md](file:///C:/Users/user/documents/derived-work/docs/TECH_SPEC.md) that commands must log progress.
+      1. Establish a **cross-module CLI standard** in [TECH_SPEC.md](file:///C:/Users/user/documents/exopolitics/docs/TECH_SPEC.md) that commands must log progress.
       2. For execution loops (e.g. fetching feeds in `ingest`, running LLMs in `classify`), the code should print a line-by-line status update to `sys.stderr` every time a chunk or key percentage boundary is crossed (e.g., `[Progress] 10% (5/50 items processed)`).
       3. Support a `--json` parameter to stream progress in JSON format if requested.
       4. Avoid hard dependency on external visualization tools like `tqdm` unless it is explicitly wrapped to degrade gracefully in non-interactive terminals.

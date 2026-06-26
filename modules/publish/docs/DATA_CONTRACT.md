@@ -224,7 +224,7 @@ Contract requirements:
 - **Disclosure Note Generation**: The `disclosure_note` text is determined directly from `writer_type` without heuristic guessing:
   - If `writer_type` is `'human'` or `'hybrid'`, the note must be: `"This item is AI-assisted and human-curated."`
   - If `writer_type` is `'AI'` or `'machine'`, the note must be: `"This item is AI-generated."`
-  - **Validation Rule**: To ensure reliability, when `writer_type` is `'human'` or `'hybrid'`, the `author_metadata` must contain a non-empty `editor` field. If `editor` is missing or empty for human/hybrid content, the artifact fails validation and must not be published (see [EXECUTION_POLICY.md](file:///C:/Users/user/Documents/derived-work/modules/publish/docs/EXECUTION_POLICY.md)).
+  - **Validation Rule**: To ensure reliability, when `writer_type` is `'human'` or `'hybrid'`, the `author_metadata` must contain a non-empty `editor` field. If `editor` is missing or empty for human/hybrid content, the artifact fails validation and must not be published (see [EXECUTION_POLICY.md](file:///C:/Users/user/Documents/exopolitics/modules/publish/docs/EXECUTION_POLICY.md)).
 
 Contract example:
 

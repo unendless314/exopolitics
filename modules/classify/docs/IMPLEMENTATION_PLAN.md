@@ -26,12 +26,12 @@ This document provides a detailed implementation plan for the rewritten `classif
 The following requirements must be followed during implementation:
 
 ### 3.1 Data Schema (Contract-Locked)
-- Use the SQLite schema defined in [DATA_CONTRACT.md](file:///C:/Users/user/Documents/derived-work/modules/classify/docs/DATA_CONTRACT.md) for the `classification_result` table.
+- Use the SQLite schema defined in [DATA_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md) for the `classification_result` table.
 - Enforce check constraints for `topic_class` (`'core'`, `'adjacent'`, `'irrelevant'`, `'unknown'`), `classification_confidence` (`0.0` to `1.0`), and other enum-like text fields.
 - Establish `source_item_id` as `UNIQUE` with a foreign key referencing `source_item(source_item_id) ON DELETE CASCADE`.
 
 ### 3.2 Processing Queue (Contract-Locked)
-- Retrieve pending items using the `LEFT JOIN` query specified in [DATA_CONTRACT.md](file:///C:/Users/user/Documents/derived-work/modules/classify/docs/DATA_CONTRACT.md).
+- Retrieve pending items using the `LEFT JOIN` query specified in [DATA_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md).
 - Do not process items that have not yet had their text sanitized (ensure `source_item_text` is populated).
 
 ### 3.3 Active Policy: Low-Context Bypass Routing (Phase Policy)
@@ -39,7 +39,7 @@ The following requirements must be followed during implementation:
 - Write a deterministic record with `topic_class = 'unknown'`, `model_name = 'deterministic-low-context'`, `prompt_version = 'rule_v1'`, and all descriptive attributes/experimental signals set to `NULL`.
 
 ### 3.4 Prompting & Schema Enforcement (Contract-Locked)
-- Construct prompts using the `single_item_v4` template from [PROMPT_CONTRACT.md](file:///C:/Users/user/Documents/derived-work/modules/classify/docs/PROMPT_CONTRACT.md).
+- Construct prompts using the `single_item_v4` template from [PROMPT_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/classify/docs/PROMPT_CONTRACT.md).
 - Enforce the structured JSON Schema output constraint.
 - Capture experimental sandbox signals (`content_timeliness`, `primary_evidence_type`) and persist them into the `additional_signals` JSON column, filtering out any unauthorized keys.
 

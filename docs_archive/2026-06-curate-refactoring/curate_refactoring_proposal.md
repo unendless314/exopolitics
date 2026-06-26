@@ -2,7 +2,7 @@
 
 This document outlines the proposed changes to the `curate` module to support the `withdrawn` status, facilitating safe, logical soft-withdrawals of published articles while fully preserving upstream translation caches. 
 
-This design follows the收斂方案 (converged option) described in [WITHDRAWAL_DESIGN_DISCUSSION.md](file:///C:/Users/user/Documents/derived-work/modules/publish/docs/WITHDRAWAL_DESIGN_DISCUSSION.md).
+This design follows the收斂方案 (converged option) described in [WITHDRAWAL_DESIGN_DISCUSSION.md](file:///C:/Users/user/Documents/exopolitics/modules/publish/docs/WITHDRAWAL_DESIGN_DISCUSSION.md).
 
 ---
 
@@ -12,7 +12,7 @@ Currently, the `curate_status` column in `curation_decision` is constrained to `
 
 ### Proposed DDL Constraint Changes
 
-We recommend updating the table constraints in [v001_initial_curate_tables.sql](file:///C:/Users/user/Documents/derived-work/modules/curate/src/migrations/v001_initial_curate_tables.sql) directly:
+We recommend updating the table constraints in [v001_initial_curate_tables.sql](file:///C:/Users/user/Documents/exopolitics/modules/curate/src/migrations/v001_initial_curate_tables.sql) directly:
 
 ```diff
   -- 1. curation_decision table
@@ -44,7 +44,7 @@ We recommend updating the table constraints in [v001_initial_curate_tables.sql](
 
 > [!IMPORTANT]
 > **SQLite Table Re-creation Note:**  
-> Since SQLite does not natively support `ALTER TABLE ... ADD CONSTRAINT` or altering column check constraints, modifying the check constraints in an existing database requires a table rebuild (creating a temp table, copying data, and renaming). Because the system is pre-production and data can be rebuilt from source (as per [IMPLEMENTATION_ROADMAP.md](file:///C:/Users/user/Documents/derived-work/docs/IMPLEMENTATION_ROADMAP.md)), editing the initial DDL script [v001_initial_curate_tables.sql](file:///C:/Users/user/Documents/derived-work/modules/curate/src/migrations/v001_initial_curate_tables.sql) and recreating the database is the cleanest and most recommended approach.
+> Since SQLite does not natively support `ALTER TABLE ... ADD CONSTRAINT` or altering column check constraints, modifying the check constraints in an existing database requires a table rebuild (creating a temp table, copying data, and renaming). Because the system is pre-production and data can be rebuilt from source (as per [IMPLEMENTATION_ROADMAP.md](file:///C:/Users/user/Documents/exopolitics/docs/IMPLEMENTATION_ROADMAP.md)), editing the initial DDL script [v001_initial_curate_tables.sql](file:///C:/Users/user/Documents/exopolitics/modules/curate/src/migrations/v001_initial_curate_tables.sql) and recreating the database is the cleanest and most recommended approach.
 >
 > In practice, note that the current migration runner tracks applied files in `schema_migrations`. This means simply editing `v001_initial_curate_tables.sql` will not affect an already-migrated local database unless that database is explicitly rebuilt or deleted and recreated.
 
@@ -68,7 +68,7 @@ This is the intended minimal contract extension. It improves state traceability 
 
 ## 2. CLI Command Additions (`cli.py`)
 
-To allow human operators to manually withdraw and re-approve articles, we propose adding two subcommands to [cli.py](file:///C:/Users/user/Documents/derived-work/modules/curate/src/cli.py).
+To allow human operators to manually withdraw and re-approve articles, we propose adding two subcommands to [cli.py](file:///C:/Users/user/Documents/exopolitics/modules/curate/src/cli.py).
 
 ### Required Imports Updates in `cli.py`
 Add the following imports to the top of the CLI file:
@@ -223,10 +223,10 @@ Finally, automated curation writes should stamp `decision_actor = 'system'` and 
 
 The following changes will be applied to the `curate` module's technical specifications:
 
-### [DATA_CONTRACT.md](file:///C:/Users/user/Documents/derived-work/modules/curate/docs/DATA_CONTRACT.md)
+### [DATA_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/curate/docs/DATA_CONTRACT.md)
 Update the description of `curate_status`, `downstream_action`, `decision_reason`, `decision_actor`, and `updated_at` under Section 2.1 (`curation_decision` table metadata) and update the DDL schema code snippet in Section 3 to include `'withdrawn'` and the updated outer `CHECK` constraint.
 
-### [STATE_TRANSITIONS.md](file:///C:/Users/user/Documents/derived-work/modules/curate/docs/STATE_TRANSITIONS.md)
+### [STATE_TRANSITIONS.md](file:///C:/Users/user/Documents/exopolitics/modules/curate/docs/STATE_TRANSITIONS.md)
 * Add a section for the **`withdrawn`** state:
   * **`withdrawn`**: A previously approved item that was manually withdrawn/taken down by an operator. A row exists in `curation_decision` with `curate_status = 'withdrawn'`. Corresponding records in `editor_brief`, `curation_output`, `approved_content_record`, and `translation_output` remain present in the database to serve as cache anchors, but are no longer active for public export.
 * Add transitions into the **State Transition Matrix**:
@@ -246,7 +246,7 @@ Because `withdrawn` becomes a first-class persisted state, the `status` CLI outp
 ## 5. Downstream Integration Flow
 
 ### Handoff Assembler (`translate` module)
-When [assemble_approved_content_records](file:///C:/Users/user/Documents/derived-work/modules/translate/src/approved_content_record.py#L54-L84) is run:
+When [assemble_approved_content_records](file:///C:/Users/user/Documents/exopolitics/modules/translate/src/approved_content_record.py#L54-L84) is run:
 * It queries using `WHERE d.curate_status = 'approved'`.
 * As a result, items that have been updated to `curate_status = 'withdrawn'` will be naturally skipped by the query.
 * Since the assembler uses a delta-oriented approach and only updates or inserts based on the returned candidate list, the existing row in `approved_content_record` for the withdrawn item is left **untouched and preserved**. This preserves the translation cache (`translation_output` rows that reference it).
