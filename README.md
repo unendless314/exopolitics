@@ -135,15 +135,18 @@ modules/
 │   ├── docs/
 │   ├── src/
 │   └── tests/
-└── publish/
-    ├── config/
+├── publish/
+│   ├── config/
+│   ├── docs/
+│   ├── src/
+│   └── tests/
+└── site/
     ├── docs/
     ├── src/
     └── tests/
 ```
 
-At this stage, `modules/ingest/`, `modules/classify/`, `modules/curate/`, `modules/translate/`, and `modules/publish/` are fully implemented, executable, and validated in run execution against canonical database records.
-
+At this stage, `modules/ingest/`, `modules/classify/`, `modules/curate/`, `modules/translate/`, `modules/publish/`, and `modules/site/` are fully implemented, executable, and validated.
 
 Pre-reset module docs and code now live under `modules_archive/`.
 
