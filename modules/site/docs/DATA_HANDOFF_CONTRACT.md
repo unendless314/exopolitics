@@ -80,3 +80,43 @@ To ensure optimal SEO placement and prevent empty or generic descriptions, the f
 3. **Tertiary Fallback**: If the content body is empty, it falls back to the `display_title` string.
 
 The detailed body text in the JSON's `content` field is written as the Markdown file body below the frontmatter block.
+
+---
+
+## 3. Phase 2: Page-to-Source Data Mapping
+
+To implement the hybrid ingestion strategy and keep the build memory footprint predictable, pages are mapped to their specific `publish_export` data files. Developers must strictly follow these mappings instead of introducing ad-hoc collection loading queries.
+
+### 3.1 Homepage / Timeline Page
+- **URL Path**: `/[lang]/`
+- **Data Source**: `data/publish_export/<lang>/index.json`
+- **Ingestion Policy**: Read this pre-sorted index file directly using Node.js `fs`. Do NOT call `getCollection("posts")`.
+- **Field Usage**: Parse only metadata fields (such as `slug`, `display_title`, `summary_short`, `source_published_at`, `canonical_url`) to build the timeline view. Map these fields to the Timeline component. Limit the page to the latest 300 entries.
+
+### 3.2 Monthly Archive Index Page
+- **URL Path**: `/[lang]/archives/`
+- **Data Source**: `data/publish_export/<lang>/archives/index.json`
+- **Ingestion Policy**: Read the monthly archive manifest directly. 
+- **Field Usage**: Render the months (e.g., `YYYY-MM`) and item counts dynamically from the manifest list.
+
+### 3.3 Monthly Archive Detail Pages
+- **URL Path**: `/[lang]/archives/[month]/`
+- **Data Source**: `data/publish_export/<lang>/archives/archive_YYYY_MM.json`
+- **Ingestion Policy**: Read the specific monthly archive JSON file.
+- **Field Usage**: Map the item array to list the posts for that month. No full article bodies are read.
+
+### 3.4 Post Detail Pages
+- **URL Path**: `/[lang]/posts/[slug]/`
+- **Data Source**: 
+  - *Route Generation*: `data/publish_export/<lang>/index.json` or `getCollection("posts")` (used solely to discover paths).
+  - *Content Source*: `data/publish_export/<lang>/items/<slug>.json` (mapped to `src/content/posts/generated/[lang]/[slug].md` via the adapter script).
+- **Ingestion Policy**: 
+  - In `getStaticPaths()`, the return array MUST only populate lightweight identifiers inside `props` (i.e. `{ id: post.id }`). Do NOT pass the full `post` object.
+  - During page rendering, dynamically import `astro:content` and query `getEntry("posts", id)` to load the specific post content into memory. This ensures only active pages reside in RAM during rendering.
+
+### 3.5 Global Statistics Page
+- **URL Path**: `/stats/` (or `/[lang]/stats/`)
+- **Data Source**: `data/publish_export/stats.json`
+- **Ingestion Policy**: Read this single global statistics file directly.
+- **Field Usage**: Display aggregate statistics (e.g., total active items, last run timestamp) on the stats board.
+

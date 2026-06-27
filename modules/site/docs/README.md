@@ -18,6 +18,7 @@ In the current architecture:
 - `site` does not read from canonical operational database tables directly.
 - `site` does not write to the canonical database.
 - `site` owns only UI layouts, styles, dynamic routing patterns, UI localization (i18n), and SEO elements.
+- **Active Development Target**: The active target is **Phase 2 (Hybrid Ingestion Stabilization)**. The module implements a memory-efficient hybrid loading strategy to resolve Out of Memory (OOM) build issues under large datasets.
 
 ---
 
@@ -38,6 +39,7 @@ In the current architecture:
 - `site` must remain a downstream-only consumer. It does not perform writes or state transitions on canonical data.
 - `site` does not determine or recalculate article slugs. It relies entirely on the stable slugs provided in the export data.
 - `site` does not query the LLM translation API or trigger classification. All content is pre-translated and pre-classified upstream.
+- `site` must consume `publish_export` with a predictable build-time memory footprint. It must never load full article bodies for listing/index pages, and dynamic route discovery `props` must remain lightweight (containing identifiers only) to prevent OOM errors.
 
 ---
 

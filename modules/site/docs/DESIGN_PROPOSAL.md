@@ -2,7 +2,7 @@
 
 This document outlines the evaluation of the reference templates and provides a comprehensive architectural design for the custom `site` module.
 
-Since the downstream handoff is fully defined in the `publish` module (which exports static JSON files to `data/publish_export/`), the `site` module will serve as a **static site generator (SSG)**. In the active MVP phase (Phase 1), a build-time script reads these JSON files to generate temporary Markdown files parsed via Content Collections; in Phase 2, Astro will ingest the JSON files directly. In both phases, the canonical source remains the `publish_export` JSON files. This ensures 100/100 Lighthouse performance, absolute separation of concerns, and zero security exposure for the canonical database.
+Since the downstream handoff is fully defined in the `publish` module (which exports static JSON files to `data/publish_export/`), the `site` module serves as a **static site generator (SSG)**. To optimize memory consumption and resolve build-time OOM (Out Of Memory) issues under large datasets, the data loading architecture follows a three-phase evolution. Phase 1 (MVP) maps all JSON exports to temporary Markdown files parsed via Content Collections. Phase 2 (Active Target: Hybrid Ingestion) stabilizes memory footprints by reading metadata-only JSON directly for list/index pages and keeping Content Collections only for post details with lightweight route props. Phase 3 (Long-term Target) will fully transition to direct JSON ingestion for all pages, bypassing intermediate files completely. In all phases, the canonical source remains the `publish_export` JSON files, ensuring 100/100 Lighthouse performance, absolute separation of concerns, and zero security exposure for the canonical database.
 
 ---
 
@@ -42,28 +42,44 @@ To balance rapid UI experimentation, template compatibility, and long-term codeb
 
 ```mermaid
 graph TD
-    subgraph Phase 1: Prototyping
+    subgraph Phase 1: MVP Baseline
         A[JSON Data] -->|Build-time Script| B[Temporary .md files]
-        B -->|Astro Content Collections| C[Astro Page Compilation]
+        B -->|Astro Content Collections| C1[Listing Pages Rendering]
+        B -->|Astro Content Collections| C2[Detail Pages Rendering]
     end
-    subgraph Phase 2: Production Stable
-        D[JSON Data] -->|Astro Adapter / Loader| E[Direct Ingestion]
-        E -->|Astro Native Markdown Renderer| F[Astro Page Compilation]
+    subgraph Phase 2: Hybrid Stabilization (Active Phase)
+        D1[JSON Data: metadata-only] -->|Node fs Read| E1[Listing Pages Rendering]
+        D2[JSON Data: item full text] -->|Build-time Script| B2[Temporary .md files]
+        B2 -->|Astro Content Collections| E2[Detail Pages Rendering]
+        style E2 fill:#f9f,stroke:#333,stroke-width:2px
+        note2["Lightweight route props (ID only) <br> + Concurrency limit"]
+        E2 -.-> note2
+    end
+    subgraph Phase 3: Direct JSON Ingestion (Long-term Target)
+        F1[JSON Data: metadata-only] -->|Node fs / Loader| G1[Listing Pages Rendering]
+        F2[JSON Data: item content] -->|Direct JSON Reader| G2[Detail Pages Rendering]
     end
 ```
 
-#### Phase 1: Build-Time JSON-to-Markdown Adapter (Active Phase)
-During the MVP/verification phase, when visual style changes, SEO field modifications, and template changes are frequent, we prioritize **ease of theme swapping** and **maximum compatibility** with off-the-shelf Astro layouts.
-- **Mechanism**: A thin script maps the JSON entries from `data/publish_export/` to temporary `.md` files with matching frontmatter under `src/content/posts/generated/[lang]/[slug].md` prior to the Astro build execution.
-- **Guardrails**:
-  1. **Single Source of Truth**: The JSON files under `data/publish_export/` remain the sole canonical source. Under no circumstances should the generated `.md` files be edited manually.
-  2. **Git Exclusion**: All generated `.md` files must be gitignored (excluded from version control) and treated strictly as build-time outputs.
-  3. **Thin Adapter**: The script performing the mapping must only map fields directly (e.g., `display_title` -> `title`), avoiding any complex business logic.
+#### Phase 1: MVP Baseline (Historical Baseline)
+In the initial MVP design, the system relied on a single unified path:
+- **Mechanism**: A build-time script mapped the JSON entries from `data/publish_export/` to temporary `.md` files with matching frontmatter under `src/content/posts/generated/[lang]/[slug].md` prior to the Astro build. Both list and detail pages queried the Content Collection.
+- **Limitation**: As the post count scaled, loading all posts with their full bodies in memory caused build-time Out of Memory (OOM) failures. This phase is preserved in documentation to document the historical baseline.
 
-#### Phase 2: Direct JSON Ingestion (Production Target Phase)
-Once the UI layout, information architecture, and metadata contracts stabilize, the intermediate `.md` generation step is phased out in favor of direct JSON ingestion.
-- **Mechanism**: The site reads JSON items directly at build time using Node.js `fs` module, bypassing temporary file writes.
-- **Markdown Rendering**: Content formatting is handled using Astro's native markdown rendering integrations or Astro content loaders (Astro v4+) to maintain absolute style and plug-in consistency, avoiding unsafe direct HTML rendering.
+#### Phase 2: Hybrid Ingestion with Build Memory Constraints (Active stabilization Phase)
+This is the active production stabilization target. It introduces a hybrid ingestion strategy to address the OOM issues while keeping the canonical data source, URL contracts, and SEO schemas intact:
+- **Mechanism**: 
+  - **Detail pages** continue to use generated Markdown + Content Collections for Astro layout compatibility, but `getStaticPaths()` must only return lightweight identifiers (such as `id`) in `props` instead of the entire `post` object. The post content is loaded dynamically inside the page component during rendering.
+  - **Listing pages** (homepage/timeline, archives) read metadata-only JSON files directly from `publish_export` (e.g., `index.json`, archive monthly JSON files), entirely bypassing Content Collections to avoid loading full article bodies.
+- **Guardrails**:
+  1. **Single Source of Truth**: The JSON files under `data/publish_export/` remain the sole canonical source.
+  2. **Build Concurrency Limit**: Astro build concurrency must be limited (e.g., `concurrency: 4`) in `astro.config.ts`.
+  3. **No Contract Changes**: This stabilization optimization does not represent a full switch to Phase 3. It keeps detail page generation working with Content Collections while shielding listing pages from heavy payload operations.
+
+#### Phase 3: Direct JSON Ingestion (Long-Term Target Phase)
+Once the UI layouts and routing constraints have fully stabilized and the content collection overhead becomes a bottleneck for even larger datasets, the intermediate Markdown generation step will be completely phased out.
+- **Mechanism**: All pages (including detail pages) read JSON files directly at build time using Node.js `fs` module or custom Astro Content Loaders, bypassing temporary file writes.
+- **Markdown Rendering**: Content formatting will be handled using direct Markdown parser integrations (e.g., `marked`) or Astro content loaders to maintain absolute style and plug-in consistency, avoiding unsafe direct HTML rendering.
 
 ---
 
@@ -88,7 +104,7 @@ modules/site/
 │   │   └── Post.astro          # Layout for reading articles
 │   ├── content/
 │   │   └── posts/
-│   │       └── generated/       # Build-time markdown artifacts for Phase 1 only
+│   │       └── generated/       # Build-time markdown artifacts for Phase 1 and Phase 2 detail pages
 │   ├── pages/
 │   │   ├── [lang]/
 │   │   │   ├── index.astro     # Timeline feed page (Traditional Chinese, English, Japanese)
@@ -217,7 +233,7 @@ const labels = getLocaleLabels(); // Reads from the dedicated localeProfiles con
 
 ## 5. Summary of Curation & Source Metadata Integration
 
-For each article (loaded from `data/publish_export/<lang>/items/<slug>.json` by the adapter script and compiled as a temporary Markdown file for Astro Content Collections in Phase 1), our layouts will display:
+For each article (loaded from `data/publish_export/<lang>/items/<slug>.json` by the adapter script and compiled as a temporary Markdown file for Astro Content Collections in Phase 1 and Phase 2 detail pages), our layouts will display:
 1. **Source Attribution**: Display the `canonical_url` clearly under the title (e.g., "Original Source").
 2. **AI Disclosure Note**: Display `disclosure_note` prominently based on the data populated by `publish`.
 3. **Reading Metrics**: Show the calculated reading time alongside the publishing timestamp (`source_published_at`).
@@ -242,7 +258,7 @@ For each article (loaded from `data/publish_export/<lang>/items/<slug>.json` by 
 All components created for the `site` module (e.g. `LanguageSelector`, `Timeline`) must inherit spacing, borders, and colors from the design tokens defined in `src/styles/global.css`. Avoid hardcoded colors outside of Tailwind utility classes aligned with our design palette.
 
 #### 2. Keep the Ingestion Layer Decoupled
-UI components must remain independent of how data is fetched. In Phase 1, components consume standard data objects from Content Collections (which are generated from the `publish_export` JSON files), ensuring that transitioning to Phase 2 (direct JSON ingestion) does not require rewriting page layouts.
+UI components must remain independent of how data is fetched. Layout structures and visual components must consume standard data interfaces, ensuring that transitioning from Phase 1 (full Content Collections) to Phase 2 (hybrid ingestion) and eventually to Phase 3 (full direct JSON ingestion) does not require rewriting page layouts.
 
 Locale routing keys must also stay decoupled from locale presentation metadata. In the
 current contract, `zh`, `en`, and `ja` are stable route/export keys, while values such
