@@ -1,8 +1,13 @@
 ---
-import { getCollection } from "astro:content";
+import fs from "node:fs";
+import path from "node:path";
 import Base from "../../layouts/Base.astro";
 import Timeline from "../../components/Timeline.astro";
 import { useTranslations } from "../../utils/i18n";
+import { publishExportDir } from "../../utils/paths";
+import type { TimelinePost } from "../../components/Timeline.astro";
+import { validateCatalogItem } from "../../utils/validation";
+import type { CatalogItem } from "../../utils/validation";
 
 export function getStaticPaths() {
   return [
@@ -12,17 +17,34 @@ export function getStaticPaths() {
   ];
 }
 
-const { lang } = Astro.params;
+const { lang = "zh" } = Astro.params;
 const t = useTranslations(lang);
 
-// Get and filter posts for this language
-const allPosts = await getCollection("posts");
-const filteredPosts = allPosts
-  .filter((post) => post.id.startsWith(`generated/${lang}/`))
-  .sort((a, b) => b.data.publishDate.getTime() - a.data.publishDate.getTime());
+// 1. Directly read index.json from publish_export for metadata-only Ingestion
+const indexFile = path.join(publishExportDir, lang, 'index.json');
+let rawItems: CatalogItem[] = [];
+if (fs.existsSync(indexFile)) {
+  try {
+    rawItems = JSON.parse(fs.readFileSync(indexFile, "utf8"));
+  } catch (err) {
+    console.error(`Error parsing index.json for ${lang}:`, err);
+    throw new Error(`Failed to parse index.json for ${lang}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
 
-// Take latest posts for the homepage feed (e.g. latest 100 posts to keep page size reasonable, or show all. Let's show all or first 200, wait, index has 1000 items, let's render all filtered posts, or limit it to 300 to keep it extremely fast)
-const displayPosts = filteredPosts.slice(0, 300);
+// 2. Limit to latest 300 posts
+const displayItems = rawItems.slice(0, 300);
+
+// 3. Fail-fast validation and mapping to TimelinePost interface
+const displayPosts: TimelinePost[] = displayItems.map((item) => {
+  const validated = validateCatalogItem(item, `index.json (${lang})`);
+  return {
+    slug: validated.slug,
+    title: validated.display_title,
+    publishDate: new Date(validated.source_published_at),
+    description: validated.summary_short || validated.display_title,
+  };
+});
 
 const pageTitle = `UAP Aggregator - ${t('nav.timeline')}`;
 const pageDesc = t('meta.homeDesc');

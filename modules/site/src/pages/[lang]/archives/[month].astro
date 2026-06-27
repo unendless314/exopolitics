@@ -6,19 +6,15 @@ import Timeline from "../../../components/Timeline.astro";
 import { useTranslations } from "../../../utils/i18n";
 import { publishExportDir } from "../../../utils/paths";
 
+import type { TimelinePost } from "../../../components/Timeline.astro";
+import { validateCatalogItem } from "../../../utils/validation";
+import type { CatalogItem } from "../../../utils/validation";
+
 interface ArchiveEntry {
   archive_month: string;
   file_name: string;
   item_count: number;
   updated_at: string;
-}
-
-interface CatalogItem {
-  slug: string;
-  display_title: string;
-  summary_short?: string;
-  canonical_url?: string;
-  source_published_at: string;
 }
 
 export function getStaticPaths() {
@@ -28,8 +24,21 @@ export function getStaticPaths() {
   for (const lang of languages) {
     const archivesIndexFile = path.join(publishExportDir, lang, 'archives', 'index.json');
     if (fs.existsSync(archivesIndexFile)) {
-      const archives: ArchiveEntry[] = JSON.parse(fs.readFileSync(archivesIndexFile, "utf8"));
+      let archives: ArchiveEntry[] = [];
+      try {
+        archives = JSON.parse(fs.readFileSync(archivesIndexFile, "utf8"));
+      } catch (err) {
+        console.error(`Error parsing archives index for ${lang}:`, err);
+        throw new Error(`Failed to parse archive manifest for ${lang}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+
       for (const archive of archives) {
+        if (!archive.archive_month || typeof archive.archive_month !== "string") {
+          throw new Error(`[Data Integrity Validation Failed] Archive index for ${lang} is missing a valid 'archive_month'`);
+        }
+        if (!archive.file_name || typeof archive.file_name !== "string") {
+          throw new Error(`[Data Integrity Validation Failed] Archive index for ${lang} is missing a valid 'file_name'`);
+        }
         paths.push({
           params: { lang, month: archive.archive_month },
           props: { fileName: archive.file_name },
@@ -49,18 +58,24 @@ const t = useTranslations(lang);
 const archiveFile = path.join(publishExportDir, lang, 'archives', fileName);
 let archiveItems: CatalogItem[] = [];
 if (fs.existsSync(archiveFile)) {
-  archiveItems = JSON.parse(fs.readFileSync(archiveFile, "utf8"));
+  try {
+    archiveItems = JSON.parse(fs.readFileSync(archiveFile, "utf8"));
+  } catch (err) {
+    console.error(`Error parsing archive file ${archiveFile}:`, err);
+    throw new Error(`Failed to parse archive file ${fileName}: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
-// Map simple catalog items to conform to the post shape expected by the Timeline component
-const mappedPosts = archiveItems.map((item: CatalogItem) => ({
-  id: `generated/${lang}/${item.slug}.md`,
-  data: {
-    title: item.display_title,
-    publishDate: new Date(item.source_published_at),
-    description: item.summary_short || item.display_title,
-  }
-}));
+// Map simple catalog items to conform to TimelinePost and perform fail-fast validation
+const mappedPosts: TimelinePost[] = archiveItems.map((item) => {
+  const validated = validateCatalogItem(item, `archive file ${fileName} (${lang})`);
+  return {
+    slug: validated.slug,
+    title: validated.display_title,
+    publishDate: new Date(validated.source_published_at),
+    description: validated.summary_short || validated.display_title,
+  };
+});
 
 const pageTitle = `UAP Aggregator - ${t('archive.monthTitle', { month })}`;
 const pageDesc = t('meta.archiveMonthDesc', { month });
@@ -78,7 +93,7 @@ const pageDesc = t('meta.archiveMonthDesc', { month });
     </div>
 
     {archiveItems.length > 0 ? (
-      <Timeline posts={mappedPosts as any} lang={lang} />
+      <Timeline posts={mappedPosts} lang={lang} />
     ) : (
       <p class="text-textColor/60 font-sans">{t('archive.empty')}</p>
     )}

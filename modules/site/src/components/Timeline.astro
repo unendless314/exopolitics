@@ -1,9 +1,14 @@
 ---
 import { formatAbsoluteDateTime } from "../utils/i18n";
-import type { CollectionEntry } from "astro:content";
+export interface TimelinePost {
+  slug: string;
+  title: string;
+  publishDate: Date;
+  description: string;
+}
 
 interface Props {
-  posts: CollectionEntry<"posts">[];
+  posts: TimelinePost[];
   lang: string;
 }
 
@@ -12,26 +17,24 @@ const { posts, lang } = Astro.props;
 
 <div class="timeline mt-8">
   {posts.map((post) => {
-    const filename = post.id.split('/').pop() || "";
-    const realSlug = filename.replace(/\.md$/, "");
-    const postRoute = `/${lang}/posts/${realSlug}/`;
+    const postRoute = `/${lang}/posts/${post.slug}/`;
 
     return (
       <article class="post group">
         <div class="post-rail">
-          <time class="post-date" datetime={post.data.publishDate.toISOString()}>
-            {formatAbsoluteDateTime(post.data.publishDate.toISOString())}
+          <time class="post-date" datetime={post.publishDate.toISOString()}>
+            {formatAbsoluteDateTime(post.publishDate.toISOString())}
           </time>
           <div class="post-dot" />
         </div>
         <div class="post-body">
           <h2 class="post-title">
             <a href={postRoute} class="focus:outline-none">
-              {post.data.title}
+              {post.title}
             </a>
           </h2>
           <p class="post-preview">
-            {post.data.description}
+            {post.description}
           </p>
         </div>
       </article>
