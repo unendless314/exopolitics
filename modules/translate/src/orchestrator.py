@@ -175,6 +175,21 @@ def validate_translation_response(
     if source_headers != translated_headers:
         raise ValueError(f"Header structure mismatch. Source: {source_headers}, Translated: {translated_headers}")
 
+    # 4. Target Script Presence Validation (Proper-noun-tolerant)
+    if target_language_code == 'zh':
+        # CJK Unified Ideographs (Chinese characters)
+        has_chinese = any('\u4e00' <= char <= '\u9fff' for char in content)
+        if not has_chinese:
+            raise ValueError("Chinese translation output lacks CJK Unified Ideographs (Chinese characters)")
+    elif target_language_code == 'ja':
+        # Hiragana and Katakana characters (essential grammatical elements of written Japanese)
+        has_kana = any(
+            ('\u3040' <= char <= '\u309f') or ('\u30a0' <= char <= '\u30ff')
+            for char in content
+        )
+        if not has_kana:
+            raise ValueError("Japanese translation output lacks Hiragana/Katakana characters")
+
 
 def _build_request_payload(config: TranslateConfig, item: sqlite3.Row, target_language_code: str) -> Dict[str, Any]:
     provider = config.active_provider

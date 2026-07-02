@@ -14,37 +14,18 @@ def compute_fingerprint(title: str, body: str) -> str:
     payload = norm_title + "\n\n" + norm_body
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-def detect_language(title: str, body: str) -> str:
-    """
-    Deterministic language detection fallback on the assembled mother-draft text.
-    Returns 'zh' if Chinese characters are found, 'en' if Latin letters predominate,
-    otherwise raises ValueError.
-    """
-    combined = (title + "\n\n" + body).strip()
-    
-    # Check for Chinese characters (CJK Unified Ideographs range)
-    has_chinese = any('\u4e00' <= char <= '\u9fff' for char in combined)
-    if has_chinese:
-        return 'zh'
-        
-    # Check for English (Latin letters)
-    latin_chars = sum(1 for char in combined if char.isalpha() and char.isascii())
-    total_chars = len(combined)
-    if total_chars > 0 and (latin_chars / total_chars) > 0.3:
-        return 'en'
-        
-    raise ValueError("Language cannot be resolved confidently for the text.")
+
 
 def splice_content_body(summary_short: str, bullet_1: Optional[str], bullet_2: Optional[str], bullet_3: Optional[str]) -> str:
-    """Splice the summary and bullet points into a single markdown body."""
+    """Splice the summary and bullet points into a single markdown body with English labels."""
     parts = [summary_short]
     bullets_part = []
     if bullet_1:
-        bullets_part.append(f"* **核心宣稱**：{bullet_1}")
+        bullets_part.append(f"* **Key Claim**: {bullet_1}")
     if bullet_2:
-        bullets_part.append(f"* **證據層次**：{bullet_2}")
+        bullets_part.append(f"* **Evidence Level**: {bullet_2}")
     if bullet_3:
-        bullets_part.append(f"* **客觀影響**：{bullet_3}")
+        bullets_part.append(f"* **Objective Impact**: {bullet_3}")
         
     if bullets_part:
         parts.append("\n".join(bullets_part))
@@ -74,11 +55,9 @@ def assemble_approved_content_records(conn: sqlite3.Connection) -> Dict[str, Any
             o.bullet_1,
             o.bullet_2,
             o.bullet_3,
-            o.updated_at AS upstream_updated_at,
-            c.primary_language_code
+            o.updated_at AS upstream_updated_at
         FROM curation_decision d
         JOIN curation_output o ON d.source_item_id = o.source_item_id
-        LEFT JOIN classification_result c ON d.source_item_id = c.source_item_id
         WHERE d.curate_status = 'approved'
           AND d.downstream_action IN ('publish_link', 'publish_summary')
     """
@@ -124,16 +103,11 @@ def assemble_approved_content_records(conn: sqlite3.Connection) -> Dict[str, Any
         fingerprint = compute_fingerprint(display_title, content_body)
 
         # Resolve content language code
-        try:
-            content_language_code = cand["primary_language_code"]
-            if not content_language_code:
-                content_language_code = detect_language(display_title, content_body)
-            else:
-                content_language_code = content_language_code.strip().lower()
-        except ValueError as err:
-            # Under the contract: "the assembler must not silently default; it must surface the item for operator review"
-            # We raise a RuntimeError so that it stops and forces review/logs the issue
-            raise RuntimeError(f"Handoff assembly failed for item ID {source_item_id}: {err}")
+        # Under current system policy, all curate-originated mother-drafts are materialized
+        # with content_language_code = 'en' (English).
+        # We explicitly decouple this from classification_result.primary_language_code,
+        # which tracks the original raw source text language.
+        content_language_code = 'en'
 
         now = get_utc_now_iso8601()
 

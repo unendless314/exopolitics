@@ -18,8 +18,7 @@ from modules.translate.src.database import (
 )
 from modules.translate.src.approved_content_record import (
     assemble_approved_content_records,
-    compute_fingerprint,
-    detect_language
+    compute_fingerprint
 )
 from modules.translate.src.orchestrator import (
     orchestrate_run,
@@ -174,11 +173,11 @@ class TestTranslateModule(unittest.TestCase):
             # Seed standard curation approval (with bullets)
             self.seed_curation_approval(
                 item_id=10,
-                title="母稿標題一",
-                summary="這是一段簡短的摘要內容。",
-                b1="重點一：宣稱內容",
-                b2="重點二：證據層次",
-                b3="重點三：客觀影響",
+                title="Mother-draft Title One",
+                summary="This is a brief summary content.",
+                b1="Key point one: claim content",
+                b2="Key point two: evidence level",
+                b3="Key point three: objective impact",
                 primary_lang="zh",
                 updated_at="2026-06-20T12:00:00Z"
             )
@@ -186,10 +185,10 @@ class TestTranslateModule(unittest.TestCase):
             # Seed link curation approval (no bullets)
             self.seed_curation_approval(
                 item_id=20,
-                title="母稿標題二",
-                summary="這是一篇連結分享文章。",
+                title="Mother-draft Title Two",
+                summary="This is a link sharing article.",
                 b1=None, b2=None, b3=None,
-                primary_lang=None, # triggers deterministic fallback
+                primary_lang=None,
                 updated_at="2026-06-20T12:00:00Z"
             )
 
@@ -203,24 +202,24 @@ class TestTranslateModule(unittest.TestCase):
             cursor.execute("SELECT * FROM approved_content_record WHERE source_item_id = 10")
             r1 = cursor.fetchone()
             self.assertIsNotNone(r1)
-            self.assertEqual(r1["display_title"], "母稿標題一")
-            self.assertEqual(r1["content_language_code"], "zh")
+            self.assertEqual(r1["display_title"], "Mother-draft Title One")
+            self.assertEqual(r1["content_language_code"], "en")
             expected_body_1 = (
-                "這是一段簡短的摘要內容。\n\n"
-                "* **核心宣稱**：重點一：宣稱內容\n"
-                "* **證據層次**：重點二：證據層次\n"
-                "* **客觀影響**：重點三：客觀影響"
+                "This is a brief summary content.\n\n"
+                "* **Key Claim**: Key point one: claim content\n"
+                "* **Evidence Level**: Key point two: evidence level\n"
+                "* **Objective Impact**: Key point three: objective impact"
             )
             self.assertEqual(r1["content_body"], expected_body_1)
-            self.assertEqual(r1["content_fingerprint"], compute_fingerprint("母稿標題一", expected_body_1))
+            self.assertEqual(r1["content_fingerprint"], compute_fingerprint("Mother-draft Title One", expected_body_1))
 
             cursor.execute("SELECT * FROM approved_content_record WHERE source_item_id = 20")
             r2 = cursor.fetchone()
             self.assertIsNotNone(r2)
-            self.assertEqual(r2["display_title"], "母稿標題二")
-            # Falls back to deterministic language detection: Chinese characters found -> zh
-            self.assertEqual(r2["content_language_code"], "zh")
-            self.assertEqual(r2["content_body"], "這是一篇連結分享文章。")
+            self.assertEqual(r2["display_title"], "Mother-draft Title Two")
+            # All curate-originated mother-drafts materialize with content_language_code = 'en'
+            self.assertEqual(r2["content_language_code"], "en")
+            self.assertEqual(r2["content_body"], "This is a link sharing article.")
 
             # Test delta check (no changes, so skipped)
             stats2 = assemble_approved_content_records(conn)
@@ -232,7 +231,7 @@ class TestTranslateModule(unittest.TestCase):
             # Change display_title upstream and update updated_at
             cursor.execute("""
                 UPDATE curation_output
-                SET display_title = '新標題', updated_at = '2026-06-21T00:00:00Z'
+                SET display_title = 'New Title', updated_at = '2026-06-21T00:00:00Z'
                 WHERE source_item_id = 10
             """)
             conn.commit()
@@ -245,20 +244,11 @@ class TestTranslateModule(unittest.TestCase):
 
             cursor.execute("SELECT * FROM approved_content_record WHERE source_item_id = 10")
             r1_new = cursor.fetchone()
-            self.assertEqual(r1_new["display_title"], "新標題")
+            self.assertEqual(r1_new["display_title"], "New Title")
             self.assertNotEqual(r1_new["content_fingerprint"], r1["content_fingerprint"])
 
         finally:
             conn.close()
-
-    def test_deterministic_language_detection(self) -> None:
-        # Chinese detection
-        self.assertEqual(detect_language("標題", "這是一些內容"), "zh")
-        # English detection
-        self.assertEqual(detect_language("Title of paper", "This is some test content containing English words."), "en")
-        # Unresolvable detection
-        with self.assertRaises(ValueError):
-            detect_language("123", "456")
 
     def test_validation_rules(self) -> None:
         source_body = "This is a body that is long enough to satisfy constraints."
@@ -793,3 +783,142 @@ class TestTranslateModule(unittest.TestCase):
         self.assertIn("PREVIEW TRANSLATION PROMPT:", res_run_prev.output)
         self.assertIn("UAP Sighting Over Base", res_run_prev.output)
         self.assertIn("Military personnel observed unidentified objects.", res_run_prev.output)
+
+    def test_cjk_script_validation(self) -> None:
+        # 1. Chinese (zh) script validation
+        source_body = "This is a body of text."
+        valid_zh = {
+            "translated_title": "中文標題",
+            "translated_content": "這是一段中文翻譯內容。"
+        }
+        # CJK characters present -> should pass
+        validate_translation_response(
+            valid_zh, target_language_code="zh", source_content_body=source_body,
+            max_title_len=120, content_ratio_limit=1.2
+        )
+
+        invalid_zh = {
+            "translated_title": "Translated Title",
+            "translated_content": "This is a body of text in English which copied the source content."
+        }
+        # No CJK characters -> should raise ValueError
+        with self.assertRaises(ValueError) as ctx:
+            validate_translation_response(
+                invalid_zh, target_language_code="zh", source_content_body=source_body,
+                max_title_len=120, content_ratio_limit=5.0
+            )
+        self.assertIn("lacks CJK Unified Ideographs", str(ctx.exception))
+
+        # 2. Japanese (ja) script validation
+        valid_ja = {
+            "translated_title": "日本語タイトル",
+            "translated_content": "これは日本語の翻訳コンテンツです。"
+        }
+        # Hiragana/Katakana present -> should pass
+        validate_translation_response(
+            valid_ja, target_language_code="ja", source_content_body=source_body,
+            max_title_len=120, content_ratio_limit=2.0
+        )
+
+        # Mixed script proper noun tolerance: Japanese containing "AARO" and "UAP"
+        valid_ja_mixed = {
+            "translated_title": "日本語タイトル",
+            "translated_content": "AAROによるUAPに関する報告書。"
+        }
+        validate_translation_response(
+            valid_ja_mixed, target_language_code="ja", source_content_body=source_body,
+            max_title_len=120, content_ratio_limit=2.0
+        )
+
+        invalid_ja = {
+            "translated_title": "Translated Title",
+            "translated_content": "This is a body of text in English which copied the source content."
+        }
+        # No Hiragana/Katakana -> should raise ValueError
+        with self.assertRaises(ValueError) as ctx:
+            validate_translation_response(
+                invalid_ja, target_language_code="ja", source_content_body=source_body,
+                max_title_len=120, content_ratio_limit=5.0
+            )
+        self.assertIn("lacks Hiragana/Katakana characters", str(ctx.exception))
+
+    @patch("httpx.AsyncClient.post")
+    def test_bypass_policy_under_new_mother_draft_language(self, mock_post) -> None:
+        conn = get_connection(self.db_path)
+        try:
+            repo = TranslationRepository(conn)
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO source_item (source_item_id, source_id, title, ingest_status)
+                VALUES (600, 1, 'English Title', 'ingested')
+            """)
+            cursor.execute("""
+                INSERT INTO approved_content_record (
+                    parent_content_id, source_item_id, display_title, content_body, content_fingerprint,
+                    content_language_code, approved_at, created_at, updated_at
+                ) VALUES (6, 600, 'English Title', 'English body content.', 'fp_en', 'en', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
+            """)
+            conn.commit()
+
+            # Mock LLM API response for translations that are not bypassed
+            mock_response = MagicMock(spec=httpx.Response)
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "choices": [{
+                    "message": {
+                        "content": json.dumps({
+                            "translated_title": "中文標題",
+                            "translated_content": "這是一段中文翻譯內容。"
+                        })
+                    }
+                }]
+            }
+            mock_post.return_value = mock_response
+
+            db_lock = asyncio.Lock()
+            client = httpx.AsyncClient()
+
+            # 1. Target language 'zh' should NOT bypass since target 'zh' != source 'en'
+            task_zh = {
+                "parent_content_id": 6,
+                "source_item_id": 600,
+                "display_title": "English Title",
+                "content_body": "English body content.",
+                "content_fingerprint": "fp_en",
+                "content_language_code": "en",
+                "language_code": "zh"
+            }
+            
+            success_zh = asyncio.run(translate_task(
+                repo=repo, client=client, config=self.config, task=task_zh,
+                api_key="mock", db_lock=db_lock, commit=True
+            ))
+            self.assertTrue(success_zh)
+            # Verify it actually hit the LLM (model name is gpt-5.4-mini, not bypass)
+            zh_out = repo.get_translation_output(6, "zh")
+            self.assertEqual(zh_out["model_name"], "gpt-5.4-mini")
+            self.assertEqual(zh_out["display_title"], "中文標題")
+
+            # 2. Target language 'en' SHOULD bypass since target 'en' == source 'en'
+            task_en = {
+                "parent_content_id": 6,
+                "source_item_id": 600,
+                "display_title": "English Title",
+                "content_body": "English body content.",
+                "content_fingerprint": "fp_en",
+                "content_language_code": "en",
+                "language_code": "en"
+            }
+            success_en = asyncio.run(translate_task(
+                repo=repo, client=client, config=self.config, task=task_en,
+                api_key="mock", db_lock=db_lock, commit=True
+            ))
+            self.assertTrue(success_en)
+            # Verify it bypassed LLM (model name is bypass)
+            en_out = repo.get_translation_output(6, "en")
+            self.assertEqual(en_out["model_name"], "bypass")
+            self.assertEqual(en_out["display_title"], "English Title")
+            self.assertEqual(en_out["content"], "English body content.")
+
+        finally:
+            conn.close()
