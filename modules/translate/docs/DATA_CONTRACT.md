@@ -1,7 +1,7 @@
 # Translate Data Contract
 
-**Document version:** v1.3  
-**Updated:** 2026-06-19  
+**Document version:** v1.4  
+**Updated:** 2026-07-02  
 **Status:** Locked Contract  
 
 > [!IMPORTANT]
@@ -122,7 +122,8 @@ CREATE INDEX IF NOT EXISTS idx_translation_output_status
 
 - `approved_content_record` is a materialized shared handoff artifact, not a live view over upstream editorial tables.
 - The upstream assembler is solely responsible for constructing `display_title`, `content_body`, `content_fingerprint`, `content_language_code`, `approved_at`, `created_at`, and `updated_at` before downstream pull-based consumption.
-- The assembler determines `content_language_code` for the mother-draft using this priority order: first, use an explicit finalized language field provided by the upstream `curate` or `edit` output when available; second, fall back to the corresponding `classification_result.primary_language_code` linked to the `source_item_id`; third, if neither upstream source provides a language value, run a deterministic language detection fallback on the assembled mother-draft text and persist the detected result.
+- The assembler determines `content_language_code` for the mother-draft based on the source path and available fields (path-based resolution rules): first, use an explicit finalized language field provided by the upstream `curate` or `edit` output when available; second, under the current policy branch for `curate`-originated payloads, explicitly materialize the language code as `'en'`; third, if the item originates from other pathways and neither upstream source provides a language value, run a deterministic language detection fallback on the assembled mother-draft text.
+- Keep `classification_result.primary_language_code` conceptually separate as source-language metadata owned by `classify`, and do not use it as a default fallback for the mother-draft language, which was the direct cause of translation-bypass bugs.
 - If the language still cannot be resolved confidently after applying the priority order above, the assembler must not silently default to an arbitrary language code; it must surface the item for operator review or follow an explicitly documented upstream fallback policy.
 - The assembler may be physically co-located under `modules/translate/`, but it must remain implementation-independent from translation runtime logic and should not import translation-specific code.
 - `approved_at` must be copied and preserved in the handoff row even if it is derivable from current upstream tables, because upstream editorial storage and retention policies may later diverge from downstream historical needs.

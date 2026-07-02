@@ -1,7 +1,7 @@
 # Canonical Entity Contract
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-06-08
+**Updated:** 2026-07-02
 
 ---
 
@@ -216,7 +216,7 @@ Minimum semantic contents:
 - display title (finalized title, either directly approved from curation or edited by human operators)
 - content body (finalized Markdown body, spliced from curation outputs or edited by human operators)
 - content fingerprint (`content_fingerprint`) representing the SHA-256 hash of the title and body
-- content language code (e.g. `content_language_code`, indicating the language of the mother-draft, populated at handoff)
+- content language code (`content_language_code`, indicating the language of the finalized mother-draft payload ready for translation, populated at handoff. Under the current system policy, this is set to `'en'` for curated items. This is strictly decoupled from `classify.primary_language_code`, which represents the original raw source text language).
 - approved timestamp
 - author/editor metadata (identifying the responsible user or system configuration version; stored as a serialized JSON string. For the MVP, it must contain at least `source_module` and `writer_type`. Under the conditional schema rule: when `writer_type` is `'human'` or `'hybrid'`, the metadata must also contain a non-empty `editor` field designating human responsibility. When `writer_type` is `'AI'` or `'machine'`, the `editor` field is optional.)
 

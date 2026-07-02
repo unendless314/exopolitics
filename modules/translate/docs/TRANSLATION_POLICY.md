@@ -1,7 +1,7 @@
 # Translation Policy and Terminology Glossary
 
-**Document version:** v1.1  
-**Updated:** 2026-06-19  
+**Document version:** v1.2  
+**Updated:** 2026-07-02  
 **Status:** Locked Contract  
 
 ---
@@ -59,5 +59,20 @@ To maintain consistency in UAP (Unidentified Anomalous Phenomena) and government
    - The translated body must remain proportional to the mother-draft. Significant expansion (more than 1.2x of raw character length equivalents, configured as `content_ratio_limit` in [model_settings.yaml](../config/model_settings.yaml)) is treated as validation failure.
 
 *Note: Any violation of these title length or content length constraints is verified runner-side during validation and will transition the task status to `'failed'` (incrementing `retry_count`) as defined in [EXECUTION_POLICY.md](./EXECUTION_POLICY.md#5-runner-side-content-validation-rules).*
+
+---
+
+## 5. Self-Translation Bypass and Script Validation
+
+### 5.1 Bypass Criteria
+Self-translation bypass is allowed only when `approved_content_record.content_language_code` is identical to the translation target `language_code` (e.g. `'en'` translating to `'en'`). In this case, title and body are copied directly without invoking LLM translation.
+
+### 5.2 Localized Script Validation Rules
+To prevent copy-paste failures where the LLM repeats the English mother-draft body instead of translating, the following script presence constraints are enforced:
+- **Traditional Chinese (zh)**: The translated body must contain meaningful CJK Unified Ideographs (Chinese characters).
+- **Japanese (ja)**: The translated body must contain Japanese Hiragana or Katakana characters (crucial for valid Japanese grammatical particles and loan words).
+
+### 5.3 Mixed-Script Proper Noun Tolerance
+Technical abbreviations (AARO, UAP, NHI), organization names, and proper nouns are permitted to remain in English to preserve traceability. Script validation checks should not enforce strict target language character density; they only verify the presence of the target script in the grammatical structures.
 
 

@@ -19,6 +19,7 @@ The translation pipeline occurs after editorial curation and editing:
 ```
 
 - **Upstream Input**: Reads the unified `approved_content_record` representing the approved mother-draft.
+  *Note: `content_language_code` strictly designates the language of this finalized mother-draft (currently English), NOT the original source text language detected by `classify`.*
 - **Downstream Output**: Writes translated results to `translation_output`, which the `publish` module reads for static file export.
 
 ## Key Features

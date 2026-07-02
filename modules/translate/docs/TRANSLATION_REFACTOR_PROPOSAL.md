@@ -1,0 +1,246 @@
+# Translation Refactoring Proposal: Correct Mother-Draft Language Contract and Safer Localized Output Validation
+
+**Status:** Proposed  
+**Author:** AI Pair Programmer  
+**Date:** 2026-07-02  
+**Primary Target Module:** `translate`  
+
+---
+
+## 1. Executive Summary
+
+During local verification of the current implementation and production database behavior, a language-routing anomaly was confirmed on the Traditional Chinese (`zh`) site: some published items appear in English even though the user is browsing the Chinese locale.
+
+The confirmed architectural issue is not in `site`. It is in the handoff contract between upstream mother-draft assembly and downstream translation execution:
+
+- `classify` records the original source language.
+- `curate` currently produces English mother-draft content.
+- `approved_content_record.content_language_code` is currently populated from `classification_result.primary_language_code` in many cases.
+- `translate` uses `approved_content_record.content_language_code` to decide whether self-translation bypass is allowed.
+
+This means the system can incorrectly treat an English mother-draft as Chinese, bypass the `zh` translation call, and publish English content into the Chinese site output.
+
+This proposal recommends a constrained refactor that fixes the production bug without expanding scope into multilingual curation or schema redesign, updated to fully address all reviewer feedback regarding document completeness, test alignments, and proper noun validation rules.
+
+---
+
+## 2. Confirmed Current-State Findings
+
+The following behaviors were verified in the current codebase.
+
+### 2.1 Handoff Language Drift Is Real
+
+In `modules/translate/src/approved_content_record.py`, the assembler currently resolves `content_language_code` by preferring `classification_result.primary_language_code`. Only when that field is missing does it fall back to deterministic text detection.
+
+That implementation causes the handoff row to store source-language metadata rather than the actual mother-draft language when upstream curation output has been rewritten into English.
+
+### 2.2 `translate` Bypass Uses That Drifted Value Directly
+
+In `modules/translate/src/orchestrator.py`, self-translation bypass is applied whenever:
+
+`target_language == content_language_code`
+
+Because `content_language_code` currently comes from the drifted handoff value, bypass can trigger incorrectly.
+
+### 2.3 `curate` Does Not Emit A Finalized Language Field Today
+
+The current `curate` structured output contains public-facing content fields such as `display_title`, `summary_short`, and bullets, but does not emit a `finalized_language_code` or equivalent explicit language field.
+
+That means the system currently has no formal upstream field describing the language of the finalized mother-draft.
+
+### 2.4 Translation Validation Is Too Weak
+
+`validate_translation_response` currently checks:
+
+- content length ratio
+- title length limits
+- Markdown/code fence/link/header structure
+
+It does not check whether a `zh` or `ja` translation actually contains meaningful target-language script presence. As a result, partially translated outputs can pass validation.
+
+### 2.5 Hardcoded Chinese Labels in Mother-Draft Assembly
+
+In `modules/translate/src/approved_content_record.py`, the `splice_content_body` helper hardcodes Chinese bullet labels (`核心宣稱`, `證據層次`, `客觀影響`) directly into the markdown content body structure. 
+
+This causes the assembled "English canonical mother-draft" to contain Chinese characters. This mixed-language handoff payload makes the `content_language_code = 'en'` contract semantically unclean and pollutes downstream validation heuristics when translating to CJK locales.
+
+---
+
+## 3. Problem Statement
+
+The production anomaly is caused by three separate defects.
+
+### 3.1 Issue A: Incorrect Mother-Draft Language In Shared Handoff
+
+**Symptom:** Some items appear on `/zh/` with English titles and English body content. Their translation rows show `model_name = 'bypass'`.
+
+**Root Cause:**
+
+1. `curate` currently generates English mother-draft output.
+2. The handoff assembler stores `content_language_code` from `classification_result.primary_language_code`.
+3. `translate` treats that stored value as the authoritative mother-draft language.
+4. `zh` translation is bypassed for some English mother-drafts.
+
+### 3.2 Issue B: Weak Validation Allows English Bodies To Leak Through
+
+**Symptom:** Some items translated to Chinese have a Chinese title but the body remains effectively English. Their translation rows show a real model name rather than `bypass`.
+
+**Root Cause:**
+
+1. The translation model sometimes returns a translated title but copies or mostly copies the English body.
+2. Runtime validation checks structure, but not actual target-language presence.
+3. These outputs are accepted and published.
+
+### 3.3 Issue C: Mixed-Language Mother-Draft via Hardcoded Labels
+
+**Symptom:** The mother-draft generated by the handoff assembler contains Chinese characters in its markdown labels, even when the curation text and title are purely English.
+
+**Root Cause:**
+
+1. `splice_content_body` hardcodes Chinese string labels for the bullets.
+2. Downstream CJK language script validation becomes inaccurate because English mother-drafts already contain Chinese characters before translation.
+
+---
+
+## 4. Architectural Decision
+
+### 4.1 Current Policy For Mother-Draft Language
+
+For the current generation of the system:
+
+- `curate` remains an English-only curation step.
+- `curation_output` is treated as an English mother-draft payload by current policy.
+- `translate` is the only module responsible for generating `zh`, `ja`, and other future localized variants.
+
+### 4.2 This Is A Contract Fix, Not A Multilingual Curation Project
+
+This proposal does not convert `curate` into a multilingual generator. Doing so would expand scope across prompt routing, language-specific output guarantees, and validation behavior.
+
+### 4.3 No Schema Expansion In This Change
+
+Although a future upstream field such as `finalized_language_code` would be a cleaner long-term contract, this fix does not require a schema migration. The immediate objective is to correct the meaning of the existing `approved_content_record.content_language_code` field.
+
+---
+
+## 5. Refactor Scope
+
+### 5.1 In Scope
+
+- Correct `approved_content_record.content_language_code` so it reflects actual mother-draft language.
+- Treat current `curate` output as English by contract.
+- Prevent `translate` from accepting effectively untranslated `zh` and `ja` bodies.
+- Refactor `splice_content_body` to use English bullet labels to ensure a pure English mother-draft.
+- Update global and module-level docs so source-language detection and mother-draft language are explicitly separated.
+- Update tests to enforce the corrected contract and prevent CI failures.
+
+### 5.2 Out Of Scope
+
+- Adding a new database column such as `finalized_language_code`.
+- Redesigning `curate` to support multilingual prompts or multilingual public outputs.
+- Retrofitting `site` or `publish` behavior.
+- Historical data backfill or production cleanup scripts.
+- Any `edit` module implementation work.
+
+---
+
+## 6. Proposed Engineering Changes
+
+### 6.1 Fix A: Reinterpret `content_language_code` As Actual Mother-Draft Language
+
+**Target File:** `modules/translate/src/approved_content_record.py`
+
+**Required Behavioral Change:**
+
+- Stop using `classification_result.primary_language_code` as the default mother-draft language for current `curate`-generated records.
+- Materialize current `curate`-originated mother-drafts as `content_language_code = 'en'`.
+- Keep `classification_result.primary_language_code` conceptually separate as source-language metadata owned by `classify`.
+- Code this as a current-policy branch. Do not preserve the old fallback path that reuses `classification_result.primary_language_code` as a fallback.
+
+### 6.2 Fix B: Add Deterministic Localized Output Validation
+
+**Target File:** `modules/translate/src/orchestrator.py`
+
+**Required Behavioral Change:**
+
+- Add deterministic script validation check for target-language presence inside `validate_translation_response`.
+- For `zh`, reject outputs whose body lacks CJK Unified Ideographs (Chinese characters).
+- For `ja`, reject outputs whose body lacks Hiragana/Katakana characters (the essential grammatical elements of written Japanese).
+- Design the validator to be proper-noun-tolerant: do not enforce strict CJK character density ratios, allowing English acronyms (e.g. AARO, UAP, NHI) and proper nouns to remain untranslated.
+
+### 6.3 Fix C: Refactor `splice_content_body` for Clean English Labels
+
+**Target File:** `modules/translate/src/approved_content_record.py`
+
+**Required Behavioral Change:**
+
+- Replace hardcoded Chinese bullet labels in `splice_content_body()` with English equivalents:
+  - `* **核心宣稱**：` $\rightarrow$ `* **Key Claim**: `
+  - `* **證據層次**：` $\rightarrow$ `* **Evidence Level**: `
+  - `* **客觀影響**：` $\rightarrow$ `* **Objective Impact**: `
+- This ensures the output is a pure English mother-draft. Downstream translation will automatically translate these English Markdown labels into target-language equivalents.
+
+### 6.4 Optional Prompt Reinforcement
+
+**Target File:** `modules/translate/config/prompt_templates.yaml`
+
+- Strengthen the prompt to explicitly forbid leaving the body text untranslated.
+- Clarify that proper nouns and traceability-sensitive terms may remain in English.
+
+---
+
+## 7. Required Documentation Changes
+
+The following documentation changes must be executed concurrently to lock down the contracts:
+
+1. `docs/CANONICAL_ENTITY_CONTRACT.md`  
+   - Explicitly decouple `classify.primary_language_code` (representing the original source language) and `approved_content_record.content_language_code` (representing the finalized mother-draft language).
+2. `docs/MODULE_BOUNDARIES.md`  
+   - Formalize module ownership rules: `classify` cannot define downstream mother-draft language, `curate` outputs English canonical mother-drafts under the current policy, and `translate`'s bypass route relies strictly on `content_language_code`.
+3. `modules/translate/docs/README.md`  
+   - Clarify that `content_language_code` represents the language of the finalized mother-draft rather than the source text language.
+4. `modules/translate/docs/IMPLEMENTATION_PLAN.md`  
+   - Update the Epic 2 handoff assembly description to reflect the current-policy rule that curate-originated records materialize with `content_language_code = 'en'`.
+5. `modules/curate/docs/DATA_CONTRACT.md`  
+   - Declare that under the current system policy, `curation_output` emits English canonical mother-draft content only.
+6. `modules/translate/docs/TRANSLATION_POLICY.md`  
+   - Clarify self-translation bypass prerequisites, outline CJK script validation expectations, and describe proper-noun exceptions (mixed-script tolerance).
+
+---
+
+## 8. Required Test Coverage
+
+The following unit tests in `modules/translate/tests/test_translate.py` must be updated:
+
+1. **`test_handoff_assembler_splicing_and_fingerprint`**:
+   - Update the seed item 10, which currently has a Chinese source language and curation input.
+   - Assert that the resulting `content_language_code` is materialized as `'en'` rather than `'zh'`.
+   - Update the `expected_body_1` assertion content to expect English bullet labels (`Key Claim`, etc.) instead of Chinese labels.
+2. **Bypass & Invalidation Tests**:
+   - Verify that `zh` and `ja` translations do not bypass when the mother-draft language is `'en'`.
+   - Verify that `en` translation bypasses correctly when the mother-draft language is `'en'`.
+3. **Script Validation Tests**:
+   - Add tests to ensure CJK character presence validation passes when target script is present and fails when the body is copied in English.
+   - Verify that mixed-script inputs (e.g. Japanese text containing "AARO") do not fail validation.
+
+---
+
+## 9. Risks and Tradeoffs
+
+- **Higher API Usage**: Items that previously bypassed `zh`/`ja` translation will now correctly execute translation calls, raising LLM usage costs.
+- **Rule Lock-in**: Formalizing "curate emits English mother-drafts" requires updating documentation if the curate policy changes in the future.
+- **Validation Tuning**: Script validation must remain conservative to prevent false rejections of legitimate short texts with dense technical acronyms.
+
+---
+
+## 10. Future Extension Path
+
+If a future `edit` module or an updated `curate` contract introduces an explicit upstream field such as `finalized_language_code`, the handoff assembler can adopt it. This refactoring path preserves that flexibility without blocking the urgent production fix.
+
+---
+
+## 11. Expected Benefits
+
+1. **Correct Localized Routing**: English mother-drafts will no longer leak into the CJK site via false bypass.
+2. **Consistent CJK Translation**: Pure English mother-draft payloads will prevent translation models from generating formatting drift.
+3. **Robust Quality Control**: Copy-failures and untranslated bodies will be trapped by script validation.
+4. **No Schema Cost**: The fix resolves the bug using the existing database columns.

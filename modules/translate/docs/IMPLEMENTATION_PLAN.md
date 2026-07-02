@@ -1,7 +1,7 @@
 # Translate Implementation Plan
 
-**Document version:** v1.2  
-**Updated:** 2026-06-19  
+**Document version:** v1.3  
+**Updated:** 2026-07-02  
 **Status:** Locked Contract  
 
 > [!IMPORTANT]
@@ -24,6 +24,7 @@ The development of the `translate` module is divided into the following epics an
   - This repository co-locates a shared handoff assembler utility under `modules/translate/src/approved_content_record.py` (or `handoff_repository.py`) for delivery simplicity.
   - This assembler is *not* owned by the `translate` module; it operates as a separate upstream step. The `translate` runner consumes `approved_content_record` only after this upstream assembly step is executed and completed.
   - The assembler reads finalized upstream curation approvals (from `curation_output`/`editor_brief`) and finalized edit drafts, splices the Markdown content body, normalizes line endings, computes the SHA-256 `content_fingerprint` of the normalized title/body payload, and writes them to the `approved_content_record` table.
+  - **Language Normalization Policy**: Under the current system policy, all curate-originated mother-drafts must be materialized with `content_language_code = 'en'`, bypassing the use of `classification_result.primary_language_code` as a fallback.
   - The assembler must remain translation-agnostic so it can later be moved into a shared location with minimal refactoring if more modules depend on the same handoff contract.
   - Upstream refresh logic should be delta-oriented: detect rows whose upstream finalized state changed since the last handoff materialization and only recompute those fingerprints instead of rebuilding the entire table each run.
   - For the MVP, if the effective upstream finalized source does not provide a dedicated `finalized_at`-style field, use that source row's `updated_at` as the pre-screen freshness signal.

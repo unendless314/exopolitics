@@ -1,7 +1,7 @@
 # Module Boundaries
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-06-05
+**Updated:** 2026-07-02
 
 ---
 
@@ -84,6 +84,7 @@ Must not own:
 Important boundary:
 
 - `classify` reads sanitized working text, not ambiguous raw summary fields
+- `classify` must not define or propagate downstream mother-draft language semantics.
 
 ### 3.3 `curate`
 
@@ -106,6 +107,10 @@ Must not own:
 - feed fetching
 - model prompt design
 - site rendering
+
+Important boundary:
+
+- Under the current system policy, `curate` outputs are strictly English canonical mother-drafts.
 
 ### 3.4 `edit`
 
@@ -141,6 +146,10 @@ Must not own:
 - editorial curation judgment (whether to publish or rewrite)
 - assembly of finalized upstream editorial states into the canonical mother-draft handoff
 - static exporter layouts or static file folder writing (owned by `publish`)
+
+Important boundary:
+
+- The self-translation bypass mechanism must evaluate target locales against `approved_content_record.content_language_code` only.
 
 ### 3.6 `publish`
 
