@@ -206,9 +206,9 @@ class TestTranslateModule(unittest.TestCase):
             self.assertEqual(r1["content_language_code"], "en")
             expected_body_1 = (
                 "This is a brief summary content.\n\n"
-                "* **Key Claim**: Key point one: claim content\n"
-                "* **Evidence Level**: Key point two: evidence level\n"
-                "* **Objective Impact**: Key point three: objective impact"
+                "* Key Claim: Key point one: claim content\n"
+                "* Evidence Level: Key point two: evidence level\n"
+                "* Objective Impact: Key point three: objective impact"
             )
             self.assertEqual(r1["content_body"], expected_body_1)
             self.assertEqual(r1["content_fingerprint"], compute_fingerprint("Mother-draft Title One", expected_body_1))
@@ -841,6 +841,49 @@ class TestTranslateModule(unittest.TestCase):
                 max_title_len=120, content_ratio_limit=5.0
             )
         self.assertIn("lacks Hiragana/Katakana characters", str(ctx.exception))
+
+    def test_plain_text_labels_validation(self) -> None:
+        # Source body has plain text bullet labels
+        source_body = (
+            "An archived court filing and related email excerpts describe a dispute.\n\n"
+            "* Key Claim: A court filing shows Epstein moved to block a subpoena.\n"
+            "* Evidence Level: Evidence cited includes a Florida motion to quash.\n"
+            "* Objective Impact: The filing is relevant to the legal record."
+        )
+
+        # Chinese translation using bold translated labels (which LLMs tend to generate)
+        valid_zh_bold = {
+            "translated_title": "存檔的法院文件",
+            "translated_content": (
+                "一份存檔的法院文件描述了爭議。\n\n"
+                "* **關鍵主張**：法院文件顯示 Epstein 試圖阻止傳票。\n"
+                "* **證據等級**：所引用的證據包括一份撤銷動議。\n"
+                "* **客觀影響**：該文件與訴訟的法律紀錄相關。"
+            )
+        }
+
+        # Validate Chinese bold translated labels -> should pass
+        validate_translation_response(
+            valid_zh_bold, target_language_code="zh", source_content_body=source_body,
+            max_title_len=120, content_ratio_limit=2.0
+        )
+
+        # Japanese translation using plain-text translated labels
+        valid_ja_plain = {
+            "translated_title": "裁判所提出書類",
+            "translated_content": (
+                "裁判所提出書類は争いを示している。\n\n"
+                "* 主要主張: 裁判所提出書類は Epstein が召喚状を阻止するよう申し立てたことを示している。\n"
+                "* 証拠水準: 引用された証拠には却下申立てが含まれる。\n"
+                "* 客観的影響: この提出書類は訴訟に関連している。"
+            )
+        }
+
+        # Validate Japanese plain-text translated labels -> should pass
+        validate_translation_response(
+            valid_ja_plain, target_language_code="ja", source_content_body=source_body,
+            max_title_len=120, content_ratio_limit=2.0
+        )
 
     @patch("httpx.AsyncClient.post")
     def test_bypass_policy_under_new_mother_draft_language(self, mock_post) -> None:

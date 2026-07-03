@@ -17,7 +17,7 @@ templates:
 
       2. Markdown Preservation:
          - You MUST preserve all markdown formatting exactly as provided in the source text.
-         - Do not alter or omit headers (#, ##, ###), list markers (*, -, numbered lists), bold text (**), italic text (*), inline code, links, or code blocks.
+         - Do not alter or omit headers (#, ##, ###), list markers (*, -, numbered lists), inline code, links, or code blocks.
          - Ensure blockquotes and list structures remain syntactically identical in translation.
 
       3. Forbidden Behaviors:

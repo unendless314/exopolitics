@@ -17,15 +17,15 @@ def compute_fingerprint(title: str, body: str) -> str:
 
 
 def splice_content_body(summary_short: str, bullet_1: Optional[str], bullet_2: Optional[str], bullet_3: Optional[str]) -> str:
-    """Splice the summary and bullet points into a single markdown body with English labels."""
+    """Splice the summary and bullet points into a single markdown body with plain-text English labels."""
     parts = [summary_short]
     bullets_part = []
     if bullet_1:
-        bullets_part.append(f"* **Key Claim**: {bullet_1}")
+        bullets_part.append(f"* Key Claim: {bullet_1}")
     if bullet_2:
-        bullets_part.append(f"* **Evidence Level**: {bullet_2}")
+        bullets_part.append(f"* Evidence Level: {bullet_2}")
     if bullet_3:
-        bullets_part.append(f"* **Objective Impact**: {bullet_3}")
+        bullets_part.append(f"* Objective Impact: {bullet_3}")
         
     if bullets_part:
         parts.append("\n".join(bullets_part))
