@@ -84,10 +84,12 @@ sources:
     xml_url: https://www.theblackvault.com/casefiles/feed/
     html_url: https://www.theblackvault.com/
     category_id: 1
-    enabled: true
+    enabled: false
     fetch_group: 7
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 403 Forbidden (Cloudflare/anti-scraping protection)."
+
   - id: 8
     title: Openminds.tv
     xml_url: https://openminds.tv/feed/
@@ -256,10 +258,12 @@ sources:
     title: Phys.org - latest science and technology news stories
     xml_url: https://phys.org/rss-feed/
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 3
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 400 Bad Request (Security policy violation / block; potentially due to request headers or User-Agent)."
+
   - id: 28
     title: 'Scientific American Content: Global'
     xml_url: http://rss.sciam.com/ScientificAmerican-Global
@@ -282,10 +286,12 @@ sources:
     xml_url: https://www.physixfan.com/feed/
     html_url: https://www.physixfan.com/
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 6
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 403 Forbidden (Nginx server-level crawler block/restriction)."
+
   - id: 31
     title: 卢昌海个人主页
     xml_url: https://www.changhai.org/feed.xml
@@ -363,18 +369,22 @@ sources:
     title: 稚晖君 的 bilibili 动态
     xml_url: https://rsshub.app/bilibili/user/dynamic/20259914
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 8
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 403 Forbidden (RSSHub cost limits/restrictions)."
+
   - id: 41
     title: 科学松鼠会
     xml_url: https://plink.anyfeeder.com/weixin/SquirrelClub
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 1
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+
   - id: 42
     title: 环球科学
     xml_url: https://plink.anyfeeder.com/weixin/ScientificAmerican
@@ -436,19 +446,23 @@ sources:
     xml_url: https://www.seti.org/rss.xml
     html_url: https://www.seti.org/
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 1
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+
   - id: 50
     title: NASA Astrobiology
     xml_url: https://astrobiology.nasa.gov/news/rss/
     html_url: https://astrobiology.nasa.gov/
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 2
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+
   - id: 51
     title: The Anomalous Review (SCU)
     xml_url: https://media.rss.com/anomalousreview/feed.xml
@@ -481,19 +495,23 @@ sources:
     xml_url: https://projects.iq.harvard.edu/galileo/feed
     html_url: https://projects.iq.harvard.edu/galileo/
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 6
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 403 Forbidden (Akamai CDN access denied / crawler block)."
+
   - id: 55
     title: AARO Official Releases (DOD)
     xml_url: https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?max=10&Categories=UAP
     html_url: https://www.aaro.mil/
     category_id: 1
-    enabled: true
+    enabled: false
     fetch_group: 7
     schedule_class: hourly
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+
   - id: 56
     title: GEIPAN (CNES)
     xml_url: https://www.cnes-geipan.fr/en/rss.xml
@@ -508,10 +526,12 @@ sources:
     xml_url: https://vault.fbi.gov/unexplained-phenomenon/rss.xml
     html_url: https://vault.fbi.gov/
     category_id: 1
-    enabled: true
+    enabled: false
     fetch_group: 1
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 403 Forbidden (Cloudflare Turnstile challenge)."
+
   - id: 58
     title: UK National Archives (UFO)
     xml_url: https://discovery.nationalarchives.gov.uk/results/rss?_q=UFO
@@ -607,10 +627,12 @@ sources:
     xml_url: https://feeds.megaphone.fm/1d42db5b-97e2-53b8-8d26-0a11eb4106a6
     html_url: https://theoriesofeverything.org/
     category_id: 5
-    enabled: true
+    enabled: false
     fetch_group: 4
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+
   - id: 69
     title: The Micah Hanks Program
     xml_url: https://gralienreport.libsyn.com/rss
@@ -652,10 +674,12 @@ sources:
     xml_url: https://feeds.megaphone.fm/somewhereintheskies
     html_url: https://www.somewhereintheskies.com/
     category_id: 4
-    enabled: true
+    enabled: false
     fetch_group: 1
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+
   - id: 74
     title: The Guardian (Space & Science)
     xml_url: https://www.theguardian.com/science/space/rss
@@ -688,19 +712,23 @@ sources:
     xml_url: http://feeds.reuters.com/reuters/scienceNews
     html_url: https://www.reuters.com/
     category_id: 5
-    enabled: true
+    enabled: false
     fetch_group: 5
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: DNS resolution failure (domain dead or misspelled)."
+
   - id: 78
     title: HuffPost (Tech & UFOs)
     xml_url: http://www.huffingtonpost.co.uk/news/tech/feed/
     html_url: https://www.huffingtonpost.co.uk/
     category_id: 5
-    enabled: true
+    enabled: false
     fetch_group: 6
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+
   - id: 79
     title: JPost (International Defense)
     xml_url: https://www.jpost.com/rss/rssfeedsinternational
@@ -715,10 +743,12 @@ sources:
     xml_url: https://www.news4jax.com/arc/outboundfeeds/rss/
     html_url: https://www.news4jax.com/
     category_id: 5
-    enabled: true
+    enabled: false
     fetch_group: 8
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+
   - id: 81
     title: 'Google News: UAP & Non-Human Intelligence'
     xml_url: https://news.google.com/rss/search?q=%22UAP%22+OR+%22UFO%22+OR+%22Non-Human+Intelligence%22&hl=en-US&gl=US&ceid=US:en
