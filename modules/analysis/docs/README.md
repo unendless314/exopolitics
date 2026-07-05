@@ -1,21 +1,20 @@
 # Analysis Module Documentation
 
-This directory contains the specification and implementation plans for the `analysis` module.
+This directory contains the documentation, specifications, and architecture boundaries for the `analysis` module.
 
 ## Status
 
-- This module is an independent, read-only analytics component introduced to evaluate pipeline performance, source quality, translation efficiency, and cost metrics based on production data.
-- The specs below define the boundaries, math formulas, CLI commands, and reporting formats to guide the implementation.
+- This module is an independent, read-only analytics component introduced to evaluate pipeline performance, source quality, translation efficiency, and workload and cost-proxy metrics based on production data.
+- It consumes data from the canonical database (`data/canonical.db`) but does not alter production state.
 
-## Document Directory
+## Document Index
 
-1. [ANALYSIS_SPECIFICATION.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/ANALYSIS_SPECIFICATION.md): Core metrics, quadrant scoring, pipeline funnel, translation analysis, and architectural boundaries.
-
-## Scope Note
-
-- `analysis` owns cross-module metric definitions, funnel analysis, source quality/cost scoring, and translation performance.
-- `analysis` is a **read-only consumer** of the canonical database (`data/canonical.db`). It must not alter production state, fetch feeds, classify items, execute translations, or write back to canonical operational tables.
-- `analysis` outputs optimization recommendations (e.g. Markdown reports in [reports/analysis/](file:///C:/Users/user/Documents/exopolitics/reports/analysis/)), but does not modify core configurations (like `sources.yaml` in the `ingest` module) directly.
+1. [ANALYSIS_BOUNDARIES.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/ANALYSIS_BOUNDARIES.md): System role, architectural boundaries, and read-only constraints.
+2. [MVP_METRICS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/MVP_METRICS.md): The core set of 10 metrics implemented in Phase 1 to monitor system health and funnel yield.
+3. [METRICS_CATALOG.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/METRICS_CATALOG.md): Definitions, formulas, data grounding, and schemas for all stable metrics.
+4. [EXPLORATORY_SIGNALS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/EXPLORATORY_SIGNALS.md): Experimental metrics, additional signals governance, and exploratory questions.
+5. [REPORT_CONTRACTS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/REPORT_CONTRACTS.md): CLI subcommand specifications, JSON schema outputs, and Dashboard integration contracts.
+6. [DECISION_MODELS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/DECISION_MODELS.md): Recommendation logic including the Source Quadrant Classifier and authority protection rules.
 
 ## Directory Responsibilities
 
