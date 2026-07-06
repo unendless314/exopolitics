@@ -10,14 +10,14 @@ This document specifies the minimum viable set of metrics selected for initial i
 All MVP metrics are evaluated within a lookback window (default: 7 days, controlled by the CLI `--days` option) to avoid historical dilution and support decision-making. Based on the operational or analytical nature of each metric, they are categorized into two time window semantics:
 
 1. **Cohort Window (`source_item_cohort`)**
-   - **Definition**: The lookback window filters the base ingestion records (`source_item.created_at` within the window). Downstream conversion, curation, and workload metrics are calculated strictly for this cohort of items, regardless of when their downstream events (e.g., classification, curation decision) occurred.
-   - **Purpose**: Guarantees statistical alignment and mathematical consistency in funnel conversion and yield rates.
-   - **Metrics**: Ingest Volume, Low-Context Bypass Rate, Relevance Rate, Curation Approval Rate, Overall Yield, Workload Volume Proxies.
+   - **Definition**: The lookback window filters the base ingestion records (`source_item.created_at` within the window). Downstream conversion, curation, workload, and E2E lead-time metrics are calculated strictly for this cohort of items, regardless of when their downstream events occurred.
+   - **Purpose**: Guarantees statistical alignment and mathematical consistency in funnel conversion, yield rates, and E2E delivery speed.
+   - **Metrics**: Ingest Volume, Low-Context Bypass Rate, Relevance Rate, Curation Approval Rate, Overall Yield, Pipeline Lead Time, Workload Volume Proxies.
 
 2. **Event-Time Window (`event_time`)**
    - **Definition**: The lookback window filters events using the timestamp of the metric's own primary event table (e.g., `fetch_attempt.created_at`, `translation_output.updated_at`, or `publish_record.published_at`).
    - **Purpose**: Provides real-time operational health, system throughput, and performance monitoring independent of ingestion cohort timing.
-   - **Metrics**: Fetch Success Rate, Translation Success Rate, Translation Latency, Publish Count.
+   - **Metrics**: Fetch Success Rate, Translation Success Rate, Publish Count.
 
 ---
 
@@ -79,13 +79,14 @@ All MVP metrics are evaluated within a lookback window (default: 7 days, control
    - **Direct Dimensions**: `source_item_id`, `language_code`
    - **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 
-8. **Translation Latency**
-   - **Window Semantic**: `event_time`
-   - **Description**: Average processing latency for translations completed within the window.
-   - **Formula**: $$\text{Average Latency} = \text{Average}(\text{translation\_output.translated\_at} - \text{approved\_content\_record.approved\_at})$$ where `translation_output.translated_at` is within the lookback window.
-   - **Data Source**: `translation_output`, `approved_content_record`
-   - **Direct Dimensions**: `source_item_id`, `language_code`
+8. **Pipeline Lead Time (E2E Latency)**
+   - **Window Semantic**: `source_item_cohort`
+   - **Description**: The overall delivery speed from ingestion to publication for items in the cohort.
+   - **Formula**: Average, Median (p50), and 90th percentile (p90) of `publish_record.first_published_at - source_item.fetched_at` where `source_item.created_at` is within the lookback window and the item has a row in `publish_record`.
+   - **Data Source**: `source_item`, `publish_record`
+   - **Direct Dimensions**: `source_item_id`
    - **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
+   - **Notes**: This is the top-level SLA metric. For granular bottleneck diagnostics, operators should drill down into the **Pipeline Stage Latency Suite** (which measures stage-by-stage execution, freshness, and queue delays).
 
 9. **Publish Count**
    - **Window Semantic**: `event_time`

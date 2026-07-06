@@ -27,8 +27,9 @@ Analyzes RSS source health and content quality.
 *   **Output File**: [SOURCE_QUALITY_REPORT.md](file:///C:/Users/user/Documents/exopolitics/reports/analysis/SOURCE_QUALITY_REPORT.md) (or JSON equivalent).
 
 #### 1.2.2 `analyze-funnel`
-Analyzes conversion rates and leakage bottlenecks across pipeline stages.
+Analyzes conversion rates, stage delivery speeds, and leakage bottlenecks across pipeline stages.
 *   **Funnel Stages**: Ingested -> Low-Context Split -> Classified -> Curated -> Approved Content -> Translation -> Publish.
+*   **Latency Breakdown**: Outputs the overall Pipeline Lead Time (average, median, and p90) and the Pipeline Stage Latency Suite breakdown for each stage.
 *   **Output File**: [PIPELINE_FUNNEL_REPORT.md](file:///C:/Users/user/Documents/exopolitics/reports/analysis/PIPELINE_FUNNEL_REPORT.md) (or JSON equivalent).
 
 #### 1.2.3 `analyze-translation`
@@ -160,12 +161,60 @@ To ensure predictable consumption by automated processors and web UI dashboards,
               "total_curated": { "type": "integer" },
               "curation_approved": { "type": "integer" },
               "total_translated": { "type": "integer" },
-              "total_published": { "type": "integer" }
+              "total_published": { "type": "integer" },
+              "pipeline_lead_time_seconds": {
+                "type": "object",
+                "properties": {
+                  "average": { "type": "number" },
+                  "median": { "type": "number" },
+                  "p90": { "type": "number" }
+                },
+                "required": ["average", "median", "p90"]
+              }
             },
             "required": [
               "total_ingested", "low_context_bypass_count", "total_classified", 
               "relevant_classified", "total_curated", "curation_approved", 
-              "total_translated", "total_published"
+              "total_translated", "total_published", "pipeline_lead_time_seconds"
+            ]
+          },
+          "stage_latency_breakdown_seconds": {
+            "type": "object",
+            "properties": {
+              "feed_freshness_delay": {
+                "type": "object",
+                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "required": ["average", "median", "p90"]
+              },
+              "fetch_execution_latency": {
+                "type": "object",
+                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "required": ["average", "median", "p90"]
+              },
+              "classification_delay": {
+                "type": "object",
+                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "required": ["average", "median", "p90"]
+              },
+              "curation_delay": {
+                "type": "object",
+                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "required": ["average", "median", "p90"]
+              },
+              "translation_delay": {
+                "type": "object",
+                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "required": ["average", "median", "p90"]
+              },
+              "publish_delay": {
+                "type": "object",
+                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "required": ["average", "median", "p90"]
+              }
+            },
+            "required": [
+              "feed_freshness_delay", "fetch_execution_latency", "classification_delay", 
+              "curation_delay", "translation_delay", "publish_delay"
             ]
           },
           "breakdowns": {
@@ -181,7 +230,8 @@ To ensure predictable consumption by automated processors and web UI dashboards,
               "required": ["stage", "count", "stage_conversion_rate", "cumulative_yield"]
             }
           }
-        }
+        },
+        "required": ["metrics", "stage_latency_breakdown_seconds", "breakdowns"]
       }
     },
     {
@@ -287,7 +337,44 @@ To ensure predictable consumption by automated processors and web UI dashboards,
     "total_curated": 950,
     "curation_approved": 620,
     "total_translated": 615,
-    "total_published": 612
+    "total_published": 612,
+    "pipeline_lead_time_seconds": {
+      "average": 845.5,
+      "median": 450.0,
+      "p90": 2400.0
+    }
+  },
+  "stage_latency_breakdown_seconds": {
+    "feed_freshness_delay": {
+      "average": 1200.0,
+      "median": 600.0,
+      "p90": 3600.0
+    },
+    "fetch_execution_latency": {
+      "average": 1.2,
+      "median": 0.8,
+      "p90": 2.5
+    },
+    "classification_delay": {
+      "average": 15.4,
+      "median": 10.0,
+      "p90": 45.0
+    },
+    "curation_delay": {
+      "average": 7200.0,
+      "median": 1800.0,
+      "p90": 21600.0
+    },
+    "translation_delay": {
+      "average": 120.0,
+      "median": 45.0,
+      "p90": 300.0
+    },
+    "publish_delay": {
+      "average": 5.2,
+      "median": 3.0,
+      "p90": 10.0
+    }
   },
   "breakdowns": [
     {

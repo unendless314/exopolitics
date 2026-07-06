@@ -208,9 +208,79 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 
 ---
 
-## 4. Translation Performance Metrics
+## 4. Pipeline Lead Time & Stage Latency Suite
 
-### 4.1 Translation Success Rate (MVP)
+### 4.1 Pipeline Lead Time (E2E Latency - MVP)
+*   **Purpose**: Monitor the end-to-end timeliness and delivery speed of content.
+*   **Window Basis**: `source_item_cohort`
+*   **Metric Type**: `end_to_end_lead_time`
+*   **Formula**: Average, Median (p50), and 90th percentile (p90) of `publish_record.first_published_at - source_item.fetched_at` where `source_item.created_at` is within the lookback window.
+*   **Data Source**: `source_item`, `publish_record`
+*   **Direct Dimensions**: `source_item_id`
+*   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
+*   **Update Frequency**: Executed per CLI run.
+*   **Notes**: The top-level SLA metric. High p90 values indicate major delivery bottlenecks.
+
+### 4.2 Pipeline Stage Latency Suite (Diagnostic Metrics)
+To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specific latencies. All metrics in this suite calculate the Average, Median (p50), and 90th percentile (p90) statistics, and are explicitly classified into execution, freshness, or queue delay types:
+
+#### 4.2.1 Feed Freshness Delay
+*   **Purpose**: Measure lag between external content publication and ingestion.
+*   **Window Basis**: `source_item_cohort`
+*   **Delay Class**: `freshness_delay`
+*   **Formula**: `source_item.fetched_at - source_item.published_at` where `source_item.created_at` is within the lookback window.
+*   **Data Source**: `source_item`
+*   **Direct Dimensions**: `source_item_id`, `source_id`
+*   **Notes**: Reflects crawling frequency efficiency. Highly dependent on external site feed updates.
+
+#### 4.2.2 Fetch Execution Latency
+*   **Purpose**: Monitor network retrieval speed.
+*   **Window Basis**: `event_time`
+*   **Delay Class**: `execution_latency`
+*   **Formula**: `fetch_attempt.ended_at - fetch_attempt.started_at` where `fetch_attempt.created_at` is within the lookback window.
+*   **Data Source**: `fetch_attempt`
+*   **Direct Dimensions**: `source_id`, `fetch_attempt_id`
+*   **Notes**: Captures active HTTP download and connection speed.
+
+#### 4.2.3 Classification Delay
+*   **Purpose**: Measure queue wait and LLM classification processing.
+*   **Window Basis**: `source_item_cohort`
+*   **Delay Class**: `queue_delay` + `execution_latency`
+*   **Formula**: `classification_result.classified_at - source_item.fetched_at` where `source_item.created_at` is within the lookback window.
+*   **Data Source**: `source_item`, `classification_result`
+*   **Direct Dimensions**: `source_item_id`
+*   **Notes**: Measures time spent waiting in scheduling queue plus the active classification LLM call duration.
+
+#### 4.2.4 Curation Delay
+*   **Purpose**: Monitor curation queue lag and operator review efficiency.
+*   **Window Basis**: `source_item_cohort`
+*   **Delay Class**: `queue_delay`
+*   **Formula**: `curation_decision.curated_at - classification_result.classified_at` where `source_item.created_at` is within the lookback window.
+*   **Data Source**: `source_item`, `classification_result`, `curation_decision`
+*   **Direct Dimensions**: `source_item_id`, `decision_actor` (system vs operator)
+*   **Notes**: Heavily long-tailed for operator decisions. Vital for measuring human curation queue bottleneck.
+
+#### 4.2.5 Translation Delay
+*   **Purpose**: Measure translation queue wait and LLM translation processing.
+*   **Window Basis**: `source_item_cohort`
+*   **Delay Class**: `queue_delay` + `execution_latency`
+*   **Formula**: `translation_output.translated_at - approved_content_record.approved_at` where `source_item.created_at` is within the lookback window.
+*   **Data Source**: `approved_content_record`, `translation_output`, `source_item`
+*   **Direct Dimensions**: `source_item_id`, `language_code`
+*   **Notes**: Tracks time from curation approval to translation output generation. Replaces the isolated Translation Latency metric.
+
+#### 4.2.6 Publish Delay
+*   **Purpose**: Track output file generation and static asset deployment speed.
+*   **Window Basis**: `source_item_cohort`
+*   **Delay Class**: `queue_delay`
+*   **Formula**: `publish_language_status.published_at - translation_output.translated_at` where `source_item.created_at` is within the lookback window.
+*   **Data Source**: `translation_output`, `publish_language_status`, `source_item`
+*   **Direct Dimensions**: `source_item_id`, `language_code`
+*   **Notes**: Measures the lag associated with export rendering and static site generation.
+
+### 4.3 Translation Performance & Queue Metrics
+
+#### 4.3.1 Translation Success Rate (MVP)
 *   **Purpose**: Monitor the reliability of translation execution.
 *   **Window Basis**: `event_time`
 *   **Formula**: $$\text{Translation Success Rate} = \frac{\text{Successful Translations (translation\_status = 'completed')}}{\text{Total Translation Attempts (translation\_status IN ('completed', 'failed', 'stale'))}}$$ where `translation_output.updated_at` is within the lookback window.
@@ -219,16 +289,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-### 4.2 Translation Latency (MVP)
-*   **Purpose**: Track time to publish from approval to completed translation.
-*   **Window Basis**: `event_time`
-*   **Formula**: $$\text{Average Latency} = \text{Average}(\text{translation\_output.translated\_at} - \text{approved\_content\_record.approved\_at})$$ where `translation_output.translated_at` is within the lookback window.
-*   **Data Source**: `translation_output`, `approved_content_record`
-*   **Direct Dimensions**: `source_item_id`, `language_code`
-*   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
-*   **Update Frequency**: Executed per CLI run.
-
-### 4.3 Translation Completion Rate
+#### 4.3.2 Translation Completion Rate
 *   **Purpose**: Track how many approved items actually get translated.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**:
@@ -239,16 +300,16 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-### 4.4 Translation Stale Rate
+#### 4.3.3 Translation Stale Rate
 *   **Purpose**: Identify items lost due to delays or updates during the translation queue.
 *   **Window Basis**: `event_time`
-*   **Formula**: Percentage of items marked stale (i.e. `translation_status = 'stale'`) where `translation_output.updated_at` (or timestamp marked stale) is within the lookback window.
+*   **Formula**: Percentage of items marked stale (i.e. `translation_status = 'stale'`) where `translation_output.updated_at` is within the lookback window.
 *   **Data Source**: `translation_output`
 *   **Direct Dimensions**: `source_item_id`, `language_code`, `translation_status`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-### 4.5 Translation Character Share by Language (Phase 2)
+#### 4.3.4 Translation Character Share by Language (Phase 2)
 *   **Purpose**: Compare processing load between locales and time windows.
 *   **Window Basis**: `event_time`
 *   **Formula**: Sum of `(length(translation_output.display_title) + length(translation_output.content))` where `translation_output.updated_at` is within the lookback window and `translation_status = 'completed'`, grouped by `translation_output.language_code`.
