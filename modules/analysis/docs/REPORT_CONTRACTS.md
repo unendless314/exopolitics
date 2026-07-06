@@ -11,7 +11,7 @@ The `analysis` module provides a command-line interface via `python -m modules.a
 All report-generating subcommands must support these arguments:
 *   `--days INTEGER`: Lookback window in days (default: `7`). This window defines the temporal boundary for analysis:
     - For metrics with **`event_time`** basis, `--days` restricts event timestamps (e.g. `fetch_attempt.created_at`, `translation_output.updated_at`, or `publish_record.published_at`) to the lookback period.
-    - For metrics with **`source_item_cohort`** basis, `--days` restricts the base cohort ingestion time (`source_item.created_at`) to the lookback period. Downstream actions/states are included if they relate to items in this ingestion cohort, regardless of their own event timestamps.
+    - For metrics with **`source_item_cohort`** basis, `--days` restricts the base cohort ingestion time (`source_item.fetched_at`) to the lookback period. Downstream actions/states are included if they relate to items in this ingestion cohort, regardless of their own event timestamps.
 *   `--format [markdown|json]`: Output format (default: `markdown`).
 *   `--output-dir PATH`: Directory where files are written (default: `reports/analysis/`).
 *   `--stdout`: Prints report text to standard output instead of writing to disk.
@@ -33,7 +33,7 @@ Analyzes conversion rates, stage delivery speeds, and leakage bottlenecks across
 *   **Output File**: [PIPELINE_FUNNEL_REPORT.md](file:///C:/Users/user/Documents/exopolitics/reports/analysis/PIPELINE_FUNNEL_REPORT.md) (or JSON equivalent).
 
 #### 1.2.3 `analyze-translation`
-Analyzes translation pipeline efficiency, failures, and latency.
+Analyzes translation pipeline efficiency, failures, and latency (Translation Latency / Delay).
 *   **Input Data**: `translation_output`, `approved_content_record`.
 *   **Output File**: [TRANSLATION_PERFORMANCE_REPORT.md](file:///C:/Users/user/Documents/exopolitics/reports/analysis/TRANSLATION_PERFORMANCE_REPORT.md) (or JSON equivalent).
 
@@ -179,6 +179,7 @@ To ensure predictable consumption by automated processors and web UI dashboards,
             ]
           },
           "stage_latency_breakdown_seconds": {
+            "description": "Granular latency breakdown for each pipeline stage. To ensure direct comparability and statistical consistency, all stages in this breakdown—including feed freshness and fetch execution—are evaluated using the shared source_item_cohort basis (i.e. strictly for the items belonging to the ingestion cohort).",
             "type": "object",
             "properties": {
               "feed_freshness_delay": {

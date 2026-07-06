@@ -10,7 +10,7 @@ This document specifies the minimum viable set of metrics selected for initial i
 All MVP metrics are evaluated within a lookback window (default: 7 days, controlled by the CLI `--days` option) to avoid historical dilution and support decision-making. Based on the operational or analytical nature of each metric, they are categorized into two time window semantics:
 
 1. **Cohort Window (`source_item_cohort`)**
-   - **Definition**: The lookback window filters the base ingestion records (`source_item.created_at` within the window). Downstream conversion, curation, workload, and E2E lead-time metrics are calculated strictly for this cohort of items, regardless of when their downstream events occurred.
+   - **Definition**: The lookback window filters the base ingestion records (`source_item.fetched_at` within the window). Downstream conversion, curation, workload, and E2E lead-time metrics are calculated strictly for this cohort of items, regardless of when their downstream events occurred.
    - **Purpose**: Guarantees statistical alignment and mathematical consistency in funnel conversion, yield rates, and E2E delivery speed.
    - **Metrics**: Ingest Volume, Low-Context Bypass Rate, Relevance Rate, Curation Approval Rate, Overall Yield, Pipeline Lead Time, Workload Volume Proxies.
 
@@ -26,7 +26,7 @@ All MVP metrics are evaluated within a lookback window (default: 7 days, control
 1. **Ingest Volume**
    - **Window Semantic**: `source_item_cohort`
    - **Description**: Total number of source items ingested.
-   - **Formula**: Count of records in the `source_item` table where `source_item.created_at` is within the lookback window.
+   - **Formula**: Count of records in the `source_item` table where `source_item.fetched_at` is within the lookback window.
    - **Data Source**: `source_item`
    - **Direct Dimensions**: `source_item_id`, `source_id`
    - **Derived Dimensions**: None
@@ -42,7 +42,7 @@ All MVP metrics are evaluated within a lookback window (default: 7 days, control
 3. **Low-Context Bypass Rate**
    - **Window Semantic**: `source_item_cohort`
    - **Description**: Proportion of items in the ingested cohort that bypass classification early due to low context.
-   - **Formula**: $$\text{Low-Context Bypass Rate} = \frac{\text{Low-Context Ingested Items (source\_item\_text.is\_low\_context = 1)}}{\text{Total Ingested Items}}$$ where `source_item.created_at` is within the lookback window.
+   - **Formula**: $$\text{Low-Context Bypass Rate} = \frac{\text{Low-Context Ingested Items (source\_item\_text.is\_low\_context = 1)}}{\text{Total Ingested Items}}$$ where `source_item.fetched_at` is within the lookback window.
    - **Data Source**: `source_item_text`, `source_item`
    - **Direct Dimensions**: `source_item_id`
    - **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -50,7 +50,7 @@ All MVP metrics are evaluated within a lookback window (default: 7 days, control
 4. **Relevance Rate**
    - **Window Semantic**: `source_item_cohort`
    - **Description**: The percentage of classified items in the ingested cohort that are relevant (core or adjacent).
-   - **Formula**: $$\text{Relevance Rate} = \frac{\text{Classify Core} + \text{Classify Adjacent}}{\text{Total Classified}}$$ where `source_item.created_at` is within the lookback window and the item has a row in `classification_result`.
+   - **Formula**: $$\text{Relevance Rate} = \frac{\text{Classify Core} + \text{Classify Adjacent}}{\text{Total Classified}}$$ where `source_item.fetched_at` is within the lookback window and the item has a row in `classification_result`.
    - **Data Source**: `classification_result`, `source_item`
    - **Direct Dimensions**: `source_item_id`
    - **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -58,7 +58,7 @@ All MVP metrics are evaluated within a lookback window (default: 7 days, control
 5. **Curation Approval Rate**
    - **Window Semantic**: `source_item_cohort`
    - **Description**: The percentage of curated items in the ingested cohort that are approved.
-   - **Formula**: $$\text{Curation Approval Rate} = \frac{\text{Curate Approved Count}}{\text{Total Curated Items}}$$ where `source_item.created_at` is within the lookback window and the item has a row in `curation_decision`.
+   - **Formula**: $$\text{Curation Approval Rate} = \frac{\text{Curate Approved Count}}{\text{Total Curated Items}}$$ where `source_item.fetched_at` is within the lookback window and the item has a row in `curation_decision`.
    - **Data Source**: `curation_decision`, `source_item`
    - **Direct Dimensions**: `source_item_id`, `decision_actor`
    - **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -66,7 +66,7 @@ All MVP metrics are evaluated within a lookback window (default: 7 days, control
 6. **Overall Yield**
    - **Window Semantic**: `source_item_cohort`
    - **Description**: The total conversion rate from ingestion to approved curation for the cohort.
-   - **Formula**: $$\text{Overall Yield} = \frac{\text{Curate Approved Count}}{\text{Total Ingested Items}}$$ where `source_item.created_at` is within the lookback window.
+   - **Formula**: $$\text{Overall Yield} = \frac{\text{Curate Approved Count}}{\text{Total Ingested Items}}$$ where `source_item.fetched_at` is within the lookback window.
    - **Data Source**: `curation_decision`, `source_item`
    - **Direct Dimensions**: `source_item_id`
    - **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -81,8 +81,8 @@ All MVP metrics are evaluated within a lookback window (default: 7 days, control
 
 8. **Pipeline Lead Time (E2E Latency)**
    - **Window Semantic**: `source_item_cohort`
-   - **Description**: The overall delivery speed from ingestion to publication for items in the cohort.
-   - **Formula**: Average, Median (p50), and 90th percentile (p90) of `publish_record.first_published_at - source_item.fetched_at` where `source_item.created_at` is within the lookback window and the item has a row in `publish_record`.
+   - **Description**: The overall delivery speed from ingestion fetch time (source_item.fetched_at) to successful publication for items in the cohort.
+   - **Formula**: Average, Median (p50), and 90th percentile (p90) of `publish_record.first_published_at - source_item.fetched_at` where `source_item.fetched_at` is within the lookback window and the item has a row in `publish_record`.
    - **Data Source**: `source_item`, `publish_record`
    - **Direct Dimensions**: `source_item_id`
    - **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -100,14 +100,14 @@ All MVP metrics are evaluated within a lookback window (default: 7 days, control
     *   **A. Classification Character Volume Proxy**
         - **Window Semantic**: `source_item_cohort`
         - **Description**: Estimate of processed character volume for classification of the ingested cohort.
-        - **Formula**: Sum of `length(source_item.title) + source_item_text.sanitized_text_length` where `source_item.created_at` is within the lookback window and `source_item_text.is_low_context = 0`.
+        - **Formula**: Sum of `length(source_item.title) + source_item_text.sanitized_text_length` where `source_item.fetched_at` is within the lookback window and `source_item_text.is_low_context = 0`.
         - **Data Source**: `source_item`, `source_item_text`
         - **Direct Dimensions**: `source_item_id`
         - **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
     *   **B. Curation Character Volume Proxy**
         - **Window Semantic**: `source_item_cohort`
         - **Description**: Estimate of character volume reviewed by the curation stage for the ingested cohort.
-        - **Formula**: Sum of `length(source_item.title) + source_item_text.sanitized_text_length` where `source_item.created_at` is within the lookback window and the item has a row in `curation_decision`.
+        - **Formula**: Sum of `length(source_item.title) + source_item_text.sanitized_text_length` where `source_item.fetched_at` is within the lookback window and the item has a row in `curation_decision`.
         - **Data Source**: `curation_decision`, `source_item`, `source_item_text`
         - **Direct Dimensions**: `source_item_id`, `decision_actor`
         - **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -115,7 +115,7 @@ All MVP metrics are evaluated within a lookback window (default: 7 days, control
     *   **C. Translation Character Volume Proxy**
         - **Window Semantic**: `source_item_cohort`
         - **Description**: Estimate of processed character volume for translation workload of the ingested cohort.
-        - **Formula**: Sum of `length(approved_content_record.display_title) + length(approved_content_record.content_body)` where `source_item.created_at` is within the lookback window and the item has a row in `translation_output`.
+        - **Formula**: Sum of `length(approved_content_record.display_title) + length(approved_content_record.content_body)` where `source_item.fetched_at` is within the lookback window and the item has a row in `translation_output`.
         - **Data Source**: `approved_content_record`, `source_item`, `translation_output`
         - **Direct Dimensions**: `source_item_id`, `content_language_code`
         - **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`), `language_code` (via joining matching `translation_output` rows)
