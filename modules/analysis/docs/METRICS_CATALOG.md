@@ -50,8 +50,8 @@ This document catalog lists all stable metrics defined for the `analysis` module
 *   **Purpose**: Track total raw volume of items pulled into the system.
 *   **Formula**: Count of records in `source_item`.
 *   **Data Source**: `source_item`
-*   **Direct Dimensions**: `source_item_id`
-*   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
+*   **Direct Dimensions**: `source_item_id`, `source_id`
+*   **Derived Dimensions**: None
 *   **Update Frequency**: Executed per CLI run.
 
 ### 2.2 Low-Context Bypass Rate (MVP)
@@ -64,7 +64,7 @@ This document catalog lists all stable metrics defined for the `analysis` module
 
 ### 2.3 Relevance Rate (MVP)
 *   **Purpose**: Measure the alignment of ingested feed items with core/adjacent topics.
-*   **Formula**: $$\text{Relevance Rate} = \frac{\text{Classify Core} + \text{Classify Adjacent}}{\text{Total Ingested}}$$
+*   **Formula**: $$\text{Relevance Rate} = \frac{\text{Classify Core} + \text{Classify Adjacent}}{\text{Total Classified (items with a row in classification\_result)}}$$
 *   **Data Source**: `classification_result`, `source_item`
 *   **Direct Dimensions**: `source_item_id` (from `classification_result`)
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -72,7 +72,7 @@ This document catalog lists all stable metrics defined for the `analysis` module
 
 ### 2.4 Curation Approval Rate (MVP)
 *   **Purpose**: Measure editorial value of filtered items.
-*   **Formula**: $$\text{Curation Approval Rate} = \frac{\text{Curate Approved Count}}{\text{Total Curated Items}}$$
+*   **Formula**: $$\text{Curation Approval Rate} = \frac{\text{Curate Approved Count}}{\text{Total Curated Items (items with a row in curation\_decision)}}$$
 *   **Data Source**: `curation_decision`
 *   **Direct Dimensions**: `source_item_id`, `decision_actor` (natively `curation_decision.decision_actor` is 'system' or 'operator')
 *   **Derived Dimensions**:
@@ -82,7 +82,7 @@ This document catalog lists all stable metrics defined for the `analysis` module
 
 ### 2.5 Overall Yield (MVP)
 *   **Purpose**: Measure final throughput from ingest to approval.
-*   **Formula**: $$\text{Overall Yield} = \frac{\text{Curate Approved Count}}{\text{Total Ingested}}$$
+*   **Formula**: $$\text{Overall Yield} = \frac{\text{Curate Approved Count}}{\text{Total Ingested (items with a row in source\_item)}}$$
 *   **Data Source**: `curation_decision`, `source_item`
 *   **Direct Dimensions**: `source_item_id`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -96,21 +96,45 @@ This document catalog lists all stable metrics defined for the `analysis` module
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
+### 2.7 Publish Count (MVP)
+*   **Purpose**: Track total number of successfully published content items.
+*   **Formula**: Count of records in the `publish_record` table.
+*   **Data Source**: `publish_record`
+*   **Direct Dimensions**: `source_item_id`
+*   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
+*   **Update Frequency**: Executed per CLI run.
+
 ---
 
 ## 3. Source Quality & Processing Efficiency
 
 ### 3.1 Workload Volume Proxies
 
+> [!NOTE]
+> **Workload Volume Proxies Comparison & Conceptual Boundaries**:
+> To ensure consistent interpretation of workload across stages, engineers and analysts must respect these conceptual boundaries:
+> 1.  **Classification Character Volume Proxy** = Representing the **classify stage input volume** (all raw feeds after passing basic low-context checks, i.e., `is_low_context = 0`).
+> 2.  **Curation Character Volume Proxy** = Representing the **curate stage input volume** (only the high-relevance subset of items filtered by the classification stage that reached a curation decision).
+> 3.  **Translation Character Volume Proxy** = Representing the downstream **translation workload**, which is conceptually different from the ingest-text proxies because it is calculated using the finalized, edited, and approved mother-draft text (`approved_content_record`) rather than the sanitized ingest text (`source_item_text`).
+
 #### 3.1.1 Classification Character Volume Proxy (MVP)
 *   **Purpose**: Track raw classification workload.
-*   **Formula**: `length(source_item.title) + source_item_text.sanitized_text_length`
+*   **Formula**: `length(source_item.title) + source_item_text.sanitized_text_length` for items where `source_item_text.is_low_context = 0`.
 *   **Data Source**: `source_item`, `source_item_text`
 *   **Direct Dimensions**: `source_item_id`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-#### 3.1.2 Translation Character Volume Proxy (MVP)
+#### 3.1.2 Curation Character Volume Proxy (MVP)
+*   **Purpose**: Estimate input character volume reviewed by the curation stage for items that reached a recorded curation decision.
+*   **Formula**: `length(source_item.title) + source_item_text.sanitized_text_length` for items with a row in `curation_decision`.
+*   **Data Source**: `curation_decision`, `source_item`, `source_item_text`
+*   **Direct Dimensions**: `source_item_id`, `decision_actor` (system vs operator)
+*   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
+*   **Update Frequency**: Executed per CLI run.
+*   **Notes**: This is an input-side proxy and does not represent output token generation, prompt templates, or human editor reading speed.
+
+#### 3.1.3 Translation Character Volume Proxy (MVP)
 *   **Purpose**: Estimate relative API translation workload.
 *   **Formula**: `length(approved_content_record.display_title) + length(approved_content_record.content_body)`
 *   **Data Source**: `approved_content_record`
@@ -119,6 +143,9 @@ This document catalog lists all stable metrics defined for the `analysis` module
     *   `source_id` (via joining `source_item` on `source_item_id`)
     *   `language_code` (via joining matching `translation_output` rows when grouping by translation target language)
 *   **Update Frequency**: Executed per CLI run.
+*   **Notes**: Depending on the reporting scope, this proxy can be evaluated as:
+    1. **Upstream Pending Workload**: Sum of characters in `approved_content_record` (representing the unique pending mother-draft content volume).
+    2. **Target Language Execution Workload**: The sum of characters in `approved_content_record` mapped to `translation_output` records where `translation_status` is `'completed'`, `'failed'`, or `'stale'` (representing actual execution attempts where API translation calls were made, excluding untranslated `'pending'` items).
 
 ### 3.2 Classification Filtering Overhead
 *   **Purpose**: Evaluate source efficiency (ratio of inputs needed for one output).
@@ -175,7 +202,9 @@ This document catalog lists all stable metrics defined for the `analysis` module
 
 ### 4.3 Translation Completion Rate
 *   **Purpose**: Track how many approved items actually get translated.
-*   **Formula**: Percentage of approved items that successfully complete translation.
+*   **Formula**:
+    *   **Global Completion Rate**: $$\text{Translation Completion Rate} = \frac{\text{Unique approved items with translation\_status = 'completed' in translation\_output}}{\text{Unique items in approved\_content\_record}}$$
+    *   **Per-Locale Completion Rate (for language } L\text{)}**: $$\text{Translation Completion Rate}_L = \frac{\text{Unique items with language\_code = } L \text{ and translation\_status = 'completed' in translation\_output}}{\text{Unique items in approved\_content\_record}}$$
 *   **Data Source**: `approved_content_record`, `translation_output`
 *   **Direct Dimensions**: `source_item_id`, `language_code`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -200,7 +229,7 @@ This document catalog lists all stable metrics defined for the `analysis` module
 ---
 
 ## 5. Data Grounding Schema Mapping
-The metrics above are supported by these canonical tables in `canonical.db`:
+The metrics above are supported by these canonical tables in [canonical.db](file:///C:/Users/user/Documents/exopolitics/data/canonical.db):
 *   `fetch_run`: Run-level outcomes.
 *   `fetch_attempt`: Individual feed outcomes, HTTP status, and connection errors.
 *   `source_state`: Rolling failures and quarantine status.
@@ -211,3 +240,10 @@ The metrics above are supported by these canonical tables in `canonical.db`:
 *   `approved_content_record`: Core drafts, titles, and approval timestamps.
 *   `translation_output`: Language codes, translated timestamps, text contents, and retries.
 *   `publish_record`: Published items and final slugs.
+
+### 5.1 Source Metadata Mapping Constraint (No `source` Table)
+Because `canonical.db` does not maintain a relational `source` table, the `analysis` module must resolve source metadata (e.g. source title, enabled status, category) by reading the external configuration files:
+*   [sources.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/sources.yaml): Contains individual source identifiers (`id`), crawl groups (`fetch_group`), schedule categories (`schedule_class`), and `category_id`.
+*   [categories.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/categories.yaml): Maps `category_id` to descriptive titles (e.g. `Government Policy & Official Disclosure`) and category enabled status.
+
+The mapping of `source_id` in database rows to these attributes must be done in memory. Under no circumstances should runtime logic expect SQL joins to resolve source or category attributes directly.

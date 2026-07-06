@@ -18,7 +18,10 @@ All report-generating subcommands must support these arguments:
 
 #### 1.2.1 `analyze-sources`
 Analyzes RSS source health and content quality.
-*   **Input Data**: `fetch_attempt`, `fetch_run`, `source_state`, `source_item`, `source_item_text`, `classification_result`, `curation_decision`, `ingest_dedup_marker`.
+*   **Input Data**: `canonical.db` tables (`fetch_attempt`, `fetch_run`, `source_state`, `source_item`, `source_item_text`, `classification_result`, `curation_decision`, `ingest_dedup_marker`) and external configurations ([sources.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/sources.yaml), [categories.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/categories.yaml)).
+*   **Subcommand-Specific Options**:
+    *   `--yield-threshold FLOAT`: Optional override for Overall Yield threshold parameter (default: loads from `decision_rules.yaml`).
+    *   `--relevance-threshold FLOAT`: Optional override for Relevance Rate threshold parameter (default: loads from `decision_rules.yaml`).
 *   **Output File**: [SOURCE_QUALITY_REPORT.md](file:///C:/Users/user/Documents/exopolitics/reports/analysis/SOURCE_QUALITY_REPORT.md) (or JSON equivalent).
 
 #### 1.2.2 `analyze-funnel`
@@ -77,10 +80,7 @@ To ensure predictable consumption by automated processors and web UI dashboards,
     },
     "breakdowns": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "description": "Granular breakdowns grouped by dimensions like source_id or language_code"
-      }
+      "description": "Granular breakdowns grouped by dimensions like source_id or language_code"
     }
   },
   "required": [
@@ -92,6 +92,127 @@ To ensure predictable consumption by automated processors and web UI dashboards,
     "window_end", 
     "metrics", 
     "breakdowns"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "report_type": { "const": "sources" } }
+      },
+      "then": {
+        "properties": {
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "overall_fetch_success_rate": { "type": "number" },
+              "total_ingested_items": { "type": "integer" },
+              "low_context_bypass_rate": { "type": "number" }
+            },
+            "required": ["overall_fetch_success_rate", "total_ingested_items", "low_context_bypass_rate"]
+          },
+          "breakdowns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": { "type": "integer" },
+                "fetch_success_rate": { "type": ["number", "null"] },
+                "ingest_volume": { "type": "integer" },
+                "relevance_rate": { "type": ["number", "null"] },
+                "curation_approval_rate": { "type": ["number", "null"] },
+                "overall_yield": { "type": ["number", "null"] },
+                "classification_character_volume_proxy": { "type": "integer" },
+                "curation_character_volume_proxy": { "type": "integer" },
+                "classification_filtering_overhead": { "type": ["number", "null"] },
+                "decision_model": {
+                  "type": "object",
+                  "properties": {
+                    "quadrant": { "type": ["string", "null"] },
+                    "safeguards_triggered": { "type": "array", "items": { "type": "string" } }
+                  },
+                  "required": ["quadrant", "safeguards_triggered"]
+                }
+              },
+              "required": [
+                "source_id", "fetch_success_rate", "ingest_volume", "relevance_rate", 
+                "curation_approval_rate", "overall_yield", "classification_character_volume_proxy", 
+                "curation_character_volume_proxy", "classification_filtering_overhead", "decision_model"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "report_type": { "const": "funnel" } }
+      },
+      "then": {
+        "properties": {
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "total_ingested": { "type": "integer" },
+              "low_context_bypass_count": { "type": "integer" },
+              "total_classified": { "type": "integer" },
+              "relevant_classified": { "type": "integer" },
+              "total_curated": { "type": "integer" },
+              "curation_approved": { "type": "integer" },
+              "total_translated": { "type": "integer" },
+              "total_published": { "type": "integer" }
+            },
+            "required": [
+              "total_ingested", "low_context_bypass_count", "total_classified", 
+              "relevant_classified", "total_curated", "curation_approved", 
+              "total_translated", "total_published"
+            ]
+          },
+          "breakdowns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stage": { "type": "string" },
+                "count": { "type": "integer" },
+                "stage_conversion_rate": { "type": "number" },
+                "cumulative_yield": { "type": "number" }
+              },
+              "required": ["stage", "count", "stage_conversion_rate", "cumulative_yield"]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "report_type": { "const": "translation" } }
+      },
+      "then": {
+        "properties": {
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "overall_translation_success_rate": { "type": "number" },
+              "average_latency_seconds": { "type": "number" }
+            },
+            "required": ["overall_translation_success_rate", "average_latency_seconds"]
+          },
+          "breakdowns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "language_code": { "type": "string" },
+                "translation_success_rate": { "type": "number" },
+                "average_latency_seconds": { "type": "number" },
+                "stale_rate": { "type": "number" },
+                "translation_character_volume_proxy": { "type": "integer" }
+              },
+              "required": ["language_code", "translation_success_rate", "average_latency_seconds", "stale_rate", "translation_character_volume_proxy"]
+            }
+          }
+        }
+      }
+    }
   ]
 }
 ```
@@ -121,6 +242,7 @@ To ensure predictable consumption by automated processors and web UI dashboards,
       "curation_approval_rate": 0.85,
       "overall_yield": 0.612,
       "classification_character_volume_proxy": 512400,
+      "curation_character_volume_proxy": 320000,
       "classification_filtering_overhead": 1.38,
       "decision_model": {
         "quadrant": "golden_source",
@@ -135,6 +257,7 @@ To ensure predictable consumption by automated processors and web UI dashboards,
       "curation_approval_rate": 0.0,
       "overall_yield": 0.0,
       "classification_character_volume_proxy": 14400,
+      "curation_character_volume_proxy": 0,
       "classification_filtering_overhead": null,
       "decision_model": {
         "quadrant": null,
