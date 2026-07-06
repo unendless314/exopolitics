@@ -9,7 +9,9 @@ The `analysis` module provides a command-line interface via `python -m modules.a
 
 ### 1.1 Unified CLI Options
 All report-generating subcommands must support these arguments:
-*   `--days INTEGER`: Lookback window in days (default: `7`).
+*   `--days INTEGER`: Lookback window in days (default: `7`). This window defines the temporal boundary for analysis:
+    - For metrics with **`event_time`** basis, `--days` restricts event timestamps (e.g. `fetch_attempt.created_at`, `translation_output.updated_at`, or `publish_record.published_at`) to the lookback period.
+    - For metrics with **`source_item_cohort`** basis, `--days` restricts the base cohort ingestion time (`source_item.created_at`) to the lookback period. Downstream actions/states are included if they relate to items in this ingestion cohort, regardless of their own event timestamps.
 *   `--format [markdown|json]`: Output format (default: `markdown`).
 *   `--output-dir PATH`: Directory where files are written (default: `reports/analysis/`).
 *   `--stdout`: Prints report text to standard output instead of writing to disk.
