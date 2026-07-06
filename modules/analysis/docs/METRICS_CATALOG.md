@@ -9,7 +9,7 @@ This document catalog lists all stable metrics defined for the `analysis` module
 All metrics in this catalog (except rolling snapshots) are filtered by the lookback window configured during execution (default: 7 days). They use one of the following window semantics:
 
 - **`source_item_cohort`**: The lookback window filters the base ingestion records (`source_item.fetched_at`). Downstream events/states are linked back to this cohort. Used for funnel and conversion analytics to maintain mathematical consistency.
-- **`event_time`**: The lookback window filters events using the timestamp of the metric's own primary event table (e.g. `fetch_attempt.created_at`, `translation_output.translated_at`). Used for operational and health monitoring.
+- **`event_time`**: The lookback window filters events using the timestamp of the metric's own primary event table (e.g. `fetch_attempt.created_at`, `translation_output.updated_at`). Used for operational and health monitoring.
 - **`rolling_snapshot`**: Reflects the current state at the time of query (no lookback window filtering).
 
 ---
@@ -321,10 +321,10 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 #### 4.3.5 Translation Latency / Delay (Diagnostic)
 *   **Purpose**: Track translation processing speed and latency in the translation sub-report.
 *   **Window Basis**: `event_time` (when calculated for the translation report) or `source_item_cohort` (when calculated for the funnel breakdown).
-*   **Formula**: Average, Median (p50), and 90th percentile (p90) of `translation_output.translated_at - approved_content_record.approved_at` where `translation_output.updated_at` is within the lookback window.
+*   **Formula**: Average latency of `translation_output.translated_at - approved_content_record.approved_at` where `translation_output.updated_at` is within the lookback window.
 *   **Data Source**: `translation_output`, `approved_content_record`
 *   **Direct Dimensions**: `source_item_id`, `language_code`
-*   **Notes**: This corresponds to the `average_latency_seconds` field inside the Translation Performance Report (`analyze-translation`).
+*   **Notes**: This corresponds to the `average_latency_seconds` field inside the Translation Performance Report (`analyze-translation`). The funnel report's stage latency breakdown separately reports average, median, and p90 for cohort-based translation delay diagnostics.
 
 ---
 
