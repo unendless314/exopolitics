@@ -44,7 +44,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Direct Dimensions**: `source_id`, `error_class`, `http_status`
 *   **Derived Dimensions**: None
 *   **Update Frequency**: Executed per CLI run.
-*   **Notes**: Relies on `fetch_attempt.error_class` and `fetch_attempt.error_detail`.
+*   **Notes**: Relies on `fetch_attempt.error_class` and `fetch_attempt.http_status` to categorize and group failures.
 
 ### 1.4 Rolling Source Health Snapshot
 *   **Purpose**: Identify quarantined or consistently failing sources.
@@ -87,22 +87,30 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
+#### 2.3.1 Topic Class Breakdown (Required Source Report Breakdown)
+*   **Purpose**: Preserve the full distribution of `classification_result.topic_class` for each source instead of flattening all relevant outcomes into a single scalar.
+*   **Window Basis**: `source_item_cohort`
+*   **Formula**: For each source, compute the proportion of classified items falling into `core`, `adjacent`, `irrelevant`, and `unknown`, where `source_item.fetched_at` is within the lookback window.
+*   **Data Source**: `classification_result`, `source_item`
+*   **Direct Dimensions**: `source_item_id`, `topic_class`
+*   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
+*   **Update Frequency**: Executed per CLI run.
+*   **Notes**: This breakdown is a required output field for `analyze-sources`. `Relevance Rate` is the aggregate scalar `core + adjacent`, while `topic_class_breakdown` preserves the underlying mix used for operator interpretation.
+
 ### 2.4 Curation Approval Rate (MVP)
 *   **Purpose**: Measure editorial value of filtered items.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: $$\text{Curation Approval Rate} = \frac{\text{Curate Approved Count}}{\text{Total Curated Items (items with a row in curation\_decision)}}$$ where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `curation_decision`, `source_item`
 *   **Direct Dimensions**: `source_item_id`, `decision_actor` (natively `curation_decision.decision_actor` is 'system' or 'operator')
-*   **Derived Dimensions**:
-    *   `source_id` (via joining `source_item` on `source_item_id`)
-    *   `editor` (if approved, via parsing JSON metadata from `approved_content_record.author_metadata` for the `'editor'` key)
+*   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
 ### 2.5 Overall Yield (MVP)
-*   **Purpose**: Measure final throughput from ingest to approval.
+*   **Purpose**: Measure final throughput from ingest to finalized approval.
 *   **Window Basis**: `source_item_cohort`
-*   **Formula**: $$\text{Overall Yield} = \frac{\text{Curate Approved Count}}{\text{Total Ingested (items with a row in source\_item)}}$$ where `source_item.fetched_at` is within the lookback window.
-*   **Data Source**: `curation_decision`, `source_item`
+*   **Formula**: $$\text{Overall Yield} = \frac{\text{Approved Content Count (items with a row in approved\_content\_record)}}{\text{Total Ingested (items with a row in source\_item)}}$$ where `source_item.fetched_at` is within the lookback window.
+*   **Data Source**: `approved_content_record`, `source_item`
 *   **Direct Dimensions**: `source_item_id`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
@@ -119,7 +127,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 ### 2.7 Publish Count (MVP)
 *   **Purpose**: Track total number of successfully published content items.
 *   **Window Basis**: `event_time`
-*   **Formula**: Count of records in the `publish_record` table where `publish_record.published_at` is within the lookback window.
+*   **Formula**: Count of records in the `publish_record` table where `publish_record.first_published_at` is within the lookback window.
 *   **Data Source**: `publish_record`
 *   **Direct Dimensions**: `source_item_id`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -157,20 +165,22 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Update Frequency**: Executed per CLI run.
 *   **Notes**: This is an input-side proxy and does not represent output token generation, prompt templates, or human editor reading speed.
 
-#### 3.1.3 Translation Character Volume Proxy (MVP)
-*   **Purpose**: Estimate relative API translation workload.
+#### 3.1.3 Translation Character Volume Proxies (Dual Metrics - MVP)
+*   **Purpose**: Estimate active API translation workload and total queue workload.
 *   **Window Basis**: `source_item_cohort`
-*   **Formula**: Sum of `length(approved_content_record.display_title) + length(approved_content_record.content_body)` where `source_item.fetched_at` is within the lookback window and the item has a row in `translation_output`.
+*   **Formula (Recorded Workload)**: Sum of `length(approved_content_record.display_title) + length(approved_content_record.content_body)` where `source_item.fetched_at` is within the lookback window and the item has a row in `translation_output` with `model_name != 'bypass'` (excludes self-translation bypass).
+*   **Formula (Intended Workload Upper Bound)**: Sum of `length(approved_content_record.display_title) + length(approved_content_record.content_body)` multiplied by target language count minus one (excluding bypass).
 *   **Data Source**: `approved_content_record`, `source_item`, `translation_output`
 *   **Direct Dimensions**: `source_item_id`, `content_language_code`
 *   **Derived Dimensions**: 
     *   `source_id` (via joining `source_item` on `source_item_id`)
-    *   `language_code` (via joining matching `translation_output` rows when grouping by translation target language)
+    *   `language_code`
 *   **Update Frequency**: Executed per CLI run.
-*   **Notes**: The default report output represents the **Target Language Execution Workload** (actual execution attempts where translation was initiated, matching rows in `translation_output` with status `'completed'`, `'failed'`, or `'stale'`). This ensures alignment with classification and curation proxies which track processed volume.
+*   **Notes**: Filtering out `'bypass'` in the recorded workload ensures we only track LLM API-incurred costs.
 
 ### 3.2 Classification Filtering Overhead
 *   **Purpose**: Evaluate source efficiency (ratio of inputs needed for one output).
+*   **Status**: Downgraded to Catalog/Exploratory for Phase 1. Excluded from the MVP top-level dashboard.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: $$\text{Classification Filtering Overhead} = \frac{\text{Total Classified}}{\text{Curate Approved}}$$ where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `classification_result`, `curation_decision`, `source_item`
@@ -196,8 +206,9 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-### 3.5 Unique Contribution Rate (Phase 2)
+### 3.5 Unique Contribution Rate (Phase 2 / Defer)
 *   **Purpose**: Measure uniqueness of source content after deduplication.
+*   **Status**: Defer to Phase 2 / exploratory pending database validation of cross-source duplicates. Excluded from Phase 1 MVP.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: $$\text{Unique Contribution Rate} = \frac{\text{Curate Approved (Undeduped)}}{\text{Total Ingested}}$$ where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `curation_decision`, `source_item`, `ingest_dedup_marker`
@@ -264,10 +275,10 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 *   **Purpose**: Measure translation queue wait and LLM translation processing.
 *   **Window Basis**: `source_item_cohort`
 *   **Delay Class**: `queue_delay` + `execution_latency`
-*   **Formula**: `translation_output.translated_at - approved_content_record.approved_at` where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: `translation_output.translated_at - approved_content_record.approved_at` where `source_item.fetched_at` is within the lookback window and `translation_output.model_name != 'bypass'`.
 *   **Data Source**: `approved_content_record`, `translation_output`, `source_item`
 *   **Direct Dimensions**: `source_item_id`, `language_code`
-*   **Notes**: Tracks time from curation approval to translation output generation. Replaces the isolated Translation Latency metric.
+*   **Notes**: Tracks time from curation approval to translation output generation. Excludes self-translation bypass records (where `model_name = 'bypass'`) to prevent 0-second bias. Consolidated with metric 4.3.5.
 
 #### 4.2.6 Publish Delay
 *   **Purpose**: Track output file generation and static asset deployment speed.
@@ -276,7 +287,7 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 *   **Formula**: `publish_language_status.published_at - translation_output.translated_at` where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `translation_output`, `publish_language_status`, `source_item`
 *   **Direct Dimensions**: `source_item_id`, `language_code`
-*   **Notes**: Measures the lag associated with export rendering and static site generation.
+*   **Notes**: Measures the lag associated with export rendering in the publish module. It does not capture the downstream static site build (Astro) or deployment time, which must be measured separately on the server.
 
 ### 4.3 Translation Performance & Queue Metrics
 
@@ -290,18 +301,37 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 *   **Update Frequency**: Executed per CLI run.
 
 #### 4.3.2 Translation Completion Rate
-*   **Purpose**: Track how many approved items actually get translated.
+*   **Purpose**: Track the percentage of approved articles that have successfully completed translation across all required target languages.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**:
-    *   **Global Completion Rate**: $$\text{Translation Completion Rate} = \frac{\text{Unique approved items with translation\_status = 'completed'}}{\text{Unique items in approved\_content\_record}}$$ where `source_item.fetched_at` is within the lookback window.
-    *   **Per-Locale Completion Rate (for language } L\text{)}**: $$\text{Translation Completion Rate}_L = \frac{\text{Unique items with language\_code = } L \text{ and translation\_status = 'completed'}}{\text{Unique items in approved\_content\_record}}$$ where `source_item.fetched_at` is within the lookback window.
+    *   **Global Completion Rate (Article-Level)**: $$\text{Translation Completion Rate} = \frac{\text{Approved Articles with All Target Translations Completed}}{\text{Total Approved Articles}}$$ where both numerator and denominator are bound to the ingestion cohort (`source_item.fetched_at` within lookback window).
+    *   **Per-Locale Completion Rate (for language } L\text{)}**: $$\text{Translation Completion Rate}_L = \frac{\text{Completed Translations for Language } L}{\text{Total Approved Items (where source language } \ne L\text{)}}$$
 *   **Data Source**: `approved_content_record`, `translation_output`, `source_item`
 *   **Direct Dimensions**: `source_item_id`, `language_code`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
+*   **SQL Pattern (Global)**:
+    ```sql
+    SELECT
+        COUNT(DISTINCT CASE WHEN completed_count = required_translation_count THEN parent_content_id END) * 1.0
+        / NULLIF(COUNT(DISTINCT parent_content_id), 0) AS translation_completion_rate
+    FROM (
+        SELECT
+            acr.parent_content_id,
+            COUNT(CASE WHEN tor.translation_status = 'completed' AND tor.model_name != 'bypass' THEN 1 END) AS completed_count,
+            :target_language_count - 1 AS required_translation_count
+        FROM approved_content_record acr
+        JOIN source_item si ON acr.source_item_id = si.source_item_id
+        LEFT JOIN translation_output tor ON acr.parent_content_id = tor.parent_content_id
+        WHERE si.fetched_at BETWEEN :start AND :end
+        GROUP BY acr.parent_content_id
+    ) t;
+    ```
+*   **Notes**: The global article-level metric must compare each article's completed translation count against the number of required non-bypass target languages for that article. Implementations must not assume a fixed completed-row count if target language requirements vary by source language or runtime configuration.
 
 #### 4.3.3 Translation Stale Rate
 *   **Purpose**: Identify items lost due to delays or updates during the translation queue.
+*   **Status**: Downgraded to Catalog/Diagnostics for Phase 1. Excluded from the MVP top-level dashboard.
 *   **Window Basis**: `event_time`
 *   **Formula**: Percentage of items marked stale (i.e. `translation_status = 'stale'`) where `translation_output.updated_at` is within the lookback window.
 *   **Data Source**: `translation_output`
@@ -317,14 +347,6 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 *   **Direct Dimensions**: `source_item_id`, `language_code`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
-
-#### 4.3.5 Translation Latency / Delay (Diagnostic)
-*   **Purpose**: Track translation processing speed and latency in the translation sub-report.
-*   **Window Basis**: `event_time` (when calculated for the translation report) or `source_item_cohort` (when calculated for the funnel breakdown).
-*   **Formula**: Average latency of `translation_output.translated_at - approved_content_record.approved_at` where `translation_output.updated_at` is within the lookback window.
-*   **Data Source**: `translation_output`, `approved_content_record`
-*   **Direct Dimensions**: `source_item_id`, `language_code`
-*   **Notes**: This corresponds to the `average_latency_seconds` field inside the Translation Performance Report (`analyze-translation`). The funnel report's stage latency breakdown separately reports average, median, and p90 for cohort-based translation delay diagnostics.
 
 ---
 

@@ -22,8 +22,8 @@ All report-generating subcommands must support these arguments:
 Analyzes RSS source health and content quality.
 *   **Input Data**: `canonical.db` tables (`fetch_attempt`, `fetch_run`, `source_state`, `source_item`, `source_item_text`, `classification_result`, `curation_decision`, `ingest_dedup_marker`) and external configurations ([sources.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/sources.yaml), [categories.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/categories.yaml)).
 *   **Subcommand-Specific Options**:
-    *   `--yield-threshold FLOAT`: Optional override for Overall Yield threshold parameter (default: loads from `decision_rules.yaml`).
-    *   `--relevance-threshold FLOAT`: Optional override for Relevance Rate threshold parameter (default: loads from `decision_rules.yaml`).
+    *   `--yield-threshold FLOAT`: Optional override for Overall Yield threshold parameter (default: loads from `analysis_settings.yaml`).
+    *   `--relevance-threshold FLOAT`: Optional override for Relevance Rate threshold parameter (default: loads from `analysis_settings.yaml`).
 *   **Output File**: [SOURCE_QUALITY_REPORT.md](file:///C:/Users/user/Documents/exopolitics/reports/analysis/SOURCE_QUALITY_REPORT.md) (or JSON equivalent).
 
 #### 1.2.2 `analyze-funnel`
@@ -126,19 +126,29 @@ To ensure predictable consumption by automated processors and web UI dashboards,
                 "classification_character_volume_proxy": { "type": "integer" },
                 "curation_character_volume_proxy": { "type": "integer" },
                 "classification_filtering_overhead": { "type": ["number", "null"] },
+                "topic_class_breakdown": {
+                  "type": "object",
+                  "properties": {
+                    "core": { "type": "number" },
+                    "adjacent": { "type": "number" },
+                    "irrelevant": { "type": "number" },
+                    "unknown": { "type": "number" }
+                  },
+                  "required": ["core", "adjacent", "irrelevant", "unknown"]
+                },
                 "decision_model": {
                   "type": "object",
                   "properties": {
                     "quadrant": { "type": ["string", "null"] },
-                    "safeguards_triggered": { "type": "array", "items": { "type": "string" } }
+                    "analysis_flags": { "type": "array", "items": { "type": "string" } }
                   },
-                  "required": ["quadrant", "safeguards_triggered"]
+                  "required": ["quadrant", "analysis_flags"]
                 }
               },
               "required": [
                 "source_id", "fetch_success_rate", "ingest_volume", "relevance_rate", 
                 "curation_approval_rate", "overall_yield", "classification_character_volume_proxy", 
-                "curation_character_volume_proxy", "classification_filtering_overhead", "decision_model"
+                "curation_character_volume_proxy", "classification_filtering_overhead", "topic_class_breakdown", "decision_model"
               ]
             }
           }
@@ -230,9 +240,21 @@ To ensure predictable consumption by automated processors and web UI dashboards,
               },
               "required": ["stage", "count", "stage_conversion_rate", "cumulative_yield"]
             }
+          },
+          "published_by_language": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "language_code": { "type": "string" },
+                "published_count": { "type": "integer" },
+                "coverage_rate": { "type": "number" }
+              },
+              "required": ["language_code", "published_count", "coverage_rate"]
+            }
           }
         },
-        "required": ["metrics", "stage_latency_breakdown_seconds", "breakdowns"]
+        "required": ["metrics", "stage_latency_breakdown_seconds", "breakdowns", "published_by_language"]
       }
     },
     {
@@ -297,9 +319,15 @@ To ensure predictable consumption by automated processors and web UI dashboards,
       "classification_character_volume_proxy": 512400,
       "curation_character_volume_proxy": 320000,
       "classification_filtering_overhead": 1.38,
+      "topic_class_breakdown": {
+        "core": 0.50,
+        "adjacent": 0.22,
+        "irrelevant": 0.20,
+        "unknown": 0.08
+      },
       "decision_model": {
         "quadrant": "golden_source",
-        "safeguards_triggered": ["AUTHORITY"]
+        "analysis_flags": ["AUTHORITY"]
       }
     },
     {
@@ -312,9 +340,15 @@ To ensure predictable consumption by automated processors and web UI dashboards,
       "classification_character_volume_proxy": 14400,
       "curation_character_volume_proxy": 0,
       "classification_filtering_overhead": null,
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.05,
+        "irrelevant": 0.90,
+        "unknown": 0.05
+      },
       "decision_model": {
         "quadrant": null,
-        "safeguards_triggered": ["CONNECTION_DIAGNOSTICS"]
+        "analysis_flags": ["CONNECTION_DIAGNOSTICS"]
       }
     }
   ]
@@ -395,6 +429,23 @@ To ensure predictable consumption by automated processors and web UI dashboards,
       "count": 620,
       "stage_conversion_rate": 0.652,
       "cumulative_yield": 0.407
+    }
+  ],
+  "published_by_language": [
+    {
+      "language_code": "en",
+      "published_count": 612,
+      "coverage_rate": 1.0000
+    },
+    {
+      "language_code": "zh",
+      "published_count": 610,
+      "coverage_rate": 0.9967
+    },
+    {
+      "language_code": "ja",
+      "published_count": 605,
+      "coverage_rate": 0.9886
     }
   ]
 }

@@ -5,6 +5,7 @@ This directory contains the documentation, specifications, and architecture boun
 ## Status
 
 - This module is an independent, read-only analytics component introduced to evaluate pipeline performance, source quality, translation efficiency, and workload and cost-proxy metrics based on production data.
+- It centralizes both module-specific diagnostics and cross-module aggregation reports so monitoring logic does not need to be duplicated back into operational modules.
 - It consumes data from the canonical database (`data/canonical.db`) but does not alter production state.
 
 ## Document Index
@@ -14,7 +15,7 @@ This directory contains the documentation, specifications, and architecture boun
 3. [METRICS_CATALOG.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/METRICS_CATALOG.md): Definitions, formulas, data grounding, and schemas for all stable metrics.
 4. [EXPLORATORY_SIGNALS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/EXPLORATORY_SIGNALS.md): Experimental metrics, additional signals governance, and exploratory questions.
 5. [REPORT_CONTRACTS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/REPORT_CONTRACTS.md): CLI subcommand specifications, JSON schema outputs, and Dashboard integration contracts.
-6. [DECISION_MODELS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/DECISION_MODELS.md): Recommendation logic including the Source Quadrant Classifier and authority protection rules.
+6. [DECISION_MODELS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/DECISION_MODELS.md): Recommendation logic including the Source Quadrant Classifier, authority tagging, and connection diagnostics safeguards.
 
 ## Directory Responsibilities
 

@@ -65,9 +65,9 @@ All MVP metrics are evaluated within a lookback window (default: 7 days, control
 
 6. **Overall Yield**
    - **Window Semantic**: `source_item_cohort`
-   - **Description**: The total conversion rate from ingestion to approved curation for the cohort.
-   - **Formula**: $$\text{Overall Yield} = \frac{\text{Curate Approved Count}}{\text{Total Ingested Items}}$$ where `source_item.fetched_at` is within the lookback window.
-   - **Data Source**: `curation_decision`, `source_item`
+   - **Description**: The total conversion rate from ingestion to finalized editorial approval for the cohort.
+   - **Formula**: $$\text{Overall Yield} = \frac{\text{Approved Content Count (items with a row in approved\_content\_record)}}{\text{Total Ingested Items}}$$ where `source_item.fetched_at` is within the lookback window.
+   - **Data Source**: `approved_content_record`, `source_item`
    - **Direct Dimensions**: `source_item_id`
    - **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 

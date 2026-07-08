@@ -1,0 +1,17 @@
+schema_version: 1
+
+# Reporting CLI Defaults (Phase 1)
+reporting:
+  defaults:
+    days: 7
+    format: "markdown"
+    output_dir: "reports/analysis/"
+    stdout: false
+
+# Quadrant Source Classifier settings (Deferred to Phase 2)
+quadrant_classifier:
+  thresholds:
+    overall_yield: 0.10          # High Yield >= 10%
+    relevance_rate: 0.40         # High Relevance >= 40%
+  safeguards:
+    fetch_success_rate_isolation: 0.50  # Fetch Isolation under 50%

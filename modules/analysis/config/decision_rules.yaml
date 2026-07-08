@@ -1,9 +1,0 @@
-schema_version: 1
-
-quadrant_classifier:
-  thresholds:
-    # Baseline defaults (subject to adjustments based on database distribution analysis)
-    overall_yield: 0.10          # High Yield >= 10%, Low Yield < 10%
-    relevance_rate: 0.40         # High Relevance >= 40%, Low Relevance < 40%
-  safeguards:
-    fetch_success_rate_isolation: 0.50  # Fetch Success Rate < 50% triggers isolation

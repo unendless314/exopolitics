@@ -194,11 +194,11 @@ If these defaults are hardcoded directly into the Python source code (e.g., usin
 To maximize flexibility while maintaining safety, we should implement a hierarchical configuration resolution chain for CLI defaults:
 
 1.  **Level 1 (Highest Precedence)**: Explicit CLI Flags passed at runtime (e.g. `--days 14` overrides all).
-2.  **Level 2 (Medium Precedence)**: Configuration file settings loaded from a renamed config file `modules/analysis/config/analysis_settings.yaml` (or merged into `decision_rules.yaml` renamed to `analysis_config.yaml`).
+2.  **Level 2 (Medium Precedence)**: Configuration file settings loaded from the module-local config file `modules/analysis/config/analysis_settings.yaml`.
 3.  **Level 3 (Lowest Precedence / Fallback)**: Hardcoded code-level defaults (fallback safety values in Python).
 
 ### 8.3 Recommended Config Schema Expansion
-We suggest renaming `decision_rules.yaml` to `analysis_config.yaml` and expanding it to store these reporting defaults:
+We suggest using `analysis_settings.yaml` as the unified module-local settings file and expanding it to store these reporting defaults:
 ```yaml
 schema_version: 1
 
@@ -259,7 +259,7 @@ However, since `classification_result.topic_class` already stores four distinct 
 ## 10. Strategic Proposal: Defer DECISION_MODELS.md to Phase 2
 
 ### 10.1 Finding & Rationale
-[DECISION_MODELS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/DECISION_MODELS.md) defines high-level recommendation heuristics (such as the 4-quadrant source classifier, authority exceptions, and connection diagnostics isolation lists). 
+[DECISION_MODELS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/DECISION_MODELS.md) defines high-level recommendation heuristics (such as the 4-quadrant source classifier, authority tagging, and connection diagnostics isolation lists). 
 
 Developing these complex decision models in Phase 1 MVP introduces substantial risk and potential waste:
 1.  **Unstable Baselines**: We do not yet know the true statistical distribution of our RSS data (e.g. what is a realistic yield threshold? Is 10% too high or too low?). Coding decision logic based on speculative baselines (like the current `0.10` overall yield default) will lead to false recommendations.
@@ -280,8 +280,7 @@ In [REPORT_CONTRACTS.md](file:///C:/Users/user/Documents/exopolitics/modules/ana
 
 ### 11.2 Recommended Fix
 Add a CLI override option to complement the others:
-*   `--fetch-isolation-threshold FLOAT`: Optional override for the `fetch_success_rate_isolation` parameter (default: loads from `decision_rules.yaml`).
-
+*   `--fetch-isolation-threshold FLOAT`: Optional override for the `fetch_success_rate_isolation` parameter (default: loads from `analysis_settings.yaml`).
 
 
 
