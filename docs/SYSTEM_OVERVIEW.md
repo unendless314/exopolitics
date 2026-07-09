@@ -39,7 +39,15 @@ Recognized workflow branch:
 curate
   -> edit workflow
   -> human review
-translate
+  -> translate
+```
+
+Read-Only Sidecar Path:
+
+```text
+canonical storage -> analysis
+ingest configuration -> analysis
+analysis -> reports/analysis/
 ```
 
 ---
@@ -172,6 +180,17 @@ Owns:
 - UI localization (i18n) and SEO concerns
 - routing and page generation
 - static rendering concerns
+
+### 6.9 `analysis`
+
+Owns:
+
+- read-only analytics computation and report generation
+- writing report outputs to `reports/analysis/`
+
+Important rule:
+
+- `analysis` does not own operational decisions or canonical state changes.
 
 ---
 

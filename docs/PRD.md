@@ -31,6 +31,7 @@ The system should:
 - preserve source attribution and editorial accountability
 - keep the public site focused on approved and interpretable content only
 - support near-term growth into edit-assisted publishing without collapsing source content and site-owned content into one model
+- support operator-facing reporting for source health, workflow efficiency, and cost visibility without affecting the core publishing pipeline
 
 ---
 

@@ -192,6 +192,31 @@ Must not own:
 - curation state changes
 - feed or classification configuration
 
+### 3.8 `analysis`
+
+Owns:
+
+- read-only analytics computation and report generation
+- cross-module operational analysis outputs
+
+May read:
+
+- canonical operational records
+- ingest-owned source configuration metadata
+
+Must not own:
+
+- canonical DB writes
+- source config mutation
+- pipeline execution
+- publish-layer or site-layer output writing
+
+Important boundary:
+
+- `analysis` functions as a downstream observer / sidecar.
+- `analysis` may write derived report files to `reports/analysis/`.
+- `analysis` is not a gating stage for canonical state transitions or public publishing.
+
 ---
 
 ## 4. Shared Capability Rules
@@ -231,3 +256,4 @@ Until then, avoid inventing heavyweight shared systems too early.
 - `translate` owns content translation and fingerprinted lifecycle
 - `publish` owns export shape and slug generation
 - `site` is a pure downstream consumer
+- `analysis` functions as a read-only sidecar observer that does not affect canonical state transitions

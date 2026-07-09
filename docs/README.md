@@ -8,6 +8,7 @@ Principles:
 - move superseded planning into `docs_archive/`
 - define module boundaries before implementation details
 - define storage and retention semantics before database schema details
+- define the top-level boundary and positioning for read-only cross-module analytics
 
 Current rewrite order:
 
@@ -19,3 +20,5 @@ Current rewrite order:
 6. `CANONICAL_ENTITY_CONTRACT.md`
 7. `MULTILINGUAL_CONTENT_STRATEGY.md`
 8. `IMPLEMENTATION_ROADMAP.md`
+
+Note: The active documentation set now also covers the integration positioning for the read-only downstream sidecar analysis module (see SYSTEM_OVERVIEW.md, MODULE_BOUNDARIES.md, CANONICAL_ENTITY_CONTRACT.md, DATA_LIFECYCLE.md, STORAGE_AND_RETENTION.md, and IMPLEMENTATION_ROADMAP.md).

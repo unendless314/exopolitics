@@ -282,6 +282,7 @@ Boundary rules:
 - `publish` reads completed translation outputs together with upstream editorial eligibility state
 - `site` reads publish-layer outputs only
 - cleanup of raw retained evidence must not invalidate the source item record or sanitized working text record
+- `analysis` outputs are derived reporting artifacts, not canonical entity families
 
 ---
 
@@ -295,6 +296,7 @@ Boundary rules:
 - `translate` owns translation output, quality states, and source content fingerprinting
 - `publish` owns publish-layer records or references (and manages frozen slug registry)
 - `site` does not own canonical database writes
+- `analysis` is a read-only consumer of canonical entities and config-derived dimensions
 
 ---
 
@@ -309,3 +311,4 @@ Boundary rules:
 - `approved_content_record.content_fingerprint` is the canonical fingerprint representing the mother-draft state; `translate` stores and compares against this to determine staleness
 - URL slug generation occurs on first successful publication and is permanently frozen in canonical storage to prevent broken links
 - top-level docs lock entity families and ownership, while module docs lock implementation-facing schema details
+- `analysis` is restricted to read-only consumption and its outputs are derived reporting artifacts that do not mutate canonical entities

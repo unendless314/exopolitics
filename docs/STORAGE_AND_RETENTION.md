@@ -68,6 +68,16 @@ Properties:
 - human-readable when practical
 - not the sole historical system record
 
+### 3.4 Derived Reports Storage
+
+This layer contains derived analysis and metric reports.
+
+Properties:
+
+- rebuildable reporting outputs
+- stored under `reports/analysis/`
+- managed separately from canonical retention policy
+
 ---
 
 ## 4. What Must Be Stored Long-Term
@@ -180,3 +190,4 @@ These metrics often have more long-term value than permanent storage of every ra
 - cleanup is valid and expected, not a sign of data loss by itself
 - exception retention must exist for special cases
 - translation outputs are stored long-term to prevent costly and redundant LLM API calls
+- reports/analysis/ outputs are derived artifacts managed separately from the canonical retention policy

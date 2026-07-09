@@ -45,6 +45,11 @@ raw feed item
   -> site rendering
 ```
 
+Read-only Side-output:
+```text
+canonical storage -> analysis -> reports/analysis/
+```
+
 When an item is manually withdrawn:
 ```text
 curation decision (withdrawn)
@@ -200,16 +205,31 @@ The site must consume publish output, not canonical operational tables directly.
 
 ---
 
-## 10. Rebuild And Deletion Rules
+## 10. Side-Output Lifecycle
 
-### 10.1 Rebuildable Layers
+The `analysis` module operates out-of-band as a downstream sidecar.
+
+### 10.1 Properties
+- analysis outputs are observational derivatives of canonical state
+- failure to generate analysis outputs does not invalidate or roll back canonical pipeline state
+
+### 10.2 Flow
+- `analysis` reads canonical storage and static config assets
+- aggregates metrics and computes reporting outputs
+- writes derived report files to `reports/analysis/`
+
+---
+
+## 11. Rebuild And Deletion Rules
+
+### 11.1 Rebuildable Layers
 
 The following should be rebuildable:
 
 - publish exports
 - site output
 
-### 10.2 Non-Rebuildable Decisions
+### 11.2 Non-Rebuildable Decisions
 
 The following are part of system history and should remain durable unless intentionally deleted under policy:
 
@@ -218,7 +238,7 @@ The following are part of system history and should remain durable unless intent
 - curation decisions
 - translation outputs
 
-### 10.3 Retention-Governed Data
+### 11.3 Retention-Governed Data
 
 Raw input belongs to a retention-governed layer.
 
@@ -230,7 +250,7 @@ That means:
 
 ---
 
-## 11. Lifecycle Questions Locked By This Rewrite
+## 12. Lifecycle Questions Locked By This Rewrite
 
 - raw input and sanitized text are separate lifecycle stages
 - sanitized text is created before classification
@@ -242,15 +262,15 @@ That means:
 
 ---
 
-## 12. Temporal Policy and Historical Data
+## 13. Temporal Policy and Historical Data
 
-### 12.1 State-Driven Processing Pipeline
+### 13.1 State-Driven Processing Pipeline
 The system processes and stores all fetched items regardless of their publication date (`published_at`). There is no temporal filtering in the upstream ingestion, classification, or curation workflows.
 - **Ingestion**: Ingest fetches all available feed data. De-duplication rules prevent duplicates, but any novel historical item (e.g. published years ago but fetched for the first time) is stored as a valid `source_item`.
 - **Classification**: All newly ingested items are classified using the same content-based rules and LLM models.
 - **Curation**: The curation queue processes all classified items based on state transitions, ensuring historical records are verified and enriched.
 
-### 12.2 Downstream UI-Level Filtering
+### 13.2 Downstream UI-Level Filtering
 The responsibility of managing the user-facing temporal experience is deferred entirely to the downstream **site** (or publish-export) layer:
 - **Breaking/Latest News Feed**: The front page or feed views should filter items by publication date (e.g., displaying only items with `published_at` in the last 7 days).
 - **Search & Archives**: Users can query the complete, curated database containing all historical records.

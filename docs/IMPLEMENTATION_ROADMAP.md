@@ -1,19 +1,19 @@
 # Implementation Roadmap
 
-**Status:** Active rewrite draft  
-**Updated:** 2026-06-05
+**Status:** Active planning draft  
+**Updated:** 2026-07-09
 
 ---
 
 ## 1. Purpose
 
-This document defines the recommended order of work after the planning reset.
+This document defines the recommended order of work for the system modules.
 
 The key principle is:
 
 - lock contracts before rewriting implementation
 
-Because the system is still pre-production and data can be rebuilt, the roadmap favors clean breaking changes over compatibility-heavy migration work.
+Because core pipeline contracts (ingest through publish/site) have stabilized, the roadmap prioritizes the integration of the new read-only analysis module.
 
 ---
 
@@ -34,7 +34,7 @@ Goal:
 
 - remove ambiguity before touching implementation
 
-### Phase 2: Rewrite Ingest Data Contract
+### Phase 2: Ingest Data Contract
 
 Update ingest module docs to reflect the new model:
 
@@ -47,7 +47,7 @@ Goal:
 
 - ensure `ingest` writes the right downstream representation
 
-### Phase 3: Rewrite Canonical Schema Direction
+### Phase 3: Canonical Schema Direction
 
 Update schema planning and module-level storage docs so they express:
 
@@ -60,7 +60,7 @@ Goal:
 
 - stop overloading ambiguous text columns
 
-### Phase 4: Rewrite Ingest Implementation
+### Phase 4: Ingest Implementation
 
 Change ingest code and schema together.
 
@@ -69,13 +69,12 @@ Expected work:
 - adjust parsing and persistence path
 - create sanitized working text during ingest
 - preserve raw input only under the new retention-aware model
-- rebuild the database from scratch if needed
 
 Goal:
 
 - make canonical ingest output match the rewritten contracts
 
-### Phase 5: Rewrite Classify Contracts And Implementation
+### Phase 5: Classify Contracts And Implementation
 
 Update classify docs and code so the module:
 
@@ -87,9 +86,9 @@ Goal:
 
 - align classify with the rewritten ingest contract
 
-### Phase 6: Curation, Translation, and Publish Planning Refresh
+### Phase 6: Curation, Translation, and Publish Implementation
 
-After ingest and classify contracts stabilize, refresh:
+Refresh and implement:
 
 - curation queue contracts
 - translation module contracts and LLM prompt design
@@ -101,6 +100,17 @@ Goal:
 - ensure downstream modules inherit the corrected upstream semantics
 - align translation, slug generation, and static JSON output formats with the new multilingual content strategy
 - ensure the post-MVP path to edit-assisted publishing is already aligned with the rewritten core pipeline
+
+### Phase 7: Read-Only Analysis Layer (Current Active Focus)
+
+Only after upstream schema, config ownership, and lifecycle contracts are stable:
+
+- lock analysis top-level integration contract
+- implement read-only reporting and metrics aggregation against stabilized schema and config contracts
+
+Goal:
+
+- align analytics and reporting tools with stable upstream canonical database schemas
 
 ---
 
@@ -122,13 +132,12 @@ This validation is mandatory because the rewrite exists specifically to correct 
 
 Recommended strategy:
 
-- prefer reset and rebuild over backward-compatibility work
+- prefer reset and rebuild over backward-compatibility work for active code modifications
 
 Reason:
 
-- the project is not in production
-- stored data can be re-fetched
-- preserving old schema semantics would keep the wrong contract alive
+- during active iteration, stored data can be re-fetched if needed
+- the `analysis` module operates purely read-only and does not trigger schema migrations on core tables
 
 ---
 
@@ -147,6 +156,6 @@ This deferral applies to extracting `edit` as a separately executable module, no
 
 ## 6. Immediate Next Step
 
-After the top-level docs are accepted, the next concrete step should be:
+As upstream contracts (ingest through publish/site) have stabilized, the next concrete step should be:
 
-- rewrite `modules/ingest/docs/` to match the new storage and lifecycle contracts
+- align `modules/analysis/docs/` and implementation work with the stabilized canonical schema and the recently approved top-level documentation set.
