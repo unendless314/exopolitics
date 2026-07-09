@@ -36,12 +36,12 @@ Yield       |   - Strategy: Keep visible for      |   - Strategy: Recommend keep
 
 ### 1.1 Horizontal Axis Calibration
 To ensure predictable classification as the pipeline matures:
-*   **Phase 1 (MVP)**: The horizontal axis uses `Relevance Rate` as the scalar threshold axis (since unique deduplication metrics are deferred to Phase 2). `topic_class_breakdown` must still be emitted alongside it to preserve the distinction between `core`, `adjacent`, `irrelevant`, and `unknown` source behavior during operator review.
-*   **Phase 2**: Once deduplication markers are fully integrated into the pipeline, the horizontal axis may be replaced or augmented by `Unique Contribution Rate`.
+*   **Phase 1 (MVP)**: The horizontal axis uses `Relevance Rate` as the scalar threshold axis (since unique deduplication metrics are deferred pending upstream ingest module refactoring). `topic_class_breakdown` must still be emitted alongside it to preserve the distinction between `core`, `adjacent`, `irrelevant`, and `unknown` source behavior during operator review.
+*   **Future Phase (Deferred pending Ingest Refactoring)**: Once deduplication markers are fully integrated into the pipeline, the horizontal axis may be replaced or augmented by `Unique Contribution Rate`.
 
 ### 1.2 Quadrant Strategies
 *   **Golden Source**: Recommend maintaining these high-yield, low-overhead feeds and consider higher fetch frequency.
-*   **Filtering Burden**: Recommend reducing crawl cadence, tightening keyword filters, or implementing upstream pre-filtering to reduce token/workload footprint.
+*   **Filtering Burden**: Recommend reducing crawl cadence, tightening keyword filters, or implementing upstream pre-filtering to reduce processing workload footprint.
 *   **Needle in a Haystack**: Keep visible for manual review; these sources may retain strategic value despite low yield.
 *   **Dead Weight**: Mark as an audit or disable candidate for operator review.
 
@@ -70,27 +70,13 @@ In report contracts, the outcomes of these rules should be represented as `analy
 ### 2.3 Operational Thresholds & Null-Handling
 To support flexibility in pipeline tuning, thresholds are designed as configurable parameters rather than hardcoded constants. The implementation must load these parameters from the module-local configuration file [analysis_settings.yaml](file:///C:/Users/user/Documents/exopolitics/modules/analysis/config/analysis_settings.yaml) during runtime, with the CLI optionally supporting override flags (e.g. `--yield-threshold` and `--relevance-threshold`). This allows operators to dynamically adjust sensitivity after analyzing database statistics.
 
-#### 2.3.1 Config File Schema & Defaults
-The file `modules/analysis/config/analysis_settings.yaml` contains the baseline configuration:
+#### 2.3.1 Config File Reference
+The runtime baseline configuration—including default lookback windows, output formats, classification thresholds, database parameters, and connection safeguards—is defined in the configuration file [analysis_settings.yaml](file:///C:/Users/user/Documents/exopolitics/modules/analysis/config/analysis_settings.yaml). 
 
-```yaml
-schema_version: 1
-
-reporting:
-  defaults:
-    days: 7
-    format: "markdown"
-    output_dir: "reports/analysis/"
-    stdout: false
-
-quadrant_classifier:
-  thresholds:
-    # Baseline defaults (subject to adjustments based on database distribution analysis)
-    overall_yield: 0.10          # High Yield >= 10%, Low Yield < 10%
-    relevance_rate: 0.40         # High Relevance >= 40%, Low Relevance < 40%
-  safeguards:
-    fetch_success_rate_isolation: 0.50  # Fetch Success Rate < 50% triggers isolation
-```
+To prevent documentation drift, developers should refer directly to that file for the active default values. The configuration schema is organized into three primary functional blocks:
+1.  **`database`**: Configures database-level connection parameters, such as the busy timeout limit (`busy_timeout_ms`).
+2.  **`reporting.defaults`**: Defines baseline execution and logging parameters, including default lookback windows (`days`), output format (`format`), console output toggle (`stdout`), persistent log file output path (`log_path`), and target report directories (`output_dir`).
+3.  **`quadrant_classifier`**: Sets thresholds for relevance/yield classification boundaries (`thresholds`) and parameters for isolating broken sources (`safeguards`).
 
 #### 2.3.2 Null and Zero Ingestion Handling
 *   **Zero Ingestion**: If a source has `Ingest Volume = 0` during the lookback window, its Relevance Rate and Overall Yield are mathematically undefined (`NULL`).

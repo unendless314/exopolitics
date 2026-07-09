@@ -15,12 +15,12 @@ The `analysis` module is a **read-only analytics module** that supports both **m
 
 ### 1.2 Analytics Scope
 The `analysis` module may expose two complementary classes of reporting:
-*   **Module-Specific Analytics**: Read-only diagnostics focused on a single pipeline stage (for example, fetch health in `ingest`, token workload in `classify`, or publish coverage in `publish`).
+*   **Module-Specific Analytics**: Read-only diagnostics focused on a single pipeline stage (for example, fetch health in `ingest`, classification workload volume in `classify`, or publish coverage in `publish`).
 *   **Cross-Module Aggregation Analytics**: Read-only reports that correlate multiple stages to measure source ROI, funnel conversion, end-to-end latency, and other cross-stage operational outcomes.
 
 ### 1.3 External Configuration Mapping Constraints
 *   **No Standalone Source Table**: The database `canonical.db` does not contain a standalone `source` table; it only registers `source_id` values in operational tables (like `source_item` and `fetch_attempt`).
-*   **Static Config Resolution**: The `analysis` module must resolve source metadata (such as the source title, feed URL, category_id, or active/enabled status) by reading the external [sources.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/sources.yaml) and [categories.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/categories.yaml) configuration files from the `ingest` module's configuration directory.
+*   **Static Config Resolution**: The `analysis` module must resolve source metadata (such as the source title, xml_url, category_id, or active/enabled status) by reading the external [sources.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/sources.yaml) and [categories.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/categories.yaml) configuration files from the `ingest` module's configuration directory.
 *   **Memory Join**: These source attributes must be mapped in application memory during runtime and must not be queried via direct database joins. For detailed schemas and mapping structures, refer to [DATA_DEPENDENCIES.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/DATA_DEPENDENCIES.md).
 
 ### 1.4 Module Boundary Diagram

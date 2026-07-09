@@ -78,6 +78,18 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
+#### 2.2.1 Low-Context Reason Distribution `[Phase 2 / Catalog]`
+*   **Purpose**: Diagnose the specific causes of low-context bypasses to distinguish between parser/crawler failures (e.g. `missing_body`) and inherent source properties (e.g. `title_only`).
+*   **Window Basis**: `source_item_cohort`
+*   **Formula**: Group count of low-context items (`source_item_text.is_low_context = 1`) by `source_item_text.low_context_reason` where `source_item.fetched_at` is within the lookback window.
+*   **Data Source**: `source_item_text`, `source_item`
+*   **Direct Dimensions**: `source_item_id`, `low_context_reason`
+*   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
+*   **Update Frequency**: Executed per CLI run.
+*   **Notes**: 
+    *   This is an auxiliary diagnostic metric. `low_context_reason` is intended for diagnostic interpretation of low-context items and must not be treated as an independent quality score or automated disable trigger.
+    *   Report layers may derive percentages from these grouped counts, but the canonical metric contract is count-based to avoid ambiguity.
+
 ### 2.3 Relevance Rate `[MVP]`
 *   **Purpose**: Measure the alignment of ingested feed items with core/adjacent topics.
 *   **Window Basis**: `source_item_cohort`

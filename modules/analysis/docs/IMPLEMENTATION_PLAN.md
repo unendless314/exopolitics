@@ -39,6 +39,7 @@ modules/analysis/
 └── tests/                       # Unit and integration test suites
     ├── __init__.py
     ├── conftest.py              # Mock database fixtures
+    ├── generate_mock_db.py      # Database seeding script for manual sandbox verification
     ├── test_classify_service.py
     ├── test_source_classifier.py
     └── test_funnel_calculator.py
@@ -53,8 +54,8 @@ modules/analysis/
 
 ## 2. Phased Development Roadmap
 
-### Phase 1: Foundation & Classification Cost Center
-*   **Objective**: Implement core CLI structures and prioritize the `classify` module monitor (`analyze-classify`), which is the pipeline's largest API token cost center.
+### Phase 1: Foundation & Classification Workload Center
+*   **Objective**: Implement core CLI structures and prioritize the `classify` module monitor (`analyze-classify`), which is the pipeline's largest text-processing workload center.
 *   **Tasks**:
     1.  Create `database.py` with retry logic for SQLite busy timeout (10 seconds).
     2.  Create `config.py` to parse thresholds from `analysis_settings.yaml`.
@@ -94,3 +95,12 @@ No automated test suite has been committed yet. When executable code is added un
 Before pushing changes to production, developers must run the CLI and validate:
 1.  **Markdown Rendering**: Verify Markdown reports are properly formatted and readable on standard terminals.
 2.  **JSON Validation**: Run the CLI with the `--format json` option and validate the output payload against the JSON Schema defined in [REPORT_CONTRACTS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/REPORT_CONTRACTS.md) using a JSON validator (e.g. `jsonschema` library).
+
+### 3.3 Manual Integration Verification Sandbox
+*   **Purpose**: Enable developers to manually run, test, and inspect CLI output formatting (Markdown layouts and JSON payloads) using a realistic, file-based SQLite sandbox rather than relying strictly on programmatic unit tests.
+*   **Sandbox Seeding Script**: A helper script [generate_mock_db.py](file:///C:/Users/user/Documents/exopolitics/modules/analysis/tests/generate_mock_db.py) must be implemented. Running this script creates a physical SQLite database file (e.g., `data/test_sandbox.db`), initializes the required tables with schemas compatible with the module's read dependencies, and seeds them with diverse mock records representing both healthy pipeline throughput and diagnostic edge cases.
+*   **CLI Execution**: Developers can run subcommands against this local database during development:
+    ```bash
+    python -m modules.analysis.src.cli [SUBCOMMAND] --db-path data/test_sandbox.db --days 7
+    ```
+*   **Version Control Guard**: The sandbox SQLite database (e.g., `data/test_sandbox.db`) must remain ignored by the repository's Git rules so binary database files are not committed to version control. This avoids repository bloat, version conflicts, and schema drift issues.

@@ -16,7 +16,7 @@ The `analysis` module queries `data/canonical.db` to calculate metrics. It is st
 | `fetch_attempt` | `fetch_attempt_id`, `fetch_run_id`, `source_id`, `started_at`, `ended_at`, `outcome`, `error_class`, `http_status` | Fetch Success Rate, Error Categorization, Fetch Execution Latency |
 | `source_state` | `source_id`, `health_status`, `consecutive_failures`, `last_http_status`, `last_error_class` | Rolling Source Health Snapshot |
 | `source_item` | `source_item_id`, `source_id`, `fetched_at`, `published_at`, `ingest_dedup_key` | Ingest Volume, Cohort definition, Feed Freshness Delay |
-| `source_item_text` | `source_item_id`, `sanitized_text_length`, `is_low_context` | Low-Context Bypass Rate, Workload Volume Proxies |
+| `source_item_text` | `source_item_id`, `sanitized_text_length`, `is_low_context`, `low_context_reason` | Low-Context Bypass Rate, Workload Volume Proxies, Low-Context Reason Distribution |
 | `classification_result` | `source_item_id`, `classified_at`, `topic_class`, `content_density`, `additional_signals` | Relevance Rate, Content Density Distribution, Classification Delay |
 | `curation_decision` | `source_item_id`, `curated_at`, `decision_actor`, `downstream_action` | Curation Approval Rate, Curation Rejection Mix, Curation Delay |
 | `approved_content_record` | `parent_content_id`, `source_item_id`, `approved_at`, `display_title`, `content_body`, `content_language_code` | Overall Yield, Translation Completion Rate, Workload Proxies |
@@ -32,9 +32,9 @@ Since the canonical SQLite database does not maintain a relational table for sou
 
 ### 2.1 File Mappings & Paths
 *   **Sources Config**: [sources.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/sources.yaml)
-    *   *Fields Used*: `id`, `title`, `feed_url`, `category_id`, `fetch_group`, `schedule_class`.
+    *   *Fields Used*: `id`, `title`, `xml_url`, `html_url`, `category_id`, `enabled`, `fetch_group`, `schedule_class`.
 *   **Categories Config**: [categories.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/categories.yaml)
-    *   *Fields Used*: `id`, `title`, `enabled`.
+    *   *Fields Used*: Dictionary key (resolves as category ID), `name`, `slug`, `enabled`.
 
 ### 2.2 Memory-Join Rules
 1.  **Strictly In-Memory**: Direct SQL joins between the SQLite database and source details are impossible. Source metadata resolution must be completed in application memory.
@@ -49,6 +49,6 @@ Since the canonical SQLite database does not maintain a relational table for sou
 
 To support reporting breakdowns without database pollution, the `analysis` module is permitted to calculate and group results by the following derived dimensions in memory:
 
-*   **Source Category**: Resolved by joining `source_id` (from DB) to `category_id` (from `sources.yaml`), then mapping to category titles in `categories.yaml`.
+*   **Source Category**: Resolved by joining `source_id` (from DB) to `category_id` (from `sources.yaml`), then mapping to category names in `categories.yaml`.
 *   **Crawl Cadence Class**: Grouping metrics by the source's `schedule_class` (e.g., `high_cadence`, `daily`) to evaluate whether fetch frequency matches source yield.
 *   **Source Quality Quadrant**: The categorical label (`golden_source`, `dead_weight`, etc.) calculated at runtime using the rules in [DECISION_MODELS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/DECISION_MODELS.md).

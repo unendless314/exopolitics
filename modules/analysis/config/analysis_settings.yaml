@@ -1,5 +1,9 @@
 schema_version: 1
 
+# Database connection settings
+database:
+  busy_timeout_ms: 10000        # SQLite busy timeout in milliseconds (10 seconds)
+
 # Reporting CLI Defaults (Phase 1)
 reporting:
   defaults:
@@ -7,6 +11,7 @@ reporting:
     format: "markdown"
     output_dir: "reports/analysis/"
     stdout: false
+    log_path: null               # Optional persistent log file path (null defaults to stderr)
 
 # Quadrant Source Classifier settings (Deferred to Phase 2)
 quadrant_classifier:

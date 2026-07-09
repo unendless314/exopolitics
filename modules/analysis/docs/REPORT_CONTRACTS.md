@@ -13,7 +13,7 @@ The `analysis` module generates four stable report families:
 1.  **Sources Report (`sources`)**: Evaluates RSS source connection health, category distribution, content density, and quadrant classification.
 2.  **Funnel Report (`funnel`)**: Details throughput volume, stage-by-stage conversion rates, and latency bottlenecks.
 3.  **Translation Report (`translation`)**: Monitors multilingual translation success rates, language volume proxies, and delays.
-4.  **Classification Report (`classify`)**: Monitors LLM classification input volume, relevance rate, content density, and token costs.
+4.  **Classification Report (`classify`)**: Monitors LLM classification workload volume, relevance rate, and content density.
 
 ---
 
@@ -121,6 +121,21 @@ To ensure stable consumption by automated dashboards, any report generated with 
                     "analysis_flags": { "type": "array", "items": { "type": "string" } }
                   },
                   "required": ["quadrant", "analysis_flags"]
+                },
+                "low_context_reason_distribution": {
+                  "type": "object",
+                  "description": "Optional diagnostic count breakdown for low-context items. Keys may be omitted when a reason does not appear in the current window.",
+                  "properties": {
+                    "missing_body": { "type": "integer" },
+                    "post_cleanup_empty": { "type": "integer" },
+                    "too_short": { "type": "integer" },
+                    "title_only": { "type": "integer" },
+                    "title_heavy": { "type": "integer" },
+                    "template_heavy": { "type": "integer" },
+                    "mostly_links": { "type": "integer" },
+                    "truncated_to_low_context": { "type": "integer" }
+                  },
+                  "additionalProperties": false
                 }
               },
               "required": [

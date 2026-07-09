@@ -19,6 +19,7 @@ All subcommands must accept and support the following arguments:
 *   `--format [markdown|json]`: Determines the report output format (default: `markdown`).
 *   `--output-dir PATH`: Directory where report files are written (default: `reports/analysis/`).
 *   `--stdout`: If provided, prints the generated report text directly to standard output (stdout) and suppresses writing files to disk.
+*   `--db-path PATH`: Path to the SQLite database file (default: `data/canonical.db`).
 
 ### 1.2 CLI Subcommand Surface
 
@@ -29,7 +30,7 @@ All subcommands must accept and support the following arguments:
     *   *Output Target*: `PIPELINE_FUNNEL_REPORT.md` (or `.json`).
 3.  **`analyze-translation`**: Analyzes translation pipeline success rates, character volume, and latency.
     *   *Output Target*: `TRANSLATION_PERFORMANCE_REPORT.md` (or `.json`).
-4.  **`analyze-classify`**: **[Phase 1 Implementation Candidate]** Analyzes LLM classification input volume, relevance rate, content density, and token costs.
+4.  **`analyze-classify`**: **[Phase 1 Implementation Candidate]** Analyzes LLM classification workload volume, relevance rate, and content density.
     *   *Output Target*: `CLASSIFY_MONITOR_REPORT.md` (or `.json`).
 
 ---
@@ -45,7 +46,7 @@ To maintain mathematical consistency and prevent calculation drift, metrics in t
 
 ### 2.2 Event-Time Window (`event_time`)
 *   **Behavior**: The CLI lookback filter applies to the timestamp column of the primary event table for that metric (e.g., `fetch_attempt.started_at`, `translation_output.updated_at`).
-*   **Purpose**: Essential for monitoring real-time system performance, operational success rates, and token cost volumes during the window.
+*   **Purpose**: Essential for monitoring real-time system performance, operational success rates, and processing workload volumes during the window.
 
 ---
 
