@@ -1,47 +1,25 @@
 # Report & Integration Contracts
 
-This document defines the CLI commands, JSON schemas, output formats, and the boundary contracts for external consumers (like a future Dashboard).
+This document defines the JSON output schemas, versioning policies, and integration contracts for downstream consumers (such as a Web UI Dashboard).
+
+For command-line invocation arguments and runner policies, refer to [EXECUTION_POLICY.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/EXECUTION_POLICY.md).
 
 ---
 
-## 1. CLI Interface Specification
-The `analysis` module provides a command-line interface via `python -m modules.analysis.src.cli`.
+## 1. Report Families
 
-### 1.1 Unified CLI Options
-All report-generating subcommands must support these arguments:
-*   `--days INTEGER`: Lookback window in days (default: `7`). This window defines the temporal boundary for analysis:
-    - For metrics with **`event_time`** basis, `--days` restricts event timestamps (e.g. `fetch_attempt.created_at`, `translation_output.updated_at`, or `publish_record.published_at`) to the lookback period.
-    - For metrics with **`source_item_cohort`** basis, `--days` restricts the base cohort ingestion time (`source_item.fetched_at`) to the lookback period. Downstream actions/states are included if they relate to items in this ingestion cohort, regardless of their own event timestamps.
-*   `--format [markdown|json]`: Output format (default: `markdown`).
-*   `--output-dir PATH`: Directory where files are written (default: `reports/analysis/`).
-*   `--stdout`: Prints report text to standard output instead of writing to disk.
+The `analysis` module generates four stable report families:
 
-### 1.2 Subcommands
-
-#### 1.2.1 `analyze-sources`
-Analyzes RSS source health and content quality.
-*   **Input Data**: `canonical.db` tables (`fetch_attempt`, `fetch_run`, `source_state`, `source_item`, `source_item_text`, `classification_result`, `curation_decision`, `ingest_dedup_marker`) and external configurations ([sources.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/sources.yaml), [categories.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/categories.yaml)).
-*   **Subcommand-Specific Options**:
-    *   `--yield-threshold FLOAT`: Optional override for Overall Yield threshold parameter (default: loads from `analysis_settings.yaml`).
-    *   `--relevance-threshold FLOAT`: Optional override for Relevance Rate threshold parameter (default: loads from `analysis_settings.yaml`).
-*   **Output File**: [SOURCE_QUALITY_REPORT.md](file:///C:/Users/user/Documents/exopolitics/reports/analysis/SOURCE_QUALITY_REPORT.md) (or JSON equivalent).
-
-#### 1.2.2 `analyze-funnel`
-Analyzes conversion rates, stage delivery speeds, and leakage bottlenecks across pipeline stages.
-*   **Funnel Stages**: Ingested -> Low-Context Split -> Classified -> Curated -> Approved Content -> Translation -> Publish.
-*   **Latency Breakdown**: Outputs the overall Pipeline Lead Time (average, median, and p90) and the Pipeline Stage Latency Suite breakdown for each stage.
-*   **Output File**: [PIPELINE_FUNNEL_REPORT.md](file:///C:/Users/user/Documents/exopolitics/reports/analysis/PIPELINE_FUNNEL_REPORT.md) (or JSON equivalent).
-
-#### 1.2.3 `analyze-translation`
-Analyzes translation pipeline efficiency, failures, and latency (Translation Latency / Delay).
-*   **Input Data**: `translation_output`, `approved_content_record`.
-*   **Output File**: [TRANSLATION_PERFORMANCE_REPORT.md](file:///C:/Users/user/Documents/exopolitics/reports/analysis/TRANSLATION_PERFORMANCE_REPORT.md) (or JSON equivalent).
+1.  **Sources Report (`sources`)**: Evaluates RSS source connection health, category distribution, content density, and quadrant classification.
+2.  **Funnel Report (`funnel`)**: Details throughput volume, stage-by-stage conversion rates, and latency bottlenecks.
+3.  **Translation Report (`translation`)**: Monitors multilingual translation success rates, language volume proxies, and delays.
+4.  **Classification Report (`classify`)**: Monitors LLM classification input volume, relevance rate, content density, and token costs.
 
 ---
 
 ## 2. JSON Output Schema Contract
 
-To ensure predictable consumption by automated processors and web UI dashboards, any command run with `--format json` must emit a JSON object matching this schema.
+To ensure stable consumption by automated dashboards, any report generated with `--format json` must conform to the following schema structure.
 
 ### 2.1 JSON Top-Level Structure
 ```json
@@ -52,7 +30,7 @@ To ensure predictable consumption by automated processors and web UI dashboards,
   "properties": {
     "report_type": { 
       "type": "string", 
-      "enum": ["sources", "funnel", "translation"] 
+      "enum": ["sources", "funnel", "translation", "classify"] 
     },
     "schema_version": { 
       "type": "string",
@@ -287,197 +265,46 @@ To ensure predictable consumption by automated processors and web UI dashboards,
           }
         }
       }
-    }
-  ]
-}
-```
-
-### 2.2 Concrete JSON Output Examples
-
-#### 2.2.1 `analyze-sources` JSON Example
-```json
-{
-  "report_type": "sources",
-  "schema_version": "1.0.0",
-  "generated_at": "2026-07-06T02:00:00Z",
-  "lookback_days": 7,
-  "window_start": "2026-06-29T02:00:00Z",
-  "window_end": "2026-07-06T02:00:00Z",
-  "metrics": {
-    "overall_fetch_success_rate": 0.942,
-    "total_ingested_items": 1520,
-    "low_context_bypass_rate": 0.125
-  },
-  "breakdowns": [
+    },
     {
-      "source_id": 101,
-      "fetch_success_rate": 1.0,
-      "ingest_volume": 420,
-      "relevance_rate": 0.72,
-      "curation_approval_rate": 0.85,
-      "overall_yield": 0.612,
-      "classification_character_volume_proxy": 512400,
-      "curation_character_volume_proxy": 320000,
-      "classification_filtering_overhead": 1.38,
-      "topic_class_breakdown": {
-        "core": 0.50,
-        "adjacent": 0.22,
-        "irrelevant": 0.20,
-        "unknown": 0.08
+      "if": {
+        "properties": { "report_type": { "const": "classify" } }
       },
-      "decision_model": {
-        "quadrant": "golden_source",
-        "analysis_flags": ["AUTHORITY"]
+      "then": {
+        "properties": {
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "total_classified": { "type": "integer" },
+              "relevance_rate": { "type": ["number", "null"] },
+              "average_confidence": { "type": ["number", "null"] }
+            },
+            "required": ["total_classified", "relevance_rate", "average_confidence"]
+          },
+          "breakdowns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": { "type": "integer" },
+                "classify_volume": { "type": "integer" },
+                "relevance_rate": { "type": ["number", "null"] },
+                "average_confidence": { "type": ["number", "null"] },
+                "content_density_distribution": {
+                  "type": "object",
+                  "properties": {
+                    "low": { "type": "number" },
+                    "medium": { "type": "number" },
+                    "high": { "type": "number" }
+                  },
+                  "required": ["low", "medium", "high"]
+                }
+              },
+              "required": ["source_id", "classify_volume", "relevance_rate", "average_confidence", "content_density_distribution"]
+            }
+          }
+        }
       }
-    },
-    {
-      "source_id": 102,
-      "fetch_success_rate": 0.45,
-      "ingest_volume": 12,
-      "relevance_rate": 0.05,
-      "curation_approval_rate": 0.0,
-      "overall_yield": 0.0,
-      "classification_character_volume_proxy": 14400,
-      "curation_character_volume_proxy": 0,
-      "classification_filtering_overhead": null,
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.05,
-        "irrelevant": 0.90,
-        "unknown": 0.05
-      },
-      "decision_model": {
-        "quadrant": null,
-        "analysis_flags": ["CONNECTION_DIAGNOSTICS"]
-      }
-    }
-  ]
-}
-```
-
-#### 2.2.2 `analyze-funnel` JSON Example
-```json
-{
-  "report_type": "funnel",
-  "schema_version": "1.0.0",
-  "generated_at": "2026-07-06T02:00:00Z",
-  "lookback_days": 7,
-  "window_start": "2026-06-29T02:00:00Z",
-  "window_end": "2026-07-06T02:00:00Z",
-  "metrics": {
-    "total_ingested": 1520,
-    "low_context_bypass_count": 190,
-    "total_classified": 1330,
-    "relevant_classified": 950,
-    "total_curated": 950,
-    "curation_approved": 620,
-    "total_translated": 615,
-    "total_published": 612,
-    "pipeline_lead_time_seconds": {
-      "average": 845.5,
-      "median": 450.0,
-      "p90": 2400.0
-    }
-  },
-  "stage_latency_breakdown_seconds": {
-    "feed_freshness_delay": {
-      "average": 1200.0,
-      "median": 600.0,
-      "p90": 3600.0
-    },
-    "fetch_execution_latency": {
-      "average": 1.2,
-      "median": 0.8,
-      "p90": 2.5
-    },
-    "classification_delay": {
-      "average": 15.4,
-      "median": 10.0,
-      "p90": 45.0
-    },
-    "curation_delay": {
-      "average": 7200.0,
-      "median": 1800.0,
-      "p90": 21600.0
-    },
-    "translation_delay": {
-      "average": 120.0,
-      "median": 45.0,
-      "p90": 300.0
-    },
-    "publish_delay": {
-      "average": 5.2,
-      "median": 3.0,
-      "p90": 10.0
-    }
-  },
-  "breakdowns": [
-    {
-      "stage": "ingest",
-      "count": 1520,
-      "stage_conversion_rate": 1.0,
-      "cumulative_yield": 1.0
-    },
-    {
-      "stage": "classification",
-      "count": 1330,
-      "stage_conversion_rate": 0.875,
-      "cumulative_yield": 0.875
-    },
-    {
-      "stage": "curation",
-      "count": 620,
-      "stage_conversion_rate": 0.652,
-      "cumulative_yield": 0.407
-    }
-  ],
-  "published_by_language": [
-    {
-      "language_code": "en",
-      "published_count": 612,
-      "coverage_rate": 1.0000
-    },
-    {
-      "language_code": "zh",
-      "published_count": 610,
-      "coverage_rate": 0.9967
-    },
-    {
-      "language_code": "ja",
-      "published_count": 605,
-      "coverage_rate": 0.9886
-    }
-  ]
-}
-```
-
-#### 2.2.3 `analyze-translation` JSON Example
-```json
-{
-  "report_type": "translation",
-  "schema_version": "1.0.0",
-  "generated_at": "2026-07-06T02:00:00Z",
-  "lookback_days": 7,
-  "window_start": "2026-06-29T02:00:00Z",
-  "window_end": "2026-07-06T02:00:00Z",
-  "metrics": {
-    "overall_translation_success_rate": 0.985,
-    "average_latency_seconds": 182
-  },
-  "breakdowns": [
-    {
-      "language_code": "zh",
-      "translation_success_rate": 0.992,
-      "average_latency_seconds": 124,
-      "stale_rate": 0.005,
-      "translation_character_volume_proxy": 1284000
-    },
-    {
-      "language_code": "es",
-      "translation_success_rate": 0.978,
-      "average_latency_seconds": 240,
-      "stale_rate": 0.021,
-      "translation_character_volume_proxy": 1312000
     }
   ]
 }
@@ -486,8 +313,9 @@ To ensure predictable consumption by automated processors and web UI dashboards,
 ---
 
 ## 3. Dashboard Integration Contract
-The `analysis` module exposes underlying Python querying functions and CLI JSON outputs as a stable data contract.
 
-*   **Boundary separation**: The `dashboard` module (e.g. a Streamlit Web UI) is responsible *only* for rendering the UI (scatter charts, bar charts) and reading JSON payloads.
-*   **No Direct SQL**: The dashboard must **never** implement direct SQL queries or metric formulas. It must consume the JSON reports generated by the `analysis` module to prevent duplication of logic.
-*   **Versioning rule**: Any backward-incompatible JSON shape change must increment `schema_version` and be documented in this file before implementation ships.
+The `analysis` module exposes query services and CLI JSON outputs as a stable data interface.
+
+*   **Boundary Separation**: The downstream `dashboard` module (e.g. a Streamlit Web UI) is responsible *only* for reading JSON payloads and rendering visual plots.
+*   **No Direct SQL**: The dashboard must **never** execute raw database queries or implement custom metric formulas. This prevents metric formula duplication and logic drift.
+*   **Versioning Rule**: Any backward-incompatible JSON schema change must increment the `schema_version` (following Semantic Versioning: `MAJOR.MINOR.PATCH`) and be updated in this contract file before deployment.

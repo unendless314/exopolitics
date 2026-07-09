@@ -4,18 +4,37 @@ This directory contains the documentation, specifications, and architecture boun
 
 ## Status
 
-- This module is an independent, read-only analytics component introduced to evaluate pipeline performance, source quality, translation efficiency, and workload and cost-proxy metrics based on production data.
+- This module is an independent, read-only analytics component introduced to evaluate pipeline performance, source quality, translation efficiency, and workload/cost-proxy metrics based on production data.
 - It centralizes both module-specific diagnostics and cross-module aggregation reports so monitoring logic does not need to be duplicated back into operational modules.
 - It consumes data from the canonical database (`data/canonical.db`) but does not alter production state.
 
-## Document Index
+---
 
-1. [ANALYSIS_BOUNDARIES.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/ANALYSIS_BOUNDARIES.md): System role, architectural boundaries, and read-only constraints.
-2. [MVP_METRICS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/MVP_METRICS.md): The core set of 10 metrics implemented in Phase 1 to monitor system health and funnel yield.
-3. [METRICS_CATALOG.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/METRICS_CATALOG.md): Definitions, formulas, data grounding, and schemas for all stable metrics.
-4. [EXPLORATORY_SIGNALS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/EXPLORATORY_SIGNALS.md): Experimental metrics, additional signals governance, and exploratory questions.
-5. [REPORT_CONTRACTS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/REPORT_CONTRACTS.md): CLI subcommand specifications, JSON schema outputs, and Dashboard integration contracts.
-6. [DECISION_MODELS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/DECISION_MODELS.md): Recommendation logic including the Source Quadrant Classifier, authority tagging, and connection diagnostics safeguards.
+## Document Map by Role
+
+To ensure long-term maintainability, the technical documents are organized into distinct layers answering specific engineering questions.
+
+### 1. Module Identity Layer
+*   [ANALYSIS_BOUNDARIES.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/ANALYSIS_BOUNDARIES.md): Defines the system role, boundary principles, read-only constraints, and memory-join constraints.
+
+### 2. Read Dependency Layer
+*   [DATA_DEPENDENCIES.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/DATA_DEPENDENCIES.md): **[NEW]** Details the external database tables, fields, and configuration files (`sources.yaml` & `categories.yaml`) that this module reads.
+
+### 3. Execution Layer
+*   [EXECUTION_POLICY.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/EXECUTION_POLICY.md): **[NEW]** Outlines CLI invocation syntax, parameter rules (such as `--days` lookback), stdout behavior, logging paths, and error fault-isolation policies.
+
+### 4. Output Contract Layer
+*   [REPORT_CONTRACTS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/REPORT_CONTRACTS.md): Defines the output report files, JSON schemas, versioning rules, and integration contracts with external consumers (like a web UI dashboard).
+
+### 5. Metric & Decision Layer
+*   [METRICS_CATALOG.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/METRICS_CATALOG.md): The authoritative dictionary listing all stable metrics (MVP and Phase 2), formulas, window semantics, and database grounding.
+*   [DECISION_MODELS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/DECISION_MODELS.md): Specifies the decision heuristics applied to stable metrics, including the Source Quadrant Classifier and fetch-health isolation safeguards.
+*   [EXPLORATORY_SIGNALS.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/EXPLORATORY_SIGNALS.md): Governs experimental metrics and sandbox signals (e.g., additional signals column parsing) that are not yet promoted to stable KPIs.
+
+### 6. Implementation Layer
+*   [IMPLEMENTATION_PLAN.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/IMPLEMENTATION_PLAN.md): **[NEW]** The actionable build roadmap detailing internal code structure (CLI-Service-Query), phased milestones, test strategy, and mock database validation.
+
+---
 
 ## Directory Responsibilities
 

@@ -1,6 +1,6 @@
 # Metrics Catalog
 
-This document catalog lists all stable metrics defined for the `analysis` module. Each entry outlines the name, purpose, window basis, formula, data source, dimensions (direct and derived), update frequency, and relevant implementation notes.
+This document is the authoritative catalog for all metrics defined for the `analysis` module. Each entry outlines the name, status (MVP Core or Phase 2/Exploratory), purpose, window basis, formula, data source, dimensions, update frequency, and relevant implementation notes.
 
 ---
 
@@ -9,24 +9,24 @@ This document catalog lists all stable metrics defined for the `analysis` module
 All metrics in this catalog (except rolling snapshots) are filtered by the lookback window configured during execution (default: 7 days). They use one of the following window semantics:
 
 - **`source_item_cohort`**: The lookback window filters the base ingestion records (`source_item.fetched_at`). Downstream events/states are linked back to this cohort. Used for funnel and conversion analytics to maintain mathematical consistency.
-- **`event_time`**: The lookback window filters events using the timestamp of the metric's own primary event table (e.g. `fetch_attempt.created_at`, `translation_output.updated_at`). Used for operational and health monitoring.
+- **`event_time`**: The lookback window filters events using the timestamp of the metric's own primary event table (e.g. `fetch_attempt.started_at`, `translation_output.updated_at`). Used for operational and health monitoring.
 - **`rolling_snapshot`**: Reflects the current state at the time of query (no lookback window filtering).
 
 ---
 
 ## 1. Source Health Metrics
 
-### 1.1 Fetch Success Rate (MVP)
+### 1.1 Fetch Success Rate `[MVP]`
 *   **Purpose**: Monitor reliability of connection to external feeds.
 *   **Window Basis**: `event_time`
-*   **Formula**: $$\text{Fetch Success Rate} = \frac{\text{Successful Fetch Attempts (fetch\_attempt.outcome = 'success')}}{\text{Total Fetch Attempts}}$$ where `fetch_attempt.created_at` is within the lookback window.
+*   **Formula**: $$\text{Fetch Success Rate} = \frac{\text{Successful Fetch Attempts (fetch\_attempt.outcome = 'success')}}{\text{Total Fetch Attempts}}$$ where `fetch_attempt.started_at` is within the lookback window.
 *   **Data Source**: `fetch_attempt`
 *   **Direct Dimensions**: `source_id`, `fetch_attempt_id`
 *   **Derived Dimensions**: None
-*   **Update Frequency**: Executed per CLI run (typically daily or ad-hoc).
+*   **Update Frequency**: Executed per CLI run.
 *   **Notes**: Used as the primary filter for fetch health isolation before content quality analysis.
 
-### 1.2 Run Success Rate
+### 1.2 Run Success Rate `[Phase 1 / Stable]`
 *   **Purpose**: Evaluate the execution reliability at the fetch-run level.
 *   **Window Basis**: `event_time`
 *   **Formula**: $$\text{Run Success Rate} = \frac{\text{Successful Source Attempts in fetch\_run}}{\text{Attempted Source Count in fetch\_run}}$$ where `fetch_run.started_at` is within the lookback window.
@@ -36,17 +36,17 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Update Frequency**: Executed per CLI run.
 *   **Notes**: Helps detect overall infrastructure or network failures affecting multiple feeds.
 
-### 1.3 Error Categorization Rate
+### 1.3 Error Categorization Rate `[Phase 1 / Stable]`
 *   **Purpose**: Pinpoint feed issues (connection, Cloudflare/anti-bot, parsing).
 *   **Window Basis**: `event_time`
-*   **Formula**: Group counts of failed fetch attempts by error class where `fetch_attempt.created_at` is within the lookback window.
+*   **Formula**: Group counts of failed fetch attempts by error class where `fetch_attempt.started_at` is within the lookback window.
 *   **Data Source**: `fetch_attempt`
 *   **Direct Dimensions**: `source_id`, `error_class`, `http_status`
 *   **Derived Dimensions**: None
 *   **Update Frequency**: Executed per CLI run.
 *   **Notes**: Relies on `fetch_attempt.error_class` and `fetch_attempt.http_status` to categorize and group failures.
 
-### 1.4 Rolling Source Health Snapshot
+### 1.4 Rolling Source Health Snapshot `[Phase 1 / Stable]`
 *   **Purpose**: Identify quarantined or consistently failing sources.
 *   **Window Basis**: `rolling_snapshot`
 *   **Formula**: Current value of consecutive failures and health status in the table.
@@ -60,7 +60,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 
 ## 2. Pipeline Funnel & Conversion Metrics
 
-### 2.1 Ingest Volume (MVP)
+### 2.1 Ingest Volume `[MVP]`
 *   **Purpose**: Track total raw volume of items pulled into the system.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: Count of records in `source_item` where `source_item.fetched_at` is within the lookback window.
@@ -69,7 +69,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: None
 *   **Update Frequency**: Executed per CLI run.
 
-### 2.2 Low-Context Bypass Rate (MVP)
+### 2.2 Low-Context Bypass Rate `[MVP]`
 *   **Purpose**: Monitor sources producing thin snippet content that bypasses LLM classification.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: $$\text{Low-Context Bypass Rate} = \frac{\text{Low-Context Ingested Items (source\_item\_text.is\_low\_context = 1)}}{\text{Total Ingested}}$$ where `source_item.fetched_at` is within the lookback window.
@@ -78,7 +78,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-### 2.3 Relevance Rate (MVP)
+### 2.3 Relevance Rate `[MVP]`
 *   **Purpose**: Measure the alignment of ingested feed items with core/adjacent topics.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: $$\text{Relevance Rate} = \frac{\text{Classify Core} + \text{Classify Adjacent}}{\text{Total Classified (items with a row in classification\_result)}}$$ where `source_item.fetched_at` is within the lookback window.
@@ -87,7 +87,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-#### 2.3.1 Topic Class Breakdown (Required Source Report Breakdown)
+#### 2.3.1 Topic Class Breakdown `[MVP]`
 *   **Purpose**: Preserve the full distribution of `classification_result.topic_class` for each source instead of flattening all relevant outcomes into a single scalar.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: For each source, compute the proportion of classified items falling into `core`, `adjacent`, `irrelevant`, and `unknown`, where `source_item.fetched_at` is within the lookback window.
@@ -97,7 +97,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Update Frequency**: Executed per CLI run.
 *   **Notes**: This breakdown is a required output field for `analyze-sources`. `Relevance Rate` is the aggregate scalar `core + adjacent`, while `topic_class_breakdown` preserves the underlying mix used for operator interpretation.
 
-### 2.4 Curation Approval Rate (MVP)
+### 2.4 Curation Approval Rate `[MVP]`
 *   **Purpose**: Measure editorial value of filtered items.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: $$\text{Curation Approval Rate} = \frac{\text{Curate Approved Count}}{\text{Total Curated Items (items with a row in curation\_decision)}}$$ where `source_item.fetched_at` is within the lookback window.
@@ -106,7 +106,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-### 2.5 Overall Yield (MVP)
+### 2.5 Overall Yield `[MVP]`
 *   **Purpose**: Measure final throughput from ingest to finalized approval.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: $$\text{Overall Yield} = \frac{\text{Approved Content Count (items with a row in approved\_content\_record)}}{\text{Total Ingested (items with a row in source\_item)}}$$ where `source_item.fetched_at` is within the lookback window.
@@ -115,7 +115,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-### 2.6 Curation Rejection Mix (Phase 2)
+### 2.6 Curation Rejection Mix `[Phase 2]`
 *   **Purpose**: Track editorial overhead (e.g. discard vs rewrite decisions).
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: Group count of rejected curation decisions by downstream action where `source_item.fetched_at` is within the lookback window.
@@ -124,7 +124,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-### 2.7 Publish Count (MVP)
+### 2.7 Publish Count `[MVP]`
 *   **Purpose**: Track total number of successfully published content items.
 *   **Window Basis**: `event_time`
 *   **Formula**: Count of records in the `publish_record` table where `publish_record.first_published_at` is within the lookback window.
@@ -137,7 +137,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 
 ## 3. Source Quality & Processing Efficiency
 
-### 3.1 Workload Volume Proxies
+### 3.1 Workload Volume Proxies `[MVP]`
 
 > [!NOTE]
 > **Workload Volume Proxies Comparison & Conceptual Boundaries**:
@@ -146,7 +146,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 > 2.  **Curation Character Volume Proxy** = Representing the **curate stage input volume** (only the high-relevance subset of items filtered by the classification stage that reached a curation decision).
 > 3.  **Translation Character Volume Proxy** = Representing the downstream **translation workload**, which is conceptually different from the ingest-text proxies because it is calculated using the finalized, edited, and approved mother-draft text (`approved_content_record`) rather than the sanitized ingest text (`source_item_text`).
 
-#### 3.1.1 Classification Character Volume Proxy (MVP)
+#### 3.1.1 Classification Character Volume Proxy `[MVP]`
 *   **Purpose**: Track raw classification workload.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: Sum of `length(source_item.title) + source_item_text.sanitized_text_length` where `source_item.fetched_at` is within the lookback window and `source_item_text.is_low_context = 0`.
@@ -155,7 +155,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-#### 3.1.2 Curation Character Volume Proxy (MVP)
+#### 3.1.2 Curation Character Volume Proxy `[MVP]`
 *   **Purpose**: Estimate input character volume reviewed by the curation stage for items that reached a recorded curation decision.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: Sum of `length(source_item.title) + source_item_text.sanitized_text_length` where `source_item.fetched_at` is within the lookback window and the item has a row in `curation_decision`.
@@ -165,7 +165,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Update Frequency**: Executed per CLI run.
 *   **Notes**: This is an input-side proxy and does not represent output token generation, prompt templates, or human editor reading speed.
 
-#### 3.1.3 Translation Character Volume Proxies (Dual Metrics - MVP)
+#### 3.1.3 Translation Character Volume Proxies (Dual Metrics) `[MVP]`
 *   **Purpose**: Estimate active API translation workload and total queue workload.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula (Recorded Workload)**: Sum of `length(approved_content_record.display_title) + length(approved_content_record.content_body)` where `source_item.fetched_at` is within the lookback window and the item has a row in `translation_output` with `model_name != 'bypass'` (excludes self-translation bypass).
@@ -178,7 +178,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Update Frequency**: Executed per CLI run.
 *   **Notes**: Filtering out `'bypass'` in the recorded workload ensures we only track LLM API-incurred costs.
 
-### 3.2 Classification Filtering Overhead
+### 3.2 Classification Filtering Overhead `[Phase 2 / Catalog]`
 *   **Purpose**: Evaluate source efficiency (ratio of inputs needed for one output).
 *   **Status**: Downgraded to Catalog/Exploratory for Phase 1. Excluded from the MVP top-level dashboard.
 *   **Window Basis**: `source_item_cohort`
@@ -188,7 +188,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-### 3.3 Content Density Distribution
+### 3.3 Content Density Distribution `[Phase 2 / Catalog]`
 *   **Purpose**: Characterize source informational quality (thin vs dense content).
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: Distribution of `classification_result.content_density` (low, medium, high) where `source_item.fetched_at` is within the lookback window.
@@ -197,7 +197,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-### 3.4 Approval Rate by Content Density (Phase 2)
+### 3.4 Approval Rate by Content Density `[Phase 2]`
 *   **Purpose**: Test whether denser content is more publishable.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: $$\text{Approval Rate (Density } x) = \frac{\text{Approved Items with Density } x}{\text{Total Items with Density } x}$$ where `source_item.fetched_at` is within the lookback window.
@@ -206,7 +206,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-### 3.5 Unique Contribution Rate (Phase 2 / Defer)
+### 3.5 Unique Contribution Rate `[Phase 2 / Defer]`
 *   **Purpose**: Measure uniqueness of source content after deduplication.
 *   **Status**: Defer to Phase 2 / exploratory pending database validation of cross-source duplicates. Excluded from Phase 1 MVP.
 *   **Window Basis**: `source_item_cohort`
@@ -221,7 +221,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 
 ## 4. Pipeline Lead Time & Stage Latency Suite
 
-### 4.1 Pipeline Lead Time (E2E Latency - MVP)
+### 4.1 Pipeline Lead Time (E2E Latency) `[MVP]`
 *   **Purpose**: Monitor the end-to-end timeliness and delivery speed of content from ingestion fetch time (source_item.fetched_at) to publication.
 *   **Window Basis**: `source_item_cohort`
 *   **Metric Type**: `end_to_end_lead_time`
@@ -232,10 +232,10 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Update Frequency**: Executed per CLI run.
 *   **Notes**: The top-level SLA metric. High p90 values indicate major delivery bottlenecks.
 
-### 4.2 Pipeline Stage Latency Suite (Diagnostic Metrics)
+### 4.2 Pipeline Stage Latency Suite (Diagnostic Metrics) `[MVP]`
 To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specific latencies. All metrics in this suite calculate the Average, Median (p50), and 90th percentile (p90) statistics, and are explicitly classified into execution, freshness, or queue delay types. Note: When reported together as part of the E2E latency breakdown in the funnel report (analyze-funnel), all of these stage metrics—including Fetch Execution Latency—are computed strictly using the source_item_cohort basis to ensure direct statistical comparability.
 
-#### 4.2.1 Feed Freshness Delay
+#### 4.2.1 Feed Freshness Delay `[MVP]`
 *   **Purpose**: Measure lag between external content publication and ingestion.
 *   **Window Basis**: `source_item_cohort`
 *   **Delay Class**: `freshness_delay`
@@ -244,16 +244,16 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 *   **Direct Dimensions**: `source_item_id`, `source_id`
 *   **Notes**: Reflects crawling frequency efficiency. Highly dependent on external site feed updates.
 
-#### 4.2.2 Fetch Execution Latency
+#### 4.2.2 Fetch Execution Latency `[MVP]`
 *   **Purpose**: Monitor network retrieval speed.
 *   **Window Basis**: `event_time`
 *   **Delay Class**: `execution_latency`
-*   **Formula**: `fetch_attempt.ended_at - fetch_attempt.started_at` where `fetch_attempt.created_at` is within the lookback window.
+*   **Formula**: `fetch_attempt.ended_at - fetch_attempt.started_at` where `fetch_attempt.started_at` is within the lookback window.
 *   **Data Source**: `fetch_attempt`
 *   **Direct Dimensions**: `source_id`, `fetch_attempt_id`
 *   **Notes**: Captures active HTTP download and connection speed.
 
-#### 4.2.3 Classification Delay
+#### 4.2.3 Classification Delay `[MVP]`
 *   **Purpose**: Measure queue wait and LLM classification processing.
 *   **Window Basis**: `source_item_cohort`
 *   **Delay Class**: `queue_delay` + `execution_latency`
@@ -262,7 +262,7 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 *   **Direct Dimensions**: `source_item_id`
 *   **Notes**: Measures time spent waiting in scheduling queue plus the active classification LLM call duration.
 
-#### 4.2.4 Curation Delay
+#### 4.2.4 Curation Delay `[MVP]`
 *   **Purpose**: Monitor curation queue lag and operator review efficiency.
 *   **Window Basis**: `source_item_cohort`
 *   **Delay Class**: `queue_delay`
@@ -271,27 +271,29 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 *   **Direct Dimensions**: `source_item_id`, `decision_actor` (system vs operator)
 *   **Notes**: Heavily long-tailed for operator decisions. Vital for measuring human curation queue bottleneck.
 
-#### 4.2.5 Translation Delay
+#### 4.2.5 Translation Delay `[MVP]`
 *   **Purpose**: Measure translation queue wait and LLM translation processing.
 *   **Window Basis**: `source_item_cohort`
 *   **Delay Class**: `queue_delay` + `execution_latency`
 *   **Formula**: `translation_output.translated_at - approved_content_record.approved_at` where `source_item.fetched_at` is within the lookback window and `translation_output.model_name != 'bypass'`.
 *   **Data Source**: `approved_content_record`, `translation_output`, `source_item`
 *   **Direct Dimensions**: `source_item_id`, `language_code`
-*   **Notes**: Tracks time from curation approval to translation output generation. Excludes self-translation bypass records (where `model_name = 'bypass'`) to prevent 0-second bias. Consolidated with metric 4.3.5.
+*   **Notes**: Tracks time from curation approval to translation output generation. Excludes self-translation bypass records (where `model_name = 'bypass'`) to prevent 0-second bias.
 
-#### 4.2.6 Publish Delay
+#### 4.2.6 Publish Delay `[MVP]`
 *   **Purpose**: Track output file generation and static asset deployment speed.
 *   **Window Basis**: `source_item_cohort`
 *   **Delay Class**: `queue_delay`
 *   **Formula**: `publish_language_status.published_at - translation_output.translated_at` where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `translation_output`, `publish_language_status`, `source_item`
 *   **Direct Dimensions**: `source_item_id`, `language_code`
-*   **Notes**: Measures the lag associated with export rendering in the publish module. It does not capture the downstream static site build (Astro) or deployment time, which must be measured separately on the server.
+*   **Notes**: Measures the lag associated with export rendering in the publish module. It does not capture the downstream static site build (Astro) or deployment time.
 
-### 4.3 Translation Performance & Queue Metrics
+---
 
-#### 4.3.1 Translation Success Rate (MVP)
+## 4.3 Translation Performance & Queue Metrics
+
+### 4.3.1 Translation Success Rate `[MVP]`
 *   **Purpose**: Monitor the reliability of translation execution.
 *   **Window Basis**: `event_time`
 *   **Formula**: $$\text{Translation Success Rate} = \frac{\text{Successful Translations (translation\_status = 'completed')}}{\text{Total Translation Attempts (translation\_status IN ('completed', 'failed', 'stale'))}}$$ where `translation_output.updated_at` is within the lookback window.
@@ -300,7 +302,7 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-#### 4.3.2 Translation Completion Rate
+### 4.3.2 Translation Completion Rate `[MVP]`
 *   **Purpose**: Track the percentage of approved articles that have successfully completed translation across all required target languages.
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**:
@@ -329,7 +331,7 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
     ```
 *   **Notes**: The global article-level metric must compare each article's completed translation count against the number of required non-bypass target languages for that article. Implementations must not assume a fixed completed-row count if target language requirements vary by source language or runtime configuration.
 
-#### 4.3.3 Translation Stale Rate
+### 4.3.3 Translation Stale Rate `[Phase 2 / Catalog]`
 *   **Purpose**: Identify items lost due to delays or updates during the translation queue.
 *   **Status**: Downgraded to Catalog/Diagnostics for Phase 1. Excluded from the MVP top-level dashboard.
 *   **Window Basis**: `event_time`
@@ -339,7 +341,7 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
-#### 4.3.4 Translation Character Share by Language (Phase 2)
+### 4.3.4 Translation Character Share by Language `[Phase 2]`
 *   **Purpose**: Compare processing load between locales and time windows.
 *   **Window Basis**: `event_time`
 *   **Formula**: Sum of `(length(translation_output.display_title) + length(translation_output.content))` where `translation_output.updated_at` is within the lookback window and `translation_status = 'completed'`, grouped by `translation_output.language_code`.
@@ -347,25 +349,3 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 *   **Direct Dimensions**: `source_item_id`, `language_code`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
-
----
-
-## 5. Data Grounding Schema Mapping
-The metrics above are supported by these canonical tables in [canonical.db](file:///C:/Users/user/Documents/exopolitics/data/canonical.db):
-*   `fetch_run`: Run-level outcomes.
-*   `fetch_attempt`: Individual feed outcomes, HTTP status, and connection errors.
-*   `source_state`: Rolling failures and quarantine status.
-*   `source_item`: Ingested item identities and dedup keys.
-*   `source_item_text`: Sanitized lengths and context classification flags.
-*   `classification_result`: Content density, relevance classes, and additional signals.
-*   `curation_decision`: Editor approvals, rejections, and downstream actions.
-*   `approved_content_record`: Core drafts, titles, and approval timestamps.
-*   `translation_output`: Language codes, translated timestamps, text contents, and retries.
-*   `publish_record`: Published items and final slugs.
-
-### 5.1 Source Metadata Mapping Constraint (No `source` Table)
-Because `canonical.db` does not maintain a relational `source` table, the `analysis` module must resolve source metadata (e.g. source title, enabled status, category) by reading the external configuration files:
-*   [sources.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/sources.yaml): Contains individual source identifiers (`id`), crawl groups (`fetch_group`), schedule categories (`schedule_class`), and `category_id`.
-*   [categories.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/categories.yaml): Maps `category_id` to descriptive titles (e.g. `Government Policy & Official Disclosure`) and category enabled status.
-
-The mapping of `source_id` in database rows to these attributes must be done in memory. Under no circumstances should runtime logic expect SQL joins to resolve source or category attributes directly.

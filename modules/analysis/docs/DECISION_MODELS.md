@@ -61,7 +61,7 @@ In report contracts, the outcomes of these rules should be represented as `analy
 ### 2.1 Authority Tagging (Visual Indicator Only)
 *   **Rule**: Feeds with `category_id: 1` (Government & Official Disclosures) and `category_id: 3` (Scientific Validation & Research) are tagged with `[AUTHORITY]`.
 *   **Action**: These feeds are **not exempt** from quadrant classification or recommendations. Their yield and relevance are presented raw and faithfully. The `[AUTHORITY]` tag serves purely as a visual indicator in reports to assist human operators in manual screening.
-*   **Metadata Resolution**: Since the database `canonical.db` does not contain `category_id` or source category mappings, the analysis module must read the external [sources.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/sources.yaml) config file to lookup the `category_id` corresponding to the item's `source_id` before evaluating this rule.
+*   **Metadata Resolution**: Since the database `canonical.db` does not contain `category_id` or source category mappings, the analysis module must read the external [sources.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/sources.yaml) config file to lookup the `category_id` corresponding to the item's `source_id` before evaluating this rule. See [DATA_DEPENDENCIES.md](file:///C:/Users/user/Documents/exopolitics/modules/analysis/docs/DATA_DEPENDENCIES.md) for join constraints.
 
 ### 2.2 Fetch Health Isolation
 *   **Rule**: Feeds with a $\text{Fetch Success Rate} < 50\%$ are isolated.
@@ -98,4 +98,4 @@ quadrant_classifier:
 
 #### 2.3.3 Tie-Breaks and Precedence
 1.  **Fetch Isolation Priority**: If a source has a $\text{Fetch Success Rate} < 50\%$ during the current lookback window, it is isolated and placed on the "Connection Diagnostics List". Its content quality classification (Quadrant) is suspended for the current run, regardless of its content yield. This prevents temporary connection issues from generating misleading content quality classifications.
-2.  **Authority Tagging Priority**: Since the `[AUTHORITY]` tag is purely a visual indicator, no automated recommendation override is applied. Sources with low yield may still be surfaced as disable or audit candidates, but will retain the `[AUTHORITY]` label in the output report to alert the operator.
+2.  **Insufficient Data Precedence**: If a source has $\ge 50\%$ fetch success rate but has `Ingest Volume = 0`, it must be classified as `[INSUFFICIENT_DATA]`. Curation or translation quality models must not run on this source.
