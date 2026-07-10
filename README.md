@@ -15,7 +15,7 @@ This repository is currently in a documentation reset phase:
 - define the top-level product and architecture direction
 - preserve RSS source research and category definitions
 - establish module boundaries before implementation expands
-- document the development order for `ingest`, `classify`, `curate`, `edit`, `translate`, `publish`, and `site`
+- document the development order for `ingest`, `classify`, `curate`, `edit`, `translate`, `publish`, `site`, and `analysis`
 - reserve a compliant path for future edit content with source attribution and AI disclosure
 
 ## Architecture Summary
@@ -37,6 +37,8 @@ The current system direction is:
   - export approved content into a publish layer
 - `site`
   - build the public static site from publish-layer data
+- `analysis`
+  - read-only diagnostics, operational reporting, and metric aggregation against canonical storage, writing reports to `reports/analysis/`
 
 ## Development Priority
 
@@ -47,8 +49,9 @@ The current system direction is:
 5. `translate`
 6. `publish`
 7. `site`
+8. `analysis` (currently the active focus for read-only reporting and performance metrics)
 
-This order is intentional. The project first stabilized ingestion, classification, curation, and translation around the canonical content handoff before moving on to a dedicated publish/export layer. The standalone `edit` module remains reserved for when that workflow becomes stable enough to justify extraction.
+This order is intentional. The project first stabilized ingestion, classification, curation, and translation around the canonical content handoff before moving on to a dedicated publish/export layer. The standalone `edit` module remains reserved for when that workflow becomes stable enough to justify extraction. Now that core pipeline contracts have stabilized, the active focus is integrating the `analysis` module as a read-only sidecar.
 
 ## Content Model Direction
 
@@ -140,13 +143,16 @@ modules/
 │   ├── docs/
 │   ├── src/
 │   └── tests/
-└── site/
-    ├── docs/
-    ├── src/
-    └── tests/
+├── site/
+│   ├── docs/
+│   ├── src/
+│   └── tests/
+└── analysis/
+    ├── config/
+    └── docs/
 ```
 
-At this stage, `modules/ingest/`, `modules/classify/`, `modules/curate/`, `modules/translate/`, `modules/publish/`, and `modules/site/` are fully implemented, executable, and validated.
+At this stage, `modules/ingest/`, `modules/classify/`, `modules/curate/`, `modules/translate/`, `modules/publish/`, and `modules/site/` are fully implemented, executable, and validated. The `analysis` module's architecture and planning documents are locked, and it is the current active focus for implementation.
 
 Pre-reset module docs and code now live under `modules_archive/`.
 
