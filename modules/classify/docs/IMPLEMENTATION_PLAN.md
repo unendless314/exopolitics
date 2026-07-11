@@ -34,9 +34,9 @@ The following requirements must be followed during implementation:
 - Retrieve pending items using the `LEFT JOIN` query specified in [DATA_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md).
 - Do not process items that have not yet had their text sanitized (ensure `source_item_text` is populated).
 
-### 3.3 Active Policy: Low-Context Bypass Routing (Phase Policy)
-- If `source_item_text.is_low_context == 1`, bypass the LLM entirely as per the current active routing policy. This is the default MVP strategy to optimize API costs and prevent hallucinations, although it is a configurable strategy rather than a hardbound architectural limitation.
-- Write a deterministic record with `topic_class = 'unknown'`, `model_name = 'deterministic-low-context'`, `prompt_version = 'rule_v1'`, and all descriptive attributes/experimental signals set to `NULL`.
+### 3.3 Active Policy: Low-Context Exclusion (Phase Policy)
+- Exclude items where `source_item_text.is_low_context == 1` from the pending selection queue as defined in [DATA_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md).
+- Do not perform deterministic bypasses or write placeholder rows in the database. All items entering `classify` must proceed to LLM classification.
 
 ### 3.4 Prompting & Schema Enforcement (Contract-Locked)
 - Construct prompts using the `single_item_v4` template from [PROMPT_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/classify/docs/PROMPT_CONTRACT.md).
@@ -135,8 +135,8 @@ Build prompt constructors, integrate the LLM HTTP client, and parse structured J
 ### Epic 4: Pipeline Execution & Orchestration
 Assemble the pipeline execution loop, enforcing concurrency, rate-limits, and routing policies.
 
-* **Story 1: Low-Context Bypass Router**
-  * **Task 1.1:** Write routing check: if `is_low_context == 1`, bypass LLM and queue deterministic db write.
+* **Story 1: Low-Context Queue Filtering**
+  * **Task 1.1:** Update pending query to filter out `is_low_context = 1` items (no classify-side routing/writing is required).
 * **Story 2: Orchestration Loop**
   * **Task 2.1:** Implement batching query fetching up to `batch_size` items.
   * **Task 2.2:** Use `asyncio.Semaphore` to cap concurrent requests at `max_concurrent_requests`.
@@ -162,7 +162,7 @@ Validate contract enforcement and pipeline execution using high-value testing sc
 * **Story 1: Unit & Policy Tests**
   * **Task 1.1:** Add prompt builder tests verifying title and body injection.
   * **Task 1.2:** Add config parsing tests ensuring invalid configuration schemas are rejected.
-  * **Task 1.3:** Write unit tests for **low-context deterministic write behavior** (verifying correct field insertion under bypass routing).
+  * **Task 1.3:** Write unit tests verifying that low-context items are excluded from classify pending selection.
   * **Task 1.4:** Write unit tests for **allowlisted `additional_signals` filtering** (verifying that non-allowlisted keys are discarded).
 * **Story 2: Integration & DB Tests**
   * **Task 2.1:** Write repository tests verifying SQLite check constraints, **duplicate write/unique constraint behavior**, and cascade deletes.

@@ -29,12 +29,12 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 ### 1.2 Run Success Rate `[Phase 1 / Stable]`
 *   **Purpose**: Evaluate the execution reliability at the fetch-run level.
 *   **Window Basis**: `event_time`
-*   **Formula**: $$\text{Run Success Rate} = \frac{\text{Successful Source Attempts in fetch\_run}}{\text{Attempted Source Count in fetch\_run}}$$ where `fetch_run.started_at` is within the lookback window.
+*   **Formula**: $$\text{Run Success Rate} = \frac{\text{fetch\_run.succeeded\_source\_count}}{\text{NULLIF(fetch\_run.attempted\_source\_count, 0)}}$$ where `fetch_run.started_at` is within the lookback window.
 *   **Data Source**: `fetch_run`
 *   **Direct Dimensions**: `fetch_run_id`, `run_scope`, `trigger_type`
 *   **Derived Dimensions**: None
 *   **Update Frequency**: Executed per CLI run.
-*   **Notes**: Helps detect overall infrastructure or network failures affecting multiple feeds.
+*   **Notes**: Helps detect overall infrastructure or network failures affecting multiple feeds. Uses the real schema fields `succeeded_source_count` and `attempted_source_count`.
 
 ### 1.3 Error Categorization Rate `[Phase 1 / Stable]`
 *   **Purpose**: Pinpoint feed issues (connection, Cloudflare/anti-bot, parsing).
@@ -93,11 +93,12 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 ### 2.3 Relevance Rate `[MVP]`
 *   **Purpose**: Measure the alignment of ingested feed items with core/adjacent topics.
 *   **Window Basis**: `source_item_cohort`
-*   **Formula**: $$\text{Relevance Rate} = \frac{\text{Classify Core} + \text{Classify Adjacent}}{\text{Total Classified (items with a row in classification\_result)}}$$ where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: $$\text{Relevance Rate} = \frac{\text{Classify Core} + \text{Classify Adjacent}}{\text{NULLIF(Total Classified (items with a row in classification\_result), 0)}}$$ where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `classification_result`, `source_item`
 *   **Direct Dimensions**: `source_item_id` (from `classification_result`)
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
+*   **Notes**: Under the V2 architecture, `classification_result` contains only items that actually entered classification (low-context bypass items do not receive rows). Thus, this rate is defined strictly over the actual classified population.
 
 #### 2.3.1 Topic Class Breakdown `[MVP]`
 *   **Purpose**: Preserve the full distribution of `classification_result.topic_class` for each source instead of flattening all relevant outcomes into a single scalar.
@@ -194,7 +195,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Purpose**: Evaluate source efficiency (ratio of inputs needed for one output).
 *   **Status**: Downgraded to Catalog/Exploratory for Phase 1. Excluded from the MVP top-level dashboard.
 *   **Window Basis**: `source_item_cohort`
-*   **Formula**: $$\text{Classification Filtering Overhead} = \frac{\text{Total Classified}}{\text{Curate Approved}}$$ where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: $$\text{Classification Filtering Overhead} = \frac{\text{Total Classified}}{\text{NULLIF(Curate Approved, 0)}}$$ where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `classification_result`, `curation_decision`, `source_item`
 *   **Direct Dimensions**: `source_item_id`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -212,7 +213,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 ### 3.4 Approval Rate by Content Density `[Phase 2]`
 *   **Purpose**: Test whether denser content is more publishable.
 *   **Window Basis**: `source_item_cohort`
-*   **Formula**: $$\text{Approval Rate (Density } x) = \frac{\text{Approved Items with Density } x}{\text{Total Items with Density } x}$$ where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: $$\text{Approval Rate (Density } x) = \frac{\text{Approved Items with Density } x}{\text{NULLIF(Total Items with Density } x, 0)}$$ where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `classification_result`, `curation_decision`, `source_item`
 *   **Direct Dimensions**: `source_item_id`, `content_density` (from `classification_result`)
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
@@ -237,12 +238,12 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Purpose**: Monitor the end-to-end timeliness and delivery speed of content from ingestion fetch time (source_item.fetched_at) to publication.
 *   **Window Basis**: `source_item_cohort`
 *   **Metric Type**: `end_to_end_lead_time`
-*   **Formula**: Average, Median (p50), and 90th percentile (p90) of `publish_record.first_published_at - source_item.fetched_at` where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: Average, Median (p50), and 90th percentile (p90) of `strftime('%s', publish_record.first_published_at) - strftime('%s', source_item.fetched_at)` where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `source_item`, `publish_record`
 *   **Direct Dimensions**: `source_item_id`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
-*   **Notes**: The top-level SLA metric. High p90 values indicate major delivery bottlenecks.
+*   **Notes**: The top-level SLA metric. High p90 values indicate major delivery bottlenecks. Latency math uses `strftime('%s', ...)` epoch conversion for SQLite compatibility.
 
 ### 4.2 Pipeline Stage Latency Suite (Diagnostic Metrics) `[MVP]`
 To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specific latencies. All metrics in this suite calculate the Average, Median (p50), and 90th percentile (p90) statistics, and are explicitly classified into execution, freshness, or queue delay types. Note: When reported together as part of the E2E latency breakdown in the funnel report (analyze-funnel), all of these stage metrics—including Fetch Execution Latency—are computed strictly using the source_item_cohort basis to ensure direct statistical comparability.
@@ -251,55 +252,55 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 *   **Purpose**: Measure lag between external content publication and ingestion.
 *   **Window Basis**: `source_item_cohort`
 *   **Delay Class**: `freshness_delay`
-*   **Formula**: `source_item.fetched_at - source_item.published_at` where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: `strftime('%s', source_item.fetched_at) - strftime('%s', source_item.published_at)` where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `source_item`
 *   **Direct Dimensions**: `source_item_id`, `source_id`
-*   **Notes**: Reflects crawling frequency efficiency. Highly dependent on external site feed updates.
+*   **Notes**: Reflects crawling frequency efficiency. Highly dependent on external site feed updates. Latency math uses SQLite epoch conversion.
 
 #### 4.2.2 Fetch Execution Latency `[MVP]`
 *   **Purpose**: Monitor network retrieval speed.
 *   **Window Basis**: `event_time`
 *   **Delay Class**: `execution_latency`
-*   **Formula**: `fetch_attempt.ended_at - fetch_attempt.started_at` where `fetch_attempt.started_at` is within the lookback window.
+*   **Formula**: `strftime('%s', fetch_attempt.ended_at) - strftime('%s', fetch_attempt.started_at)` where `fetch_attempt.started_at` is within the lookback window.
 *   **Data Source**: `fetch_attempt`
 *   **Direct Dimensions**: `source_id`, `fetch_attempt_id`
-*   **Notes**: Captures active HTTP download and connection speed.
+*   **Notes**: Captures active HTTP download and connection speed. Latency math uses SQLite epoch conversion.
 
 #### 4.2.3 Classification Delay `[MVP]`
 *   **Purpose**: Measure queue wait and LLM classification processing.
 *   **Window Basis**: `source_item_cohort`
 *   **Delay Class**: `queue_delay` + `execution_latency`
-*   **Formula**: `classification_result.classified_at - source_item.fetched_at` where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: `strftime('%s', classification_result.classified_at) - strftime('%s', source_item.fetched_at)` where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `source_item`, `classification_result`
 *   **Direct Dimensions**: `source_item_id`
-*   **Notes**: Measures time spent waiting in scheduling queue plus the active classification LLM call duration.
+*   **Notes**: Measures time spent waiting in scheduling queue plus the active classification LLM call duration. Latency math uses SQLite epoch conversion.
 
 #### 4.2.4 Curation Delay `[MVP]`
 *   **Purpose**: Monitor curation queue lag and operator review efficiency.
 *   **Window Basis**: `source_item_cohort`
 *   **Delay Class**: `queue_delay`
-*   **Formula**: `curation_decision.curated_at - classification_result.classified_at` where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: `strftime('%s', curation_decision.curated_at) - strftime('%s', classification_result.classified_at)` where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `source_item`, `classification_result`, `curation_decision`
 *   **Direct Dimensions**: `source_item_id`, `decision_actor` (system vs operator)
-*   **Notes**: Heavily long-tailed for operator decisions. Vital for measuring human curation queue bottleneck.
+*   **Notes**: Heavily long-tailed for operator decisions. Vital for measuring human curation queue bottleneck. Latency math uses SQLite epoch conversion.
 
 #### 4.2.5 Translation Delay `[MVP]`
 *   **Purpose**: Measure translation queue wait and LLM translation processing.
 *   **Window Basis**: `source_item_cohort`
 *   **Delay Class**: `queue_delay` + `execution_latency`
-*   **Formula**: `translation_output.translated_at - approved_content_record.approved_at` where `source_item.fetched_at` is within the lookback window and `translation_output.model_name != 'bypass'`.
+*   **Formula**: `strftime('%s', translation_output.translated_at) - strftime('%s', approved_content_record.approved_at)` where `source_item.fetched_at` is within the lookback window and `translation_output.model_name != 'bypass'`.
 *   **Data Source**: `approved_content_record`, `translation_output`, `source_item`
 *   **Direct Dimensions**: `source_item_id`, `language_code`
-*   **Notes**: Tracks time from curation approval to translation output generation. Excludes self-translation bypass records (where `model_name = 'bypass'`) to prevent 0-second bias.
+*   **Notes**: Tracks time from curation approval to translation output generation. Excludes self-translation bypass records (where `model_name = 'bypass'`) to prevent 0-second bias. Latency math uses SQLite epoch conversion.
 
 #### 4.2.6 Publish Delay `[MVP]`
 *   **Purpose**: Track output file generation and static asset deployment speed.
 *   **Window Basis**: `source_item_cohort`
 *   **Delay Class**: `queue_delay`
-*   **Formula**: `publish_language_status.published_at - translation_output.translated_at` where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: `strftime('%s', publish_language_status.published_at) - strftime('%s', translation_output.translated_at)` where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `translation_output`, `publish_language_status`, `source_item`
 *   **Direct Dimensions**: `source_item_id`, `language_code`
-*   **Notes**: Measures the lag associated with export rendering in the publish module. It does not capture the downstream static site build (Astro) or deployment time.
+*   **Notes**: Measures the lag associated with export rendering in the publish module. Latency math uses SQLite epoch conversion.
 
 ---
 
@@ -333,7 +334,8 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
         SELECT
             acr.parent_content_id,
             COUNT(CASE WHEN tor.translation_status = 'completed' AND tor.model_name != 'bypass' THEN 1 END) AS completed_count,
-            :target_language_count - 1 AS required_translation_count
+            -- Dynamically count configured target languages excluding the source language of the article
+            (SELECT COUNT(*) FROM json_each(:target_languages_json) WHERE value != acr.content_language_code) AS required_translation_count
         FROM approved_content_record acr
         JOIN source_item si ON acr.source_item_id = si.source_item_id
         LEFT JOIN translation_output tor ON acr.parent_content_id = tor.parent_content_id
@@ -341,7 +343,7 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
         GROUP BY acr.parent_content_id
     ) t;
     ```
-*   **Notes**: The global article-level metric must compare each article's completed translation count against the number of required non-bypass target languages for that article. Implementations must not assume a fixed completed-row count if target language requirements vary by source language or runtime configuration.
+*   **Notes**: The global article-level metric must compare each article's completed translation count against the number of required non-bypass target languages for that article. Implementations must not assume a fixed completed-row count if target language requirements vary by source language or runtime configuration. The query dynamically counts targets using a JSON array parameter `:target_languages_json` (e.g., `["en", "zh", "ja"]`) joined via `json_each`. Ratios are protected with `NULLIF` zero-denominator checks.
 
 ### 4.3.3 Translation Stale Rate `[Phase 2 / Catalog]`
 *   **Purpose**: Identify items lost due to delays or updates during the translation queue.

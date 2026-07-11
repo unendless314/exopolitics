@@ -28,35 +28,13 @@ Mundane news lacking any anomalous, aerospace, speculative, or fringe interest.
 
 ### 2.4 `unknown`
 Assigned when the item is too vague, context-poor, or ambiguous to classify. This category is a normal, valid destination, not an error.
-* *Deterministic Path:* Triggered automatically when an item is flagged by the sanitizer as low-context.
 * *LLM Path:* Triggered when the text is long enough but fails to describe any clear subject or relies heavily on absent external context.
 
 ---
 
-## 3. Low-Context Routing Policy
+## 3. Low-Context Exclusion Policy
 
-`classify` relies on the sanitization flags populated during `ingest` to optimize API usage and avoid hallucinations.
-
-### Processing Rule
-For each pending item:
-1. **If `source_item_text.is_low_context == 1`:**
-   * Bypass the LLM call entirely.
-   * Write the classification result with the following deterministic attributes:
-     * `topic_class = 'unknown'`
-     * `classification_reason = 'Deterministic bypass: Item flagged as low-context during ingestion.'`
-     * `classification_confidence = NULL`
-     * `content_density = NULL`
-     * `source_text_quality = NULL`
-     * `primary_language_code = NULL`
-     * `governmental_involvement = NULL`
-     * `additional_signals = NULL`
-     * `model_name = 'deterministic-low-context'`
-     * `prompt_version = 'rule_v1'`
-2. **If `source_item_text.is_low_context == 0`:**
-   * Proceed to LLM-based classification.
-
-### Rationale on Classification Reason
-We keep `classification_reason` as a clean, uniform human-readable string. We do not concatenate machine-trace code keys like `t.low_context_reason` here, as doing so would pollute the audit field semantics for human reviewers. The original machine-level reason code is already stored in the joined `source_item_text.low_context_reason` column for tracing.
+`classify` excludes items flagged as low-context during ingestion (items where `source_item_text.is_low_context == 1`). These items bypass the classification queue entirely and are not processed by this module. All items that enter classification must have sufficient context (`is_low_context == 0`) and will proceed directly to LLM-based evaluation.
 
 ---
 

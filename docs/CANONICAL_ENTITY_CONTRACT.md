@@ -153,12 +153,12 @@ Ownership:
 
 ### 4.6 Classification Result
 
-This entity family represents the initial machine classification outcome.
+This entity family represents the initial machine classification outcome. It is strictly reserved for items that actually enter and complete classify-stage processing (which primarily represents LLM-based classification, but may include future rule-based non-LLM classify-stage classifiers). It must not contain rows for ingest-detected low-context bypasses.
 
 Minimum semantic contents:
 
 - stable link to the classified source item
-- topic class
+- topic class (one of 'core', 'adjacent', 'irrelevant', or a true machine-reasoned 'unknown')
 - confidence
 - rationale or reason
 - structured descriptive signals (such as content density, text quality, language, and official involvement)
@@ -169,6 +169,10 @@ Ownership:
 
 - written by `classify`
 - readable by `curate`
+
+Important rule:
+
+- low-context items remain observable through ingest-owned text-quality signals and do not generate `Classification Result` entities.
 
 ### 4.7 Curation Decision
 
@@ -276,13 +280,14 @@ The top-level canonical model recognizes four non-interchangeable content repres
 
 Boundary rules:
 
-- `classify` reads sanitized working text, not raw retained evidence by default
+- `classify` reads sanitized working text, not raw retained evidence by default, and excludes items flagged as low-context
 - `curate` may inspect sanitized working text by default and raw retained evidence only when needed
 - `translate` reads approved content records (`approved_content_record`), and writes translation outputs
 - `publish` reads completed translation outputs together with upstream editorial eligibility state
 - `site` reads publish-layer outputs only
 - cleanup of raw retained evidence must not invalidate the source item record or sanitized working text record
 - `analysis` outputs are derived reporting artifacts, not canonical entity families
+- low-context items do not generate `Classification Result` entities and are bypassed before classify-stage processing
 
 ---
 

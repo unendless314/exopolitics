@@ -37,12 +37,14 @@ These are different lifecycle stages, not interchangeable copies of the same fie
 raw feed item
   -> normalized ingest item
   -> sanitized working text
-  -> classification result
-  -> curation decision (approved)
-  -> approved content record (finalized mother-draft)
-  -> translation output (completed translated records)
-  -> publish export
-  -> site rendering
+  -> [conditional boundary]
+       |-- is_low_context = 1 -> stop before classify
+       |-- is_low_context = 0 -> classification result
+            -> curation decision (approved)
+            -> approved content record (finalized mother-draft)
+            -> translation output (completed translated records)
+            -> publish export
+            -> site rendering
 ```
 
 Read-only Side-output:
@@ -149,7 +151,7 @@ Classification produces:
 ### 6.3 Failure Semantics
 
 - classification failure should not destroy the ingest record
-- low-context items may resolve to `unknown`
+- low-context items do not generate canonical classification rows and terminate before classify
 - workflow retry policy belongs to classify, not ingest
 
 ---
@@ -259,6 +261,7 @@ That means:
 - approved content handoff is assembled from finalized curation approvals or finalized edited drafts before downstream processing
 - translation pulls data from `approved_content_record` rather than accepting direct upstream writes into translation-owned storage
 - publish exports only consume completed translation records of actively approved items, and synchronize removals when items are withdrawn
+- low-context items terminate inside ingest and do not generate downstream classification records
 
 ---
 

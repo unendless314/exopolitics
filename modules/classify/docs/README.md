@@ -17,7 +17,7 @@ The module reads `source_item` rows that have been successfully ingested but lac
 ### Core Architectural Separation (Post-Rewrite)
 In this rewrite, `classify` is decoupled from text cleanup and raw data parsing:
 * **Inputs:** `classify` strictly consumes the **sanitized working text** (`source_item_text` table) produced by the `ingest` module. It does not parse raw HTML, RSS summaries, or raw feeds.
-* **Low-Context Handling (Current Default MVP Strategy):** To save API costs and prevent hallucinations, `classify` by default bypasses the LLM for items already flagged as low-context by `ingest` (using `source_item_text.is_low_context`), writing a deterministic `unknown` classification record with all descriptors set to `NULL` instead. This is a configurable strategy rather than a hardbound architectural limitation.
+* **Low-Context Filtering:** `classify` excludes all low-context items (flagged with `is_low_context = 1` by `ingest`) at queue-selection time. It does not run LLM evaluation or write placeholder records for these items.
 
 ### Downstream Consumption
 * **Downstream Consumer:** The direct consumer of classification results is the **`curate`** module. 
@@ -27,9 +27,8 @@ In this rewrite, `classify` is decoupled from text cleanup and raw data parsing:
 
 ## 2. Key Responsibilities
 
-1. **Pending Queue Selection:** Identify unclassified items using a joined query between `source_item` and `source_item_text` where no `classification_result` exists.
-2. **Deterministic Pre-Checks (MVP Default):** Automatically mark items with `is_low_context = 1` as `unknown` (and descriptors as `NULL`) to save LLM cost.
-3. **LLM Classification:** Submit sanitized text to the LLM to categorize items into `core`, `adjacent`, `irrelevant`, or `unknown`.
+1. **Pending Queue Selection:** Identify unclassified items using a joined query between `source_item` and `source_item_text` where no `classification_result` exists and `is_low_context = 0`.
+2. **LLM Classification:** Submit sanitized text to the LLM to categorize items into `core`, `adjacent`, `irrelevant`, or `unknown`.
 4. **Descriptive Tagging:** Generate structured descriptive signals (content density, text quality, language, and official involvement) and an optional experimental JSON metadata signal to support downstream curation triage.
 5. **Persistence:** Write structured classification outcomes back to `classification_result` in the canonical database.
 

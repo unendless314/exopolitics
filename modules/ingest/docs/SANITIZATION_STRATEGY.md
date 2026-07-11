@@ -186,9 +186,10 @@ Important rule:
 ### 8.4 Scope Boundary
 
 - low-context means the cleaned text may be insufficient for stable downstream interpretation
-- low-context does not mean the item should be dropped automatically
-- low-context does not mean sanitization failed technically
+- low-context does not mean the item should be dropped automatically; it remains stored as a valid ingested record
+- low-context does not mean sanitization failed technically; sanitization failures (engineering/extraction errors) are anomalies and must not be re-labeled as low-context
 - low-context does not mean `ingest` should make a classification judgment
+- low-context items are excluded from the classify pending queue in the current operational pipeline, meaning they stop before classify-stage processing
 
 ---
 

@@ -12,15 +12,15 @@ The `analysis` module queries `data/canonical.db` to calculate metrics. It is st
 
 | Table Name | Required Columns | Purpose / Used in Metrics |
 | :--- | :--- | :--- |
-| `fetch_run` | `fetch_run_id`, `started_at`, `run_scope`, `trigger_type` | Run Success Rate |
+| `fetch_run` | `fetch_run_id`, `started_at`, `run_scope`, `trigger_type`, `attempted_source_count`, `succeeded_source_count`, `failed_source_count` | Run Success Rate |
 | `fetch_attempt` | `fetch_attempt_id`, `fetch_run_id`, `source_id`, `started_at`, `ended_at`, `outcome`, `error_class`, `http_status` | Fetch Success Rate, Error Categorization, Fetch Execution Latency |
 | `source_state` | `source_id`, `health_status`, `consecutive_failures`, `last_http_status`, `last_error_class` | Rolling Source Health Snapshot |
 | `source_item` | `source_item_id`, `source_id`, `fetched_at`, `published_at`, `ingest_dedup_key` | Ingest Volume, Cohort definition, Feed Freshness Delay |
 | `source_item_text` | `source_item_id`, `sanitized_text_length`, `is_low_context`, `low_context_reason` | Low-Context Bypass Rate, Workload Volume Proxies, Low-Context Reason Distribution |
 | `classification_result` | `source_item_id`, `classified_at`, `topic_class`, `content_density`, `additional_signals` | Relevance Rate, Content Density Distribution, Classification Delay |
-| `curation_decision` | `source_item_id`, `curated_at`, `decision_actor`, `downstream_action` | Curation Approval Rate, Curation Rejection Mix, Curation Delay |
+| `curation_decision` | `source_item_id`, `curated_at`, `decision_actor`, `downstream_action`, `curate_status` | Curation Approval Rate, Curation Rejection Mix, Curation Delay |
 | `approved_content_record` | `parent_content_id`, `source_item_id`, `approved_at`, `display_title`, `content_body`, `content_language_code` | Overall Yield, Translation Completion Rate, Workload Proxies |
-| `translation_output` | `translation_output_id`, `parent_content_id`, `language_code`, `translation_status`, `model_name`, `translated_at`, `updated_at`, `display_title`, `content` | Translation Success Rate, Translation Delay, Workload Proxies |
+| `translation_output` | `translation_output_id`, `parent_content_id`, `source_item_id`, `language_code`, `translation_status`, `model_name`, `translated_at`, `updated_at`, `display_title`, `content` | Translation Success Rate, Translation Delay, Workload Proxies |
 | `publish_record` | `publish_record_id`, `source_item_id`, `first_published_at`, `slug` | Publish Count, Pipeline Lead Time |
 | `publish_language_status` | `publish_record_id`, `language_code`, `publish_status`, `published_at` | Publish Delay, Language Coverage Rate |
 

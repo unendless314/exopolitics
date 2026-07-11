@@ -127,7 +127,7 @@ Owns:
 
 Owns:
 
-- pending item selection
+- pending item selection (excluding low-context items)
 - initial topic classification
 - confidence and rationale persistence
 - generating descriptive signals (descriptors) for downstream curation triage

@@ -26,14 +26,14 @@ The design is constrained as follows:
 | `source_item_id` | `INTEGER` | `NOT NULL UNIQUE` | Foreign key referencing `source_item(source_item_id) ON DELETE CASCADE`. |
 | `topic_class` | `TEXT` | `NOT NULL` | One of `'core'`, `'adjacent'`, `'irrelevant'`, `'unknown'`. |
 | `classification_reason` | `TEXT` | `NULL` | Concise human-readable explanation behind the classification choice. |
-| `classification_confidence` | `REAL` | `NULL` | Confidence score (`0.0` to `1.0`). `NULL` for deterministic classifications. |
-| `content_density` | `TEXT` | `NULL` | Information density: `'low'`, `'medium'`, `'high'`. `NULL` when low-context bypass is triggered. |
-| `source_text_quality` | `TEXT` | `NULL` | Coherence and readability: `'poor'`, `'usable'`, `'strong'`. `NULL` when low-context bypass is triggered. |
-| `primary_language_code` | `TEXT` | `NULL` | Detected primary language (e.g., `'en'`, `'es'`). `NULL` when low-context bypass is triggered. |
-| `governmental_involvement` | `INTEGER` | `NULL` | Flag (`0` or `1`) indicating government or military involvement. `NULL` when low-context bypass is triggered. |
+| `classification_confidence` | `REAL` | `NULL` | Confidence score (`0.0` to `1.0`). |
+| `content_density` | `TEXT` | `NULL` | Information density: `'low'`, `'medium'`, `'high'`. |
+| `source_text_quality` | `TEXT` | `NULL` | Coherence and readability: `'poor'`, `'usable'`, `'strong'`. |
+| `primary_language_code` | `TEXT` | `NULL` | Detected primary language (e.g., `'en'`, `'es'`). |
+| `governmental_involvement` | `INTEGER` | `NULL` | Flag (`0` or `1`) indicating government or military involvement. |
 | `additional_signals` | `TEXT` | `NULL` | JSON string containing experimental, non-contract signals. |
-| `model_name` | `TEXT` | `NOT NULL` | LLM model name or `'deterministic-low-context'`. |
-| `prompt_version` | `TEXT` | `NOT NULL` | Prompt template version or deterministic rule label. |
+| `model_name` | `TEXT` | `NOT NULL` | LLM model name. |
+| `prompt_version` | `TEXT` | `NOT NULL` | Prompt template version. |
 | `classified_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SSZ`). |
 | `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SSZ`). |
 
@@ -81,16 +81,15 @@ The `classify` queue identifies items that have been ingested and sanitized, but
 SELECT 
     s.source_item_id, 
     s.title, 
-    t.sanitized_text, 
-    t.is_low_context,
-    t.low_context_reason
+    t.sanitized_text
 FROM source_item s
 JOIN source_item_text t ON s.source_item_id = t.source_item_id
 LEFT JOIN classification_result c ON s.source_item_id = c.source_item_id
 WHERE s.ingest_status = 'ingested'
+  AND t.is_low_context = 0
   AND c.classification_result_id IS NULL;
 ```
 
 ### Benefits of the New Join
 * **Guaranteed Sanitization:** By performing an `INNER JOIN` on `source_item_text`, we ensure we never attempt to classify items that have not yet had their text sanitized.
-* **Separation of Concerns:** We load `is_low_context` directly, allowing the execution pipeline to route deterministic classifications instantly.
+* **Separation of Concerns:** We filter out `is_low_context = 1` items using the `source_item_text` table directly, allowing the database query to exclude low-context bypasses from entering the classify queue.
