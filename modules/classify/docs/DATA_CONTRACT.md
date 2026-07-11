@@ -86,10 +86,10 @@ FROM source_item s
 JOIN source_item_text t ON s.source_item_id = t.source_item_id
 LEFT JOIN classification_result c ON s.source_item_id = c.source_item_id
 WHERE s.ingest_status = 'ingested'
-  AND t.is_low_context = 0
+  AND t.text_processing_status = 'completed'
   AND c.classification_result_id IS NULL;
 ```
 
 ### Benefits of the New Join
 * **Guaranteed Sanitization:** By performing an `INNER JOIN` on `source_item_text`, we ensure we never attempt to classify items that have not yet had their text sanitized.
-* **Separation of Concerns:** We filter out `is_low_context = 1` items using the `source_item_text` table directly, allowing the database query to exclude low-context bypasses from entering the classify queue.
+* **Separation of Concerns:** We filter on `text_processing_status = 'completed'` using the `source_item_text` table directly, allowing the database query to exclude both low-context and failed text-processing outcomes from entering the classify queue.

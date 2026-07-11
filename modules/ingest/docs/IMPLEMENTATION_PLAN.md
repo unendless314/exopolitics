@@ -68,7 +68,7 @@ The first migration must not include:
 - primary keys, foreign-key direction, uniqueness rules, and minimum indexes must follow `STORAGE_SCHEMA.md`
 - first-migration foreign-key delete behavior must follow the first-migration direction in `STORAGE_SCHEMA.md`
 - bounded enum-like values should be constrained where practical in the chosen engine
-- `source_item_text.low_context_reason` must use only the documented reason-code set
+- `source_item_text.text_processing_reason` must use only the documented reason-code set
 - all ingest timestamps must use one consistent UTC-normalized representation
 
 ### 3.5 Execution rules that must be honored

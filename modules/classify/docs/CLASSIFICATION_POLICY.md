@@ -34,7 +34,7 @@ Assigned when the item is too vague, context-poor, or ambiguous to classify. Thi
 
 ## 3. Low-Context Exclusion Policy
 
-`classify` excludes items flagged as low-context during ingestion (items where `source_item_text.is_low_context == 1`). These items bypass the classification queue entirely and are not processed by this module. All items that enter classification must have sufficient context (`is_low_context == 0`) and will proceed directly to LLM-based evaluation.
+`classify` excludes items where `source_item_text.text_processing_status` is not `completed`. This means both `low_context` items (content too sparse for classification) and `failed` items (text-processing pipeline failures) bypass the classification queue entirely and are not processed by this module. All items that enter classification must have `text_processing_status = 'completed'` and will proceed directly to LLM-based evaluation.
 
 ---
 

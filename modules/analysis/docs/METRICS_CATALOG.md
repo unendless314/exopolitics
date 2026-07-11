@@ -81,13 +81,13 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 #### 2.2.1 Low-Context Reason Distribution `[Phase 2 / Catalog]`
 *   **Purpose**: Diagnose the specific causes of low-context bypasses to distinguish between parser/crawler failures (e.g. `missing_body`) and inherent source properties (e.g. `title_only`).
 *   **Window Basis**: `source_item_cohort`
-*   **Formula**: Group count of low-context items (`source_item_text.is_low_context = 1`) by `source_item_text.low_context_reason` where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: Group count of low-context items (`source_item_text.text_processing_status = 'low_context'`) by `source_item_text.text_processing_reason` where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `source_item_text`, `source_item`
-*   **Direct Dimensions**: `source_item_id`, `low_context_reason`
+*   **Direct Dimensions**: `source_item_id`, `text_processing_reason`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 *   **Notes**: 
-    *   This is an auxiliary diagnostic metric. `low_context_reason` is intended for diagnostic interpretation of low-context items and must not be treated as an independent quality score or automated disable trigger.
+    *   This is an auxiliary diagnostic metric. `text_processing_reason` is intended for diagnostic interpretation of low-context items and must not be treated as an independent quality score or automated disable trigger.
     *   Report layers may derive percentages from these grouped counts, but the canonical metric contract is count-based to avoid ambiguity.
 
 ### 2.3 Relevance Rate `[MVP]`
@@ -155,14 +155,14 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 > [!NOTE]
 > **Workload Volume Proxies Comparison & Conceptual Boundaries**:
 > To ensure consistent interpretation of workload across stages, engineers and analysts must respect these conceptual boundaries:
-> 1.  **Classification Character Volume Proxy** = Representing the **classify stage input volume** (all raw feeds after passing basic low-context checks, i.e., `is_low_context = 0`).
+> 1.  **Classification Character Volume Proxy** = Representing the **classify stage input volume** (all raw feeds after passing basic low-context checks, i.e., `text_processing_status = 'completed'`).
 > 2.  **Curation Character Volume Proxy** = Representing the **curate stage input volume** (only the high-relevance subset of items filtered by the classification stage that reached a curation decision).
 > 3.  **Translation Character Volume Proxy** = Representing the downstream **translation workload**, which is conceptually different from the ingest-text proxies because it is calculated using the finalized, edited, and approved mother-draft text (`approved_content_record`) rather than the sanitized ingest text (`source_item_text`).
 
 #### 3.1.1 Classification Character Volume Proxy `[MVP]`
 *   **Purpose**: Track raw classification workload.
 *   **Window Basis**: `source_item_cohort`
-*   **Formula**: Sum of `length(source_item.title) + source_item_text.sanitized_text_length` where `source_item.fetched_at` is within the lookback window and `source_item_text.is_low_context = 0`.
+*   **Formula**: Sum of `length(source_item.title) + source_item_text.sanitized_text_length` where `source_item.fetched_at` is within the lookback window and `source_item_text.text_processing_status = 'completed'`.
 *   **Data Source**: `source_item`, `source_item_text`
 *   **Direct Dimensions**: `source_item_id`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)

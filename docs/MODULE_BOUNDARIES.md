@@ -38,7 +38,7 @@ Owns:
 - normalized source item persistence
 - raw input capture policy
 - sanitized working text generation
-- low-context detection as part of sanitization output
+- text-processing outcome classification (completed, low_context, failed) as part of sanitization output
 - source health and fetch execution records
 
 May read:
@@ -56,7 +56,7 @@ Must not own:
 
 Important boundary:
 
-- `ingest` owns the transformation from raw feed input into sanitized working text and the determination of the `is_low_context` flag
+- `ingest` owns the transformation from raw feed input into sanitized working text and the determination of `text_processing_status`
 - `ingest` must not leave downstream modules guessing whether a field is raw or cleaned
 
 ### 3.2 `classify`
@@ -71,7 +71,7 @@ Owns:
 May read:
 
 - normalized source item metadata
-- sanitized working text (only for items where `is_low_context = 0`)
+- sanitized working text (only for items where `text_processing_status = 'completed'`)
 - source URL and timestamp metadata
 
 Must not own:
@@ -84,8 +84,8 @@ Must not own:
 
 Important boundary:
 
-- `classify` reads sanitized working text and filters out low-context items at queue-selection time
-- `classify` must not create placeholder classification rows for ingest-detected low-context bypass items
+- `classify` reads sanitized working text and filters out non-completed items at queue-selection time using `text_processing_status`
+- `classify` must not create placeholder classification rows for items where `text_processing_status` is `low_context` or `failed`
 - `classify` must not define or propagate downstream mother-draft language semantics.
 
 ### 3.3 `curate`

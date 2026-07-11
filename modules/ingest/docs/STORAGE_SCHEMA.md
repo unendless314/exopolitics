@@ -137,8 +137,8 @@ Logical columns:
 - `sanitization_method`: required, sanitizer profile, pipeline version, or equivalent stable method label
 - `html_detected`: required, boolean-style flag
 - `was_truncated`: required, boolean-style flag
-- `is_low_context`: required, boolean-style flag
-- `low_context_reason`: nullable, compact reason code when low-context is true
+- `text_processing_status`: required, text-processing outcome status (`completed`, `low_context`, or `failed`)
+- `text_processing_reason`: nullable, compact reason code when status is `low_context` or `failed`
 - `raw_text_length`: nullable, measured raw candidate length when available
 - `sanitized_text_length`: required, measured sanitized text length
 - `reduction_ratio`: nullable, derived reduction metric when available
@@ -147,12 +147,12 @@ Logical columns:
 
 Nullability rules:
 
-- `source_item_id`, `sanitized_text`, `sanitization_method`, `html_detected`, `was_truncated`, `is_low_context`, `sanitized_text_length`, `created_at`, and `updated_at` must be non-null
-- `low_context_reason`, `raw_text_length`, and `reduction_ratio` may be null
+- `source_item_id`, `sanitized_text`, `sanitization_method`, `html_detected`, `was_truncated`, `text_processing_status`, `sanitized_text_length`, `created_at`, and `updated_at` must be non-null
+- `text_processing_reason`, `raw_text_length`, and `reduction_ratio` may be null
 
 Reason-code direction:
 
-- prefer stable reason codes such as `missing_body`, `post_cleanup_empty`, `too_short`, `title_only`, `title_heavy`, `template_heavy`, `mostly_links`, or `truncated_to_low_context`
+- prefer stable reason codes as defined in `SANITIZATION_STRATEGY.md` Section 8.3, grouped by `text_processing_status` family
 
 Cardinality direction:
 
@@ -448,7 +448,8 @@ Minimum bounded-value sets for first-migration checks:
 - `fetch_run.trigger_type`: `scheduled`, `manual`, `recovery`
 - `fetch_run.run_status`: `running`, `success`, `partial_failure`, `failed`
 - `fetch_attempt.outcome`: `success`, `failed`
-- `source_item_text.low_context_reason`: nullable, but when present should be limited to the reason-code set defined in `SANITIZATION_STRATEGY.md`
+- `source_item_text.text_processing_status`: `completed`, `low_context`, `failed`
+- `source_item_text.text_processing_reason`: nullable, but when present should be limited to the reason-code set defined in `SANITIZATION_STRATEGY.md`
 
 First-migration scope direction:
 

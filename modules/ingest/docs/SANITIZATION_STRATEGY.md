@@ -147,7 +147,7 @@ Recommended implementation order:
 1. run sanitization
 2. compute simple metrics
 3. apply fixed rules in priority order
-4. set `is_low_context`
+4. set `text_processing_status`
 5. store the first matching reason code
 
 This keeps the initial implementation understandable and testable.
@@ -166,11 +166,18 @@ Simple metrics are enough:
 
 Thresholds should be config or code constants that can be tuned later after observing real data.
 
-### 8.3 Recommended Reason Codes
+### 8.3 Text Processing Outcome Codes
 
-Recommended MVP reason-code set:
+The V2 contract replaces `is_low_context` / `low_context_reason` with `text_processing_status` / `text_processing_reason`.
 
-- `missing_body`
+Allowed `text_processing_status` values:
+
+- `completed`: text extraction and sanitization succeeded, content has sufficient context for classify
+- `low_context`: text extraction and sanitization succeeded, but the result is too sparse for classify
+- `failed`: the text-processing pipeline did not produce a valid result
+
+Allowed `text_processing_reason` values under `low_context`:
+
 - `post_cleanup_empty`
 - `too_short`
 - `title_only`
@@ -179,17 +186,22 @@ Recommended MVP reason-code set:
 - `mostly_links`
 - `truncated_to_low_context`
 
+Allowed `text_processing_reason` values under `failed`:
+
+- `missing_body`
+- `sanitizer_exception`
+
 Important rule:
 
 - prefer compact stable reason codes over free-form prose in storage
 
 ### 8.4 Scope Boundary
 
-- low-context means the cleaned text may be insufficient for stable downstream interpretation
-- low-context does not mean the item should be dropped automatically; it remains stored as a valid ingested record
-- low-context does not mean sanitization failed technically; sanitization failures (engineering/extraction errors) are anomalies and must not be re-labeled as low-context
-- low-context does not mean `ingest` should make a classification judgment
-- low-context items are excluded from the classify pending queue in the current operational pipeline, meaning they stop before classify-stage processing
+- `low_context` means the cleaned text may be insufficient for stable downstream interpretation
+- `low_context` does not mean the item should be dropped automatically; it remains stored as a valid ingested record
+- `failed` means the text-processing pipeline encountered an engineering error; sanitization failures must not be labeled as `low_context`
+- text-processing outcome does not mean `ingest` should make a classification judgment
+- items with `text_processing_status` of `low_context` or `failed` are excluded from the classify pending queue, meaning they stop before classify-stage processing
 
 ---
 
@@ -209,5 +221,5 @@ This strategy does not require:
 
 - `ingest` uses a shared sanitization pipeline by default
 - source-specific behavior should usually be expressed as config overrides
-- low-context and truncation are first-class sanitization outcomes
+- text-processing outcomes (completed, low_context, failed) and truncation are first-class sanitization results
 - sanitization creates a working representation, not publish-ready prose

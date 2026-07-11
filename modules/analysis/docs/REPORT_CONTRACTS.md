@@ -122,11 +122,12 @@ To ensure stable consumption by automated dashboards, any report generated with 
                   },
                   "required": ["quadrant", "analysis_flags"]
                 },
-                "low_context_reason_distribution": {
+                "text_processing_reason_distribution": {
                   "type": "object",
-                  "description": "Optional diagnostic count breakdown for low-context items. Keys may be omitted when a reason does not appear in the current window.",
+                  "description": "Optional diagnostic count breakdown by text_processing_reason. Keys may be omitted when a reason does not appear in the current window. Covers both low_context and failed status families.",
                   "properties": {
                     "missing_body": { "type": "integer" },
+                    "sanitizer_exception": { "type": "integer" },
                     "post_cleanup_empty": { "type": "integer" },
                     "too_short": { "type": "integer" },
                     "title_only": { "type": "integer" },

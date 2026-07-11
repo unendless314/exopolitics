@@ -35,7 +35,7 @@ The following requirements must be followed during implementation:
 - Do not process items that have not yet had their text sanitized (ensure `source_item_text` is populated).
 
 ### 3.3 Active Policy: Low-Context Exclusion (Phase Policy)
-- Exclude items where `source_item_text.is_low_context == 1` from the pending selection queue as defined in [DATA_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md).
+- Exclude items where `source_item_text.text_processing_status != 'completed'` from the pending selection queue as defined in [DATA_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md).
 - Do not perform deterministic bypasses or write placeholder rows in the database. All items entering `classify` must proceed to LLM classification.
 
 ### 3.4 Prompting & Schema Enforcement (Contract-Locked)
@@ -136,7 +136,7 @@ Build prompt constructors, integrate the LLM HTTP client, and parse structured J
 Assemble the pipeline execution loop, enforcing concurrency, rate-limits, and routing policies.
 
 * **Story 1: Low-Context Queue Filtering**
-  * **Task 1.1:** Update pending query to filter out `is_low_context = 1` items (no classify-side routing/writing is required).
+  * **Task 1.1:** Update pending query to filter on `text_processing_status = 'completed'` (no classify-side routing/writing is required).
 * **Story 2: Orchestration Loop**
   * **Task 2.1:** Implement batching query fetching up to `batch_size` items.
   * **Task 2.2:** Use `asyncio.Semaphore` to cap concurrent requests at `max_concurrent_requests`.
