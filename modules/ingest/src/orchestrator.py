@@ -267,6 +267,7 @@ async def orchestrate_source(
                     # Establish savepoint boundary for individual item persistence
                     conn.execute("SAVEPOINT item_tx")
                     item_failure_class = None
+                    persisted = False
                     try:
                         # Insert source item
                         item_id = item_repo.insert({
@@ -297,14 +298,14 @@ async def orchestrate_source(
                                 "sanitization_method": san_result["sanitization_method"],
                                 "html_detected": san_result["html_detected"],
                                 "was_truncated": san_result["was_truncated"],
-                                "is_low_context": san_result["is_low_context"],
-                                "low_context_reason": san_result["low_context_reason"],
+                                "text_processing_status": san_result["text_processing_status"],
+                                "text_processing_reason": san_result["text_processing_reason"],
                                 "raw_text_length": san_result["raw_text_length"],
                                 "sanitized_text_length": san_result["sanitized_text_length"],
                                 "reduction_ratio": san_result["reduction_ratio"]
                             })
 
-                            if san_result["is_low_context"]:
+                            if san_result["text_processing_status"] == "low_context":
                                 low_context_count += 1
 
                             raw_payload = san_result.get("raw_payload", "")
@@ -319,13 +320,12 @@ async def orchestrate_source(
                                 "sanitization_method": "error_fallback",
                                 "html_detected": 0,
                                 "was_truncated": 0,
-                                "is_low_context": 1,
-                                "low_context_reason": "post_cleanup_empty",
+                                "text_processing_status": "failed",
+                                "text_processing_reason": "sanitizer_exception",
                                 "raw_text_length": 0,
                                 "sanitized_text_length": 0,
                                 "reduction_ratio": 0.0
                             })
-                            low_context_count += 1
                             raw_payload = ""
 
                         # Raw retention policy
@@ -342,7 +342,7 @@ async def orchestrate_source(
 
                         # Commit the savepoint changes for this item
                         conn.execute("RELEASE item_tx")
-                        new_item_count += 1
+                        persisted = True
 
                     except Exception as item_err:
                         logger.error(f"Failed to persist item in source {source.id}: {item_err}")
@@ -351,12 +351,15 @@ async def orchestrate_source(
                             conn.execute("RELEASE item_tx")
                         except Exception as tx_err:
                             logger.error(f"Failed to rollback savepoint: {tx_err}")
-                        
-                        # Categorize failure
-                        if item_failure_class == "sanitization":
-                            sanitization_failure_count += 1
-                        else:
-                            normalization_failure_count += 1
+
+                    # Update counts and metrics in one place
+                    if item_failure_class == "sanitization":
+                        sanitization_failure_count += 1
+                    elif not persisted:
+                        normalization_failure_count += 1
+
+                    if persisted:
+                        new_item_count += 1
 
                 # Update source state health and fetch attempt records
                 state_repo.upsert(

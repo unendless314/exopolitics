@@ -57,33 +57,33 @@ class TestSanitizer(unittest.TestCase):
     def test_low_context_missing_body(self) -> None:
         entry = {}
         res = sanitize_item(entry, "My Title", self.default_profile)
-        self.assertTrue(res["is_low_context"])
-        self.assertEqual(res["low_context_reason"], "missing_body")
+        self.assertEqual(res["text_processing_status"], "failed")
+        self.assertEqual(res["text_processing_reason"], "missing_body")
 
     def test_low_context_post_cleanup_empty(self) -> None:
         entry = {"summary": "<script>var a = 1;</script>"}
         res = sanitize_item(entry, "My Title", self.default_profile)
-        self.assertTrue(res["is_low_context"])
-        self.assertEqual(res["low_context_reason"], "post_cleanup_empty")
+        self.assertEqual(res["text_processing_status"], "low_context")
+        self.assertEqual(res["text_processing_reason"], "post_cleanup_empty")
 
     def test_low_context_title_only(self) -> None:
         entry = {"summary": "  My Title  "}
         res = sanitize_item(entry, "My Title", self.default_profile)
-        self.assertTrue(res["is_low_context"])
-        self.assertEqual(res["low_context_reason"], "title_only")
+        self.assertEqual(res["text_processing_status"], "low_context")
+        self.assertEqual(res["text_processing_reason"], "title_only")
 
     def test_low_context_too_short(self) -> None:
         entry = {"summary": "Too short body text."} # len = 20 < 100
         res = sanitize_item(entry, "My Title", self.default_profile)
-        self.assertTrue(res["is_low_context"])
-        self.assertEqual(res["low_context_reason"], "too_short")
+        self.assertEqual(res["text_processing_status"], "low_context")
+        self.assertEqual(res["text_processing_reason"], "too_short")
 
     def test_low_context_title_heavy(self) -> None:
         # Title is 8 chars. Total text is 20 chars. Removing title leaves 12 chars (< 40)
         entry = {"summary": "My Title and some text"}
         res = sanitize_item(entry, "My Title", self.default_profile)
-        self.assertTrue(res["is_low_context"])
-        self.assertEqual(res["low_context_reason"], "title_heavy")
+        self.assertEqual(res["text_processing_status"], "low_context")
+        self.assertEqual(res["text_processing_reason"], "title_heavy")
 
     def test_low_context_mostly_links(self) -> None:
         # HTML with 80% link text
@@ -91,8 +91,8 @@ class TestSanitizer(unittest.TestCase):
             "summary": "<a href='1'>Link Text 1</a> <a href='2'>Link Text 2</a> <a href='3'>Link Text 3</a> <a href='4'>Link Text 4</a> Plain"
         }
         res = sanitize_item(entry, "My Title", self.default_profile)
-        self.assertTrue(res["is_low_context"])
-        self.assertEqual(res["low_context_reason"], "mostly_links")
+        self.assertEqual(res["text_processing_status"], "low_context")
+        self.assertEqual(res["text_processing_reason"], "mostly_links")
 
     def test_low_context_template_heavy(self) -> None:
         # Contains multiple boilerplate phrases
@@ -100,8 +100,8 @@ class TestSanitizer(unittest.TestCase):
             "summary": "This is a body of text that is long enough to pass the length check, but contains read more, click here, and follow us on which makes it template heavy."
         }
         res = sanitize_item(entry, "My Title", self.default_profile)
-        self.assertTrue(res["is_low_context"])
-        self.assertEqual(res["low_context_reason"], "template_heavy")
+        self.assertEqual(res["text_processing_status"], "low_context")
+        self.assertEqual(res["text_processing_reason"], "template_heavy")
 
 if __name__ == "__main__":
     unittest.main()

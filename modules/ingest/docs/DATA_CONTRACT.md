@@ -92,7 +92,7 @@ Minimum logical fields:
 - raw text length when measurable
 - sanitized text length
 - reduction ratio or equivalent metric when measurable
-- low-context signal when cleaning leaves too little usable text
+- text-processing status (`completed`, `low_context`, `failed`) and reason when applicable
 - created timestamp
 
 Important rule:

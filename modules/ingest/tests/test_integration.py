@@ -161,11 +161,11 @@ sources:
             texts = cursor.fetchall()
             self.assertEqual(len(texts), 2)
             # Article 1 text should not be low-context
-            self.assertEqual(texts[0]["is_low_context"], 0)
+            self.assertEqual(texts[0]["text_processing_status"], "completed")
             self.assertEqual(texts[0]["sanitized_text"], "This is a sufficiently long description that should pass the minimum length check for the test. It contains more than one hundred characters of text in total.")
             # Article 2 text should be low-context (too_short)
-            self.assertEqual(texts[1]["is_low_context"], 1)
-            self.assertEqual(texts[1]["low_context_reason"], "too_short")
+            self.assertEqual(texts[1]["text_processing_status"], "low_context")
+            self.assertEqual(texts[1]["text_processing_reason"], "too_short")
 
             # Check source_item_raw
             cursor.execute("SELECT * FROM source_item_raw")
@@ -303,6 +303,109 @@ sources:
         conn = get_connection(self.db_path)
         try:
             cursor = conn.cursor()
+            cursor.execute("SELECT sanitization_failure_count, normalization_failure_count FROM fetch_attempt")
+            attempt = cursor.fetchone()
+            self.assertEqual(attempt["sanitization_failure_count"], 1)
+            self.assertEqual(attempt["normalization_failure_count"], 0)
+        finally:
+            conn.close()
+
+    @patch("modules.ingest.src.orchestrator.fetch_feed")
+    def test_missing_body_is_not_counted_as_sanitization_failure(self, mock_fetch) -> None:
+        mock_fetch.return_value = FetchResult(
+            status_code=200,
+            content=MOCK_FEED_XML,
+            etag="etag-123",
+            last_modified="Tue, 02 Jun 2026 12:00:00 GMT",
+            error_class=None,
+            error_detail=None,
+            retry_count=0
+        )
+
+        run_migrations(self.db_path, self.migrations_dir)
+        config, errors, warnings = validate_and_load_config(self.config_dir)
+
+        def mock_sanitize_item(entry, normalized_title, profile, method_label="bs4_default"):
+            if normalized_title == "Article 2":
+                return {
+                    "sanitized_text": "",
+                    "html_detected": False,
+                    "was_truncated": False,
+                    "text_processing_status": "failed",
+                    "text_processing_reason": "missing_body",
+                    "raw_text_length": 0,
+                    "sanitized_text_length": 0,
+                    "reduction_ratio": 0.0,
+                    "sanitization_method": method_label,
+                    "raw_payload": ""
+                }
+            return sanitizer.sanitize_item(entry, normalized_title, profile, method_label)
+
+        with patch("modules.ingest.src.orchestrator.sanitize_item", side_effect=mock_sanitize_item):
+            summary = asyncio.run(orchestrate_run(
+                config=config,
+                db_path=self.db_path,
+                trigger_type="manual",
+                force=True
+            ))
+
+        self.assertEqual(summary.run_status, "success")
+        self.assertEqual(summary.new_item_count, 2)
+
+        conn = get_connection(self.db_path)
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT text_processing_status, text_processing_reason FROM source_item_text ORDER BY source_item_id ASC")
+            texts = cursor.fetchall()
+            self.assertEqual(texts[1]["text_processing_status"], "failed")
+            self.assertEqual(texts[1]["text_processing_reason"], "missing_body")
+
+            cursor.execute("SELECT sanitization_failure_count, normalization_failure_count FROM fetch_attempt")
+            attempt = cursor.fetchone()
+            self.assertEqual(attempt["sanitization_failure_count"], 0)
+            self.assertEqual(attempt["normalization_failure_count"], 0)
+        finally:
+            conn.close()
+
+    @patch("modules.ingest.src.orchestrator.fetch_feed")
+    def test_sanitization_failure_counted_when_fallback_insert_succeeds(self, mock_fetch) -> None:
+        mock_fetch.return_value = FetchResult(
+            status_code=200,
+            content=MOCK_FEED_XML,
+            etag="etag-123",
+            last_modified="Tue, 02 Jun 2026 12:00:00 GMT",
+            error_class=None,
+            error_detail=None,
+            retry_count=0
+        )
+
+        run_migrations(self.db_path, self.migrations_dir)
+        config, errors, warnings = validate_and_load_config(self.config_dir)
+
+        def mock_sanitize_item(entry, normalized_title, profile, method_label="bs4_default"):
+            if normalized_title == "Article 2":
+                raise ValueError("mock sanitization failure")
+            return sanitizer.sanitize_item(entry, normalized_title, profile, method_label)
+
+        with patch("modules.ingest.src.orchestrator.sanitize_item", side_effect=mock_sanitize_item):
+            summary = asyncio.run(orchestrate_run(
+                config=config,
+                db_path=self.db_path,
+                trigger_type="manual",
+                force=True
+            ))
+
+        self.assertEqual(summary.run_status, "success")
+        self.assertEqual(summary.new_item_count, 2)
+
+        conn = get_connection(self.db_path)
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT text_processing_status, text_processing_reason FROM source_item_text ORDER BY source_item_id ASC")
+            texts = cursor.fetchall()
+            self.assertEqual(texts[1]["text_processing_status"], "failed")
+            self.assertEqual(texts[1]["text_processing_reason"], "sanitizer_exception")
+
             cursor.execute("SELECT sanitization_failure_count, normalization_failure_count FROM fetch_attempt")
             attempt = cursor.fetchone()
             self.assertEqual(attempt["sanitization_failure_count"], 1)

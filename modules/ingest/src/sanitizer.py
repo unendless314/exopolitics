@@ -84,12 +84,13 @@ def sanitize_item(
             "sanitized_text": "",
             "html_detected": False,
             "was_truncated": False,
-            "is_low_context": True,
-            "low_context_reason": "missing_body",
+            "text_processing_status": "failed",
+            "text_processing_reason": "missing_body",
             "raw_text_length": 0,
             "sanitized_text_length": 0,
             "reduction_ratio": 0.0,
-            "sanitization_method": method_label
+            "sanitization_method": method_label,
+            "raw_payload": ""
         }
 
     raw_len = len(raw_payload)
@@ -182,48 +183,48 @@ def sanitize_item(
         reduction_ratio = float(sanitized_len) / float(raw_len)
 
     # Low-context checks
-    is_low_context = False
-    low_context_reason = None
+    text_processing_status = "completed"
+    text_processing_reason = None
 
     trimmed_title = normalized_title.strip().lower()
     trimmed_sanitized = sanitized_text.lower()
 
     # 1. Post cleanup empty
     if not sanitized_text:
-        is_low_context = True
-        low_context_reason = "post_cleanup_empty"
+        text_processing_status = "low_context"
+        text_processing_reason = "post_cleanup_empty"
 
     # 2. Title only (exact match)
     elif trimmed_sanitized == trimmed_title:
-        is_low_context = True
-        low_context_reason = "title_only"
+        text_processing_status = "low_context"
+        text_processing_reason = "title_only"
 
     # 3. Title heavy (sanitized text is dominated by the title)
     elif trimmed_title in trimmed_sanitized and len(trimmed_sanitized.replace(trimmed_title, "").strip()) < MAX_TITLE_OVERLAP_REMAINING:
-        is_low_context = True
-        low_context_reason = "title_heavy"
+        text_processing_status = "low_context"
+        text_processing_reason = "title_heavy"
 
     # 4. Mostly links
     elif original_text_len > 0 and (float(link_text_len) / float(original_text_len)) > 0.7:
-        is_low_context = True
-        low_context_reason = "mostly_links"
+        text_processing_status = "low_context"
+        text_processing_reason = "mostly_links"
 
     # 5. Template heavy (boilerplate keywords)
     elif any(kw in trimmed_sanitized for kw in BOILERPLATE_KEYWORDS) and sum(1 for kw in BOILERPLATE_KEYWORDS if kw in trimmed_sanitized) >= BOILERPLATE_THRESHOLD:
-        is_low_context = True
-        low_context_reason = "template_heavy"
+        text_processing_status = "low_context"
+        text_processing_reason = "template_heavy"
 
     # 6. Too short (generic fallback length check)
     elif sanitized_len < MIN_TEXT_LENGTH:
-        is_low_context = True
-        low_context_reason = "truncated_to_low_context" if was_truncated else "too_short"
+        text_processing_status = "low_context"
+        text_processing_reason = "truncated_to_low_context" if was_truncated else "too_short"
 
     return {
         "sanitized_text": sanitized_text,
         "html_detected": html_detected,
         "was_truncated": was_truncated,
-        "is_low_context": is_low_context,
-        "low_context_reason": low_context_reason,
+        "text_processing_status": text_processing_status,
+        "text_processing_reason": text_processing_reason,
         "raw_text_length": raw_len,
         "sanitized_text_length": sanitized_len,
         "reduction_ratio": reduction_ratio,

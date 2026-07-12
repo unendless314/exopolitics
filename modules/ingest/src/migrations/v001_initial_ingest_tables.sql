@@ -81,10 +81,11 @@ CREATE TABLE IF NOT EXISTS source_item_text (
     sanitization_method TEXT NOT NULL,
     html_detected INTEGER NOT NULL CHECK (html_detected IN (0, 1)),
     was_truncated INTEGER NOT NULL CHECK (was_truncated IN (0, 1)),
-    is_low_context INTEGER NOT NULL CHECK (is_low_context IN (0, 1)),
-    low_context_reason TEXT CHECK (low_context_reason IS NULL OR low_context_reason IN (
-        'missing_body', 'post_cleanup_empty', 'too_short', 'title_only', 
-        'title_heavy', 'template_heavy', 'mostly_links', 'truncated_to_low_context'
+    text_processing_status TEXT NOT NULL CHECK (text_processing_status IN ('completed', 'low_context', 'failed')),
+    text_processing_reason TEXT CHECK (text_processing_reason IS NULL OR text_processing_reason IN (
+        'post_cleanup_empty', 'too_short', 'title_only', 'title_heavy', 
+        'template_heavy', 'mostly_links', 'truncated_to_low_context', 
+        'missing_body', 'sanitizer_exception'
     )),
     raw_text_length INTEGER,
     sanitized_text_length INTEGER NOT NULL,

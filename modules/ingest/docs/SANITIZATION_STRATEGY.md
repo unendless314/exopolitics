@@ -106,7 +106,8 @@ Sanitization must produce:
 - reduction ratio or equivalent metric when measurable
 - HTML detected flag
 - truncation flag
-- low-context flag
+- text-processing status
+- text-processing reason (nullable)
 - sanitization method or version
 
 The sanitized output must be clearly distinct from raw retained payloads in storage and downstream contracts.
@@ -127,8 +128,8 @@ MVP direction:
 
 `ingest` may persist:
 
-- low-context flag
-- low-context reason code when practical
+- text-processing status
+- text-processing reason when status is low_context or failed
 
 `ingest` must not turn that into a classification decision.
 

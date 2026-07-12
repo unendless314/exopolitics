@@ -279,12 +279,12 @@ class SourceItemTextRepository:
         cursor.execute("""
             INSERT INTO source_item_text (
                 source_item_id, sanitized_text, sanitization_method,
-                html_detected, was_truncated, is_low_context, low_context_reason,
+                html_detected, was_truncated, text_processing_status, text_processing_reason,
                 raw_text_length, sanitized_text_length, reduction_ratio,
                 created_at, updated_at
             ) VALUES (
                 :source_item_id, :sanitized_text, :sanitization_method,
-                :html_detected, :was_truncated, :is_low_context, :low_context_reason,
+                :html_detected, :was_truncated, :text_processing_status, :text_processing_reason,
                 :raw_text_length, :sanitized_text_length, :reduction_ratio,
                 :created_at, :updated_at
             )
@@ -294,8 +294,8 @@ class SourceItemTextRepository:
             "sanitization_method": text_data["sanitization_method"],
             "html_detected": 1 if text_data.get("html_detected") else 0,
             "was_truncated": 1 if text_data.get("was_truncated") else 0,
-            "is_low_context": 1 if text_data.get("is_low_context") else 0,
-            "low_context_reason": text_data.get("low_context_reason"),
+            "text_processing_status": text_data["text_processing_status"],
+            "text_processing_reason": text_data.get("text_processing_reason"),
             "raw_text_length": text_data.get("raw_text_length"),
             "sanitized_text_length": text_data["sanitized_text_length"],
             "reduction_ratio": text_data.get("reduction_ratio"),
