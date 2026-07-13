@@ -86,7 +86,7 @@ Classify the topic_class:
 - core: directly relates to UAPs, UFOs, anomalous aerospace phenomena, official military or intelligence sensor cases, congressional hearings/briefings, or government disclosure developments (e.g. AARO, NASA UAP studies).
 - adjacent: does not directly describe a UAP event, but represents relevant neighboring domains of high interest to the UAP community (e.g., ancient astronaut theory, SETI, speculative aerospace tech, government whistleblower legislation, alternative energy research, psionics, cryptids).
 - irrelevant: mundane news lacking any UAP, aerospace, military, sensor, whistleblower, or fringe speculative interest (e.g. general finance, lifestyle, local crime, mainstream sports).
-- unknown: the text is too short, vague, or context-poor to make a classification.
+- unknown: the text is too vague or context-poor to make a classification.
 
 Determine the content_density:
 - low: thin text, contains speculation or conversation without concrete facts, names, or quotes.
@@ -128,7 +128,7 @@ The primary evidence form discussed. Do not judge if the evidence is authentic; 
       8. none
 
 Guidelines:
-- Default topic_class to 'unknown' when the input is too vague or thin to evaluate.
+- Default topic_class to 'unknown' when the input is too vague or ambiguous to evaluate.
 - Focus on objective textual observation rather than editorial value judgments.
 ```
 

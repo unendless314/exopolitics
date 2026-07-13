@@ -8,7 +8,7 @@
 
 ## 1. Purpose
 
-This policy governs how items are categorized and how decisions are routed between deterministic rules and LLM evaluation.
+This policy governs how items are categorized and tagged using LLM evaluation.
 
 ---
 

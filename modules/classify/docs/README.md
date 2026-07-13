@@ -39,7 +39,7 @@ In this rewrite, `classify` is decoupled from text cleanup and raw data parsing:
 * [DATA_CONTRACT.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md)  
   Defines the `classification_result` table schema, index strategy, and pending item query semantics.
 * [CLASSIFICATION_POLICY.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/CLASSIFICATION_POLICY.md)  
-  Defines the classification categories (`core`, `adjacent`, `irrelevant`, `unknown`) and policies for low-context detection and descriptive tagging.
+  Defines the classification categories (`core`, `adjacent`, `irrelevant`, `unknown`) and policies for low-context exclusion and descriptive tagging.
 * [PROMPT_CONTRACT.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/PROMPT_CONTRACT.md)  
   Defines model instruction templates, prompt variables, and JSON response schema guidelines.
 * [EXECUTION_POLICY.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/EXECUTION_POLICY.md)  
@@ -52,7 +52,7 @@ In this rewrite, `classify` is decoupled from text cleanup and raw data parsing:
 * `config/prompt_templates.yaml`  
   Stores the active prompt template registry used by the classify module.
 * `config/model_settings.yaml`  
-  Stores provider selection, request defaults, execution defaults, and deterministic classification metadata.
+  Stores provider selection, request defaults, and execution defaults.
 
 ---
 

@@ -8,13 +8,13 @@
 
 ## 1. Purpose
 
-`classification_result` stores the latest classification outcome for each `source_item`.
+`classification_result` stores the latest classification outcome for each `source_item` that has completed classification (where `text_processing_status = 'completed'`).
 
 The design is constrained as follows:
 * **One-to-One:** Each `source_item` has at most one classification record (`source_item_id` is unique).
 * **Downstream Integration:** The **`curate`** module is the sole direct reader of this table. Downstream modules (like `publish` and `site`) must **not** read this table directly; they consume only curated and approved records.
 * **MVP Version Simplification:** To simplify the database design for the MVP curation queue, we only retain the active/latest classification state per item. If reclassification happens, the existing row is updated or replaced. This is a deliberate MVP trade-off; audit trails of classification drift (due to prompt or model changes) are deferred for simplicity.
-* **Additional Signals Governance:** The `additional_signals` JSON column is strictly reserved for allowlisted experimental metadata (e.g., `content_timeliness` or `geographic_focus`). Downstream consumer modules must not query or depend on any key within `additional_signals` for stable, production workflows. Promoting any experimental key to a stable contract requires a formal schema migration to a dedicated, typed database column.
+* **Additional Signals Governance:** The `additional_signals` JSON column is strictly reserved for allowlisted experimental metadata (e.g., `content_timeliness` or `primary_evidence_type`). Downstream consumer modules must not query or depend on any key within `additional_signals` for stable, production workflows. Promoting any experimental key to a stable contract requires a formal schema migration to a dedicated, typed database column.
 
 ---
 
