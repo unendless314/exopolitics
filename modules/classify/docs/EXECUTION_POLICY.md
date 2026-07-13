@@ -19,6 +19,7 @@ To avoid overloading API limits and database connections, classification runs in
 * **Batch Size:** The maximum number of pending items pulled from the database in a single CLI run (default: `20` items).
 * **Concurrency Limit:** The maximum number of concurrent HTTP requests sent to the LLM provider (default: `3` concurrent requests controlled via `asyncio.Semaphore`).
 * **Rate Limiting:** Maximum model requests per minute (default: `60`).
+* **Queue Selection:** The pending queue query must filter strictly on `t.text_processing_status = 'completed'` (jointly with `s.ingest_status = 'ingested'`). Items with a status of `low_context` or `failed` must be bypassed during item selection and excluded from enter-stage classification processing.
 
 ---
 

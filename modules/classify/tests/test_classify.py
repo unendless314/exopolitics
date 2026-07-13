@@ -6,6 +6,7 @@ import sqlite3
 import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
+from typing import Optional, Any
 import httpx
 
 from modules.classify.src.config import validate_and_load_config, ClassifyConfig
@@ -51,8 +52,8 @@ def create_mock_ingest_tables(db_path: pathlib.Path) -> None:
                 sanitization_method TEXT NOT NULL,
                 html_detected INTEGER NOT NULL CHECK (html_detected IN (0, 1)),
                 was_truncated INTEGER NOT NULL CHECK (was_truncated IN (0, 1)),
-                is_low_context INTEGER NOT NULL CHECK (is_low_context IN (0, 1)),
-                low_context_reason TEXT,
+                text_processing_status TEXT NOT NULL CHECK (text_processing_status IN ('completed', 'low_context', 'failed')),
+                text_processing_reason TEXT,
                 raw_text_length INTEGER,
                 sanitized_text_length INTEGER NOT NULL,
                 reduction_ratio REAL,
@@ -103,9 +104,7 @@ providers:
     api_key_env: MINI_API_KEY
     model_name: gpt-5.4-mini
     supports_structured_output: true
-deterministic_classification:
-  model_name: deterministic-low-context
-  prompt_version: rule_v1
+
 """)
         self.write_templates_yaml("""
 templates:
@@ -141,9 +140,7 @@ providers:
     api_key_env: MINI_API_KEY
     model_name: gpt-5.4-mini
     supports_structured_output: true
-deterministic_classification:
-  model_name: deterministic-low-context
-  prompt_version: rule_v1
+
 """)
         self.write_templates_yaml("""
 templates:
@@ -175,9 +172,7 @@ providers:
     api_type: openai_compatible
     api_key_env: MINI_API_KEY
     model_name: gpt-5.4-mini
-deterministic_classification:
-  model_name: test
-  prompt_version: v1
+
 """)
         self.write_templates_yaml("""
 templates:
@@ -209,9 +204,7 @@ providers:
     api_type: openai_compatible
     api_key_env: MINI_API_KEY
     model_name: gpt-5.4-mini
-deterministic_classification:
-  model_name: test
-  prompt_version: v1
+
 """)
         self.write_templates_yaml("""
 templates:
@@ -292,7 +285,7 @@ class TestDatabaseRepository(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-    def seed_test_item(self, conn, item_id: int, title: str, text: str, is_low: int = 0) -> None:
+    def seed_test_item(self, conn, item_id: int, title: str, text: str, text_processing_status: str = 'completed', text_processing_reason: Optional[str] = None) -> None:
         cursor = conn.cursor()
         # Seed source_item
         cursor.execute("""
@@ -305,9 +298,9 @@ class TestDatabaseRepository(unittest.TestCase):
         cursor.execute("""
             INSERT INTO source_item_text (
                 source_item_id, sanitized_text, sanitization_method, html_detected, was_truncated,
-                is_low_context, sanitized_text_length, created_at, updated_at
-            ) VALUES (?, ?, 'clean_v1', 0, 0, ?, ?, '2026-06-13T21:00:00Z', '2026-06-13T21:00:00Z')
-        """, (item_id, text, is_low, len(text)))
+                text_processing_status, text_processing_reason, sanitized_text_length, created_at, updated_at
+            ) VALUES (?, ?, 'clean_v1', 0, 0, ?, ?, ?, '2026-06-13T21:00:00Z', '2026-06-13T21:00:00Z')
+        """, (item_id, text, text_processing_status, text_processing_reason, len(text)))
         conn.commit()
 
     def test_pending_query_and_upsert(self) -> None:
@@ -315,17 +308,14 @@ class TestDatabaseRepository(unittest.TestCase):
         try:
             repo = ClassificationResultRepository(conn)
 
-            # 1. Seed two items
-            self.seed_test_item(conn, 10, "First Item", "This is working text body.")
-            self.seed_test_item(conn, 20, "Second Item", "Thin", is_low=1)
+            # 1. Seed two items: one completed (pending classification), one low_context (excluded)
+            self.seed_test_item(conn, 10, "First Item", "This is working text body.", text_processing_status='completed')
+            self.seed_test_item(conn, 20, "Second Item", "Thin", text_processing_status='low_context', text_processing_reason='too_short')
 
-            # 2. Get pending items (should find both)
+            # 2. Get pending items (should only find Item 10)
             pending = repo.get_pending_items(limit=5)
-            self.assertEqual(len(pending), 2)
-            
-            item_ids = [item["source_item_id"] for item in pending]
-            self.assertIn(10, item_ids)
-            self.assertIn(20, item_ids)
+            self.assertEqual(len(pending), 1)
+            self.assertEqual(pending[0]["source_item_id"], 10)
 
             # 3. Write classification for item 10
             repo.upsert({
@@ -343,10 +333,9 @@ class TestDatabaseRepository(unittest.TestCase):
             })
             conn.commit()
 
-            # 4. Get pending again (should only find item 20 now)
+            # 4. Get pending again (should find zero now, since 20 is excluded and 10 is classified)
             pending_after = repo.get_pending_items(limit=5)
-            self.assertEqual(len(pending_after), 1)
-            self.assertEqual(pending_after[0]["source_item_id"], 20)
+            self.assertEqual(len(pending_after), 0)
 
             # 5. Test ON CONFLICT DO UPDATE upsert behaviour on item 10
             repo.upsert({
@@ -469,14 +458,12 @@ class TestOrchestrator(unittest.TestCase):
         self.config.request_defaults.top_p = 0.95
         self.config.request_defaults.max_output_tokens = 500
 
-        self.config.deterministic = MagicMock()
-        self.config.deterministic.model_name = "deterministic-low-context"
-        self.config.deterministic.prompt_version = "rule_v1"
+
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-    def seed_test_item(self, item_id: int, title: str, text: str, is_low: int = 0) -> None:
+    def seed_test_item(self, item_id: int, title: str, text: str, text_processing_status: str = 'completed', text_processing_reason: Optional[str] = None) -> None:
         conn = get_connection(self.db_path)
         try:
             cursor = conn.cursor()
@@ -489,9 +476,9 @@ class TestOrchestrator(unittest.TestCase):
             cursor.execute("""
                 INSERT INTO source_item_text (
                     source_item_id, sanitized_text, sanitization_method, html_detected, was_truncated,
-                    is_low_context, sanitized_text_length, created_at, updated_at
-                ) VALUES (?, ?, 'clean_v1', 0, 0, ?, ?, '2026-06-13T21:00:00Z', '2026-06-13T21:00:00Z')
-            """, (item_id, text, is_low, len(text)))
+                    text_processing_status, text_processing_reason, sanitized_text_length, created_at, updated_at
+                ) VALUES (?, ?, 'clean_v1', 0, 0, ?, ?, ?, '2026-06-13T21:00:00Z', '2026-06-13T21:00:00Z')
+            """, (item_id, text, text_processing_status, text_processing_reason, len(text)))
             conn.commit()
         finally:
             conn.close()
@@ -500,8 +487,8 @@ class TestOrchestrator(unittest.TestCase):
     @patch("httpx.AsyncClient.post")
     def test_orchestrate_success_and_bypass(self, mock_post) -> None:
         # Seed two items: one normal, one low-context (bypass)
-        self.seed_test_item(1, "Core UAP Hearing", "Active congressional committee discussed military radar tracks.")
-        self.seed_test_item(2, "Low Context", "Thin text", is_low=1)
+        self.seed_test_item(1, "Core UAP Hearing", "Active congressional committee discussed military radar tracks.", text_processing_status='completed')
+        self.seed_test_item(2, "Low Context", "Thin text", text_processing_status='low_context')
 
         # Mock LLM API Response for item 1
         mock_response = MagicMock()
@@ -532,8 +519,8 @@ class TestOrchestrator(unittest.TestCase):
             batch_size=10
         ))
 
-        self.assertEqual(summary["total_queried"], 2)
-        self.assertEqual(summary["processed_successfully"], 2)
+        self.assertEqual(summary["total_queried"], 1)
+        self.assertEqual(summary["processed_successfully"], 1)
         self.assertEqual(summary["failures"], 0)
 
         # Validate database values
@@ -551,15 +538,10 @@ class TestOrchestrator(unittest.TestCase):
             signals = json.loads(res1["additional_signals"])
             self.assertEqual(signals.get("primary_evidence_type"), "radar_sensor")
 
-            # Check bypassed item (2)
+            # Check that low-context item (2) has no classification result
             cursor.execute("SELECT * FROM classification_result WHERE source_item_id = 2")
             res2 = cursor.fetchone()
-            self.assertIsNotNone(res2)
-            self.assertEqual(res2["topic_class"], "unknown")
-            self.assertEqual(res2["model_name"], "deterministic-low-context")
-            self.assertEqual(res2["prompt_version"], "rule_v1")
-            self.assertIsNone(res2["classification_confidence"])
-            self.assertIsNone(res2["additional_signals"])
+            self.assertIsNone(res2)
         finally:
             conn.close()
 
@@ -583,7 +565,9 @@ class TestOrchestrator(unittest.TestCase):
                         "content_density": "medium",
                         "source_text_quality": "usable",
                         "primary_language_code": "en",
-                        "governmental_involvement": 0
+                        "governmental_involvement": 0,
+                        "content_timeliness": None,
+                        "primary_evidence_type": None
                     })
                 }
             }]
@@ -636,7 +620,9 @@ class TestOrchestrator(unittest.TestCase):
                         "content_density": "medium",
                         "source_text_quality": "strong",
                         "primary_language_code": "en",
-                        "governmental_involvement": 0
+                        "governmental_involvement": 0,
+                        "content_timeliness": None,
+                        "primary_evidence_type": None
                     })
                 }
             }]
@@ -665,8 +651,8 @@ class TestOrchestrator(unittest.TestCase):
             conn.close()
 
     def test_orchestrate_preview_prompts_summary(self) -> None:
-        self.seed_test_item(400, "Preview Case 1", "Content 1.")
-        self.seed_test_item(500, "Preview Case 2", "Content 2.", is_low=1)
+        self.seed_test_item(400, "Preview Case 1", "Content 1.", text_processing_status='completed')
+        self.seed_test_item(500, "Preview Case 2", "Content 2.", text_processing_status='low_context')
 
         summary = asyncio.run(orchestrate_run(
             config=self.config,
@@ -675,9 +661,9 @@ class TestOrchestrator(unittest.TestCase):
             preview_prompts=True
         ))
 
-        self.assertEqual(summary["total_queried"], 2)
+        self.assertEqual(summary["total_queried"], 1)
         self.assertEqual(summary["processed_successfully"], 0)
-        self.assertEqual(summary["previewed"], 2)
+        self.assertEqual(summary["previewed"], 1)
         self.assertEqual(summary["status"], "preview")
 
     @patch.dict(os.environ, {"TEST_API_KEY": "dummy_key"})
@@ -700,7 +686,9 @@ class TestOrchestrator(unittest.TestCase):
                         "content_density": "low",
                         "source_text_quality": "usable",
                         "primary_language_code": "en",
-                        "governmental_involvement": 0
+                        "governmental_involvement": 0,
+                        "content_timeliness": None,
+                        "primary_evidence_type": None
                     })
                 }
             }]
@@ -787,7 +775,9 @@ class TestOrchestrator(unittest.TestCase):
                         "content_density": "low",
                         "source_text_quality": "usable",
                         "primary_language_code": "en",
-                        "governmental_involvement": 0
+                        "governmental_involvement": 0,
+                        "content_timeliness": None,
+                        "primary_evidence_type": None
                     })
                 }
             }]

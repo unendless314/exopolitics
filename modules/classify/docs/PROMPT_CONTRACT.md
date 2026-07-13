@@ -151,6 +151,10 @@ Return a JSON response matching the required schema. Ensure classification_reaso
 
 To support downstream triage research, the orchestrator allowlists specific experimental keys. These keys must **not** be added to the stable schema `required` array, but if returned by the model, they will be captured and saved in `additional_signals`.
 
+> [!NOTE]
+> **OpenAI Strict Mode Compatibility Notice**:
+> Under OpenAI Structured Outputs with `strict: True` enabled, all defined schema properties must technically be placed in the schema's `required` array. To support this API requirement while keeping the fields semantically optional, they are defined as `required-but-nullable` (allowing `null` or `None` values) in the JSON schema sent to the model. However, in the Python-side orchestrator validator, they remain strictly optional and their absence is accepted.
+
 ### Allowed Experimental Key: `content_timeliness`
 *   **Type**: `string`
 *   **Enum**: `["current", "evergreen", "historical", "unclear"]`

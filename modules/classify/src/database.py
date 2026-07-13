@@ -129,13 +129,12 @@ class ClassificationResultRepository:
             SELECT 
                 s.source_item_id, 
                 s.title, 
-                t.sanitized_text, 
-                t.is_low_context,
-                t.low_context_reason
+                t.sanitized_text
             FROM source_item s
             JOIN source_item_text t ON s.source_item_id = t.source_item_id
             LEFT JOIN classification_result c ON s.source_item_id = c.source_item_id
             WHERE s.ingest_status = 'ingested'
+              AND t.text_processing_status = 'completed'
               AND c.classification_result_id IS NULL
             LIMIT ?;
         """

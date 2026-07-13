@@ -51,12 +51,12 @@ JSON_SCHEMA = {
         },
         # Experimental signals allowlisted for sandbox research
         "content_timeliness": {
-            "type": "string",
-            "enum": ["current", "evergreen", "historical", "unclear"]
+            "type": ["string", "null"],
+            "enum": ["current", "evergreen", "historical", "unclear", None]
         },
         "primary_evidence_type": {
-            "type": "string",
-            "enum": ["physical_material", "radar_sensor", "video_photo", "eyewitness", "official_document", "scientific_paper", "media_report", "none"]
+            "type": ["string", "null"],
+            "enum": ["physical_material", "radar_sensor", "video_photo", "eyewitness", "official_document", "scientific_paper", "media_report", "none", None]
         }
     },
     "required": [
@@ -66,8 +66,11 @@ JSON_SCHEMA = {
         "content_density", 
         "source_text_quality", 
         "primary_language_code", 
-        "governmental_involvement"
-    ]
+        "governmental_involvement",
+        "content_timeliness",
+        "primary_evidence_type"
+    ],
+    "additionalProperties": False
 }
 
 PREVIEW_SEPARATOR = "=" * 82
@@ -143,23 +146,29 @@ def _print_preview_items(config: ClassifyConfig, pending_items: list[Any]) -> No
     for idx, item in enumerate(pending_items, 1):
         print(f"[{idx}] Source Item ID: {item['source_item_id']}")
         print(f"    Title: {item['title']}")
-        print(f"    Is Low Context: {item['is_low_context']}")
-        if item["is_low_context"]:
-            print("    Route: Deterministic Bypass")
-        else:
-            messages = _build_messages(
-                config,
-                title=item["title"],
-                sanitized_text=item["sanitized_text"],
-            )
-            print("    Route: LLM Request")
-            print("    ---------------------------------------------------------")
-            print("    System Message:")
-            print(messages["system_instruction"].strip())
-            print("    User Message:")
-            print(messages["user_prompt"].strip())
+        messages = _build_messages(
+            config,
+            title=item["title"],
+            sanitized_text=item["sanitized_text"],
+        )
+        print("    Route: LLM Request")
+        print("    ---------------------------------------------------------")
+        print("    System Message:")
+        print(messages["system_instruction"].strip())
+        print("    User Message:")
+        print(messages["user_prompt"].strip())
         print(PREVIEW_SEPARATOR)
 
+
+REQUIRED_STABLE_FIELDS = [
+    "topic_class", 
+    "classification_confidence", 
+    "classification_reason", 
+    "content_density", 
+    "source_text_quality", 
+    "primary_language_code", 
+    "governmental_involvement"
+]
 
 def validate_classification_response(data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
@@ -168,7 +177,7 @@ def validate_classification_response(data: Dict[str, Any]) -> Tuple[Dict[str, An
     Raises ValueError on contract violation.
     """
     # 1. Check required fields
-    for field in JSON_SCHEMA["required"]:
+    for field in REQUIRED_STABLE_FIELDS:
         if field not in data:
             raise ValueError(f"Missing required response field: {field}")
 
@@ -223,17 +232,17 @@ def validate_classification_response(data: Dict[str, Any]) -> Tuple[Dict[str, An
 
     # Extract allowed experimental signals (filter out any unauthorized fields)
     additional_signals = {}
-    if "content_timeliness" in data:
+    if "content_timeliness" in data and data["content_timeliness"] is not None:
         t_val = data["content_timeliness"]
-        allowed_t = JSON_SCHEMA["properties"]["content_timeliness"]["enum"]
+        allowed_t = ["current", "evergreen", "historical", "unclear"]
         if t_val in allowed_t:
             additional_signals["content_timeliness"] = t_val
         else:
             raise ValueError(f"Invalid content_timeliness '{t_val}', must be one of {allowed_t}")
 
-    if "primary_evidence_type" in data:
+    if "primary_evidence_type" in data and data["primary_evidence_type"] is not None:
         e_val = data["primary_evidence_type"]
-        allowed_e = JSON_SCHEMA["properties"]["primary_evidence_type"]["enum"]
+        allowed_e = ["physical_material", "radar_sensor", "video_photo", "eyewitness", "official_document", "scientific_paper", "media_report", "none"]
         if e_val in allowed_e:
             additional_signals["primary_evidence_type"] = e_val
         else:
@@ -316,55 +325,37 @@ async def classify_item(
     item_id: int,
     title: str,
     sanitized_text: str,
-    is_low_context: bool,
-    low_context_reason: Optional[str],
     api_key: str,
     db_lock: asyncio.Lock,
     commit: bool = True
 ) -> bool:
     """
-    Processes a single item: routing it deterministically if low-context, 
-    otherwise fetching LLM classification and persisting results within an item-level transaction.
+    Processes a single item by fetching LLM classification and persisting results 
+    within an isolated item-level transaction.
     Returns True if successfully processed, False otherwise.
     """
     try:
-        if is_low_context:
-            # Deterministic Low-Context Bypass
-            record = {
-                "source_item_id": item_id,
-                "topic_class": "unknown",
-                "classification_reason": "Deterministic bypass: Item flagged as low-context during ingestion.",
-                "classification_confidence": None,
-                "content_density": None,
-                "source_text_quality": None,
-                "primary_language_code": None,
-                "governmental_involvement": None,
-                "additional_signals": None,
-                "model_name": config.deterministic.model_name,
-                "prompt_version": config.deterministic.prompt_version
-            }
-        else:
-            # Proceed to LLM Call
-            stable, extra = await fetch_llm_classification(
-                client=client,
-                config=config,
-                title=title,
-                sanitized_text=sanitized_text,
-                api_key=api_key
-            )
-            record = {
-                "source_item_id": item_id,
-                "topic_class": stable["topic_class"],
-                "classification_reason": stable["classification_reason"],
-                "classification_confidence": stable["classification_confidence"],
-                "content_density": stable["content_density"],
-                "source_text_quality": stable["source_text_quality"],
-                "primary_language_code": stable["primary_language_code"],
-                "governmental_involvement": stable["governmental_involvement"],
-                "additional_signals": extra,
-                "model_name": config.active_provider.model_name,
-                "prompt_version": config.active_template.version
-            }
+        # Proceed to LLM Call
+        stable, extra = await fetch_llm_classification(
+            client=client,
+            config=config,
+            title=title,
+            sanitized_text=sanitized_text,
+            api_key=api_key
+        )
+        record = {
+            "source_item_id": item_id,
+            "topic_class": stable["topic_class"],
+            "classification_reason": stable["classification_reason"],
+            "classification_confidence": stable["classification_confidence"],
+            "content_density": stable["content_density"],
+            "source_text_quality": stable["source_text_quality"],
+            "primary_language_code": stable["primary_language_code"],
+            "governmental_involvement": stable["governmental_involvement"],
+            "additional_signals": extra,
+            "model_name": config.active_provider.model_name,
+            "prompt_version": config.active_template.version
+        }
 
         # Persist within its own isolated transaction protected by an asyncio.Lock
         async with db_lock:
@@ -419,16 +410,14 @@ async def orchestrate_run(
                 "status": "preview"
             }
 
-        # Setup API credentials if LLM call is needed
-        api_key = ""
-        has_non_bypass = any(not item["is_low_context"] for item in pending_items)
-        if has_non_bypass:
-            api_key_env = config.active_provider.api_key_env
-            api_key = os.environ.get(api_key_env, "")
-            if not api_key:
-                raise ValueError(
-                    f"Missing required API key environment variable '{api_key_env}' for active provider '{config.active_provider_name}'"
-                )
+        # Setup API credentials. Since all pending items now require LLM calls, 
+        # API credentials are unconditionally required if the pending queue is non-empty.
+        api_key_env = config.active_provider.api_key_env
+        api_key = os.environ.get(api_key_env, "")
+        if not api_key:
+            raise ValueError(
+                f"Missing required API key environment variable '{api_key_env}' for active provider '{config.active_provider_name}'"
+            )
 
         # Semaphores and Lock for SQLite writes
         semaphore = asyncio.Semaphore(config.execution_policy.max_concurrent_requests)
@@ -458,8 +447,6 @@ async def orchestrate_run(
                         item_id=item["source_item_id"],
                         title=item["title"],
                         sanitized_text=item["sanitized_text"],
-                        is_low_context=bool(item["is_low_context"]),
-                        low_context_reason=item["low_context_reason"],
                         api_key=api_key,
                         db_lock=db_lock,
                         commit=not dry_run

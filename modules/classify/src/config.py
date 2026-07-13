@@ -44,17 +44,12 @@ class ProviderConfig(BaseModel):
     supports_structured_output: bool = False
     api_base: Optional[str] = None
 
-class DeterministicClassification(BaseModel):
-    model_name: str = "deterministic-low-context"
-    prompt_version: str = "rule_v1"
-
 class ModelSettingsYaml(BaseModel):
     active_provider: str
     active_prompt_template: str
     request_defaults: RequestDefaults
     execution_policy: ExecutionPolicy
     providers: Dict[str, ProviderConfig]
-    deterministic_classification: DeterministicClassification
 
     @field_validator("providers")
     @classmethod
@@ -84,7 +79,6 @@ class ClassifyConfig:
         self.active_template = templates.templates[settings.active_prompt_template]
         self.execution_policy = settings.execution_policy
         self.request_defaults = settings.request_defaults
-        self.deterministic = settings.deterministic_classification
 
 
 def load_yaml_file(path: pathlib.Path) -> Any:

@@ -233,6 +233,7 @@ sources:
   - id: 24
     title: Space | The Guardian
     xml_url: https://www.theguardian.com/science/space/rss
+    html_url: https://www.theguardian.com/
     category_id: 3
     enabled: true
     fetch_group: 8
@@ -679,127 +680,117 @@ sources:
     schedule_class: daily
     sanitization_profile: default_html_article
     notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
-
   - id: 74
-    title: The Guardian (Space & Science)
-    xml_url: https://www.theguardian.com/science/space/rss
-    html_url: https://www.theguardian.com/
+    title: CBS News (Latest/Space)
+    xml_url: https://www.cbsnews.com/latest/rss/main
+    html_url: https://www.cbsnews.com/
     category_id: 5
     enabled: true
     fetch_group: 2
     schedule_class: daily
     sanitization_profile: default_html_article
   - id: 75
-    title: CBS News (Latest/Space)
-    xml_url: https://www.cbsnews.com/latest/rss/main
-    html_url: https://www.cbsnews.com/
+    title: CNN Science & Space
+    xml_url: http://rss.cnn.com/rss/edition_space.rss
+    html_url: https://www.cnn.com/
     category_id: 5
     enabled: true
     fetch_group: 3
     schedule_class: daily
     sanitization_profile: default_html_article
   - id: 76
-    title: CNN Science & Space
-    xml_url: http://rss.cnn.com/rss/edition_space.rss
-    html_url: https://www.cnn.com/
-    category_id: 5
-    enabled: true
-    fetch_group: 4
-    schedule_class: daily
-    sanitization_profile: default_html_article
-  - id: 77
     title: Reuters (Science News)
     xml_url: http://feeds.reuters.com/reuters/scienceNews
     html_url: https://www.reuters.com/
     category_id: 5
     enabled: false
-    fetch_group: 5
+    fetch_group: 4
     schedule_class: daily
     sanitization_profile: default_html_article
     notes: "Disabled on 2026-07-05: DNS resolution failure (domain dead or misspelled)."
 
-  - id: 78
+  - id: 77
     title: HuffPost (Tech & UFOs)
     xml_url: http://www.huffingtonpost.co.uk/news/tech/feed/
     html_url: https://www.huffingtonpost.co.uk/
     category_id: 5
     enabled: false
-    fetch_group: 6
+    fetch_group: 5
     schedule_class: daily
     sanitization_profile: default_html_article
     notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
 
-  - id: 79
+  - id: 78
     title: JPost (International Defense)
     xml_url: https://www.jpost.com/rss/rssfeedsinternational
     html_url: https://www.jpost.com/
     category_id: 5
     enabled: true
-    fetch_group: 7
+    fetch_group: 6
     schedule_class: daily
     sanitization_profile: default_html_article
-  - id: 80
+  - id: 79
     title: News4JAX (Military/Local Tracking)
     xml_url: https://www.news4jax.com/arc/outboundfeeds/rss/
     html_url: https://www.news4jax.com/
     category_id: 5
     enabled: false
-    fetch_group: 8
+    fetch_group: 7
     schedule_class: daily
     sanitization_profile: default_html_article
     notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
 
-  - id: 81
+  - id: 80
     title: 'Google News: UAP & Non-Human Intelligence'
     xml_url: https://news.google.com/rss/search?q=%22UAP%22+OR+%22UFO%22+OR+%22Non-Human+Intelligence%22&hl=en-US&gl=US&ceid=US:en
     html_url: https://news.google.com/
     category_id: 4
     enabled: true
-    fetch_group: 1
+    fetch_group: 8
     schedule_class: hourly
     sanitization_profile: default_html_article
-  - id: 82
+  - id: 81
     title: 'Google News: Pentagon AARO & Bureaucracy'
     xml_url: https://news.google.com/rss/search?q=%22Unidentified+Anomalous+Phenomena%22+AARO+OR+Pentagon+OR+Congress&hl=en-US&gl=US&ceid=US:en
     html_url: https://news.google.com/
     category_id: 1
     enabled: true
-    fetch_group: 2
+    fetch_group: 1
     schedule_class: hourly
     sanitization_profile: default_html_article
-  - id: 83
+  - id: 82
     title: 'Google News: Technosignatures & SETI'
     xml_url: https://news.google.com/rss/search?q=Technosignatures+OR+Exoplanets+OR+SETI+OR+%22Galileo+Project%22&hl=en-US&gl=US&ceid=US:en
     html_url: https://news.google.com/
     category_id: 3
     enabled: true
-    fetch_group: 3
+    fetch_group: 2
     schedule_class: daily
     sanitization_profile: default_html_article
-  - id: 84
+  - id: 83
     title: 'Google News: UAP Legislation & Whistleblowers'
     xml_url: https://news.google.com/rss/search?q=UAP+whistleblower+OR+Grusch+OR+%22UAP+Disclosure+Act%22&hl=en-US&gl=US&ceid=US:en
     html_url: https://news.google.com/
     category_id: 1
     enabled: true
-    fetch_group: 4
+    fetch_group: 3
     schedule_class: hourly
     sanitization_profile: default_html_article
-  - id: 85
+  - id: 84
     title: 'Google News: Global Aerospace Anomalies'
     xml_url: https://news.google.com/rss/search?q=%22pilot+sighting%22+OR+%22radar+anomaly%22+UAP+OR+UFO+-balloon&hl=en-US&gl=US&ceid=US:en
     html_url: https://news.google.com/
     category_id: 4
     enabled: true
-    fetch_group: 5
+    fetch_group: 4
     schedule_class: daily
     sanitization_profile: default_html_article
-  - id: 86
+  - id: 85
     title: Breaking News English (Global Summaries)
     xml_url: https://breakingnewsenglish.com/rss.xml
     html_url: https://breakingnewsenglish.com/
     category_id: 5
     enabled: true
-    fetch_group: 6
+    fetch_group: 5
     schedule_class: daily
     sanitization_profile: default_html_article
