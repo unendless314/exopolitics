@@ -6,13 +6,14 @@ import pathlib
 import sys
 from typing import Optional
 
+import yaml
 from modules.analysis.src.config import (
     load_analysis_settings,
     load_sources_config,
     load_categories_config
 )
 from modules.analysis.src.database import get_connection
-from modules.analysis.src.services.classify_service import ClassifyService
+from modules.analysis.src.services import ClassifyService, FunnelCalculator, SourceService
 
 logger = logging.getLogger("modules.analysis.cli")
 
@@ -110,6 +111,30 @@ def get_parser() -> argparse.ArgumentParser:
         help="Analyze LLM classification workload volume, relevance rate, and content density"
     )
 
+    # analyze-sources subcommand (Phase 2)
+    sources_parser = subparsers.add_parser(
+        "analyze-sources",
+        parents=[parent_parser],
+        help="Analyze RSS source health and content quality"
+    )
+    sources_parser.add_argument(
+        "--yield-threshold",
+        type=float,
+        help="Overall yield threshold override (default: 0.10)"
+    )
+    sources_parser.add_argument(
+        "--relevance-threshold",
+        type=float,
+        help="Relevance rate threshold override (default: 0.40)"
+    )
+
+    # analyze-funnel subcommand (Phase 2)
+    subparsers.add_parser(
+        "analyze-funnel",
+        parents=[parent_parser],
+        help="Analyze pipeline conversion rates, throughput, and bottleneck latencies"
+    )
+
     return parser
 
 def main() -> int:
@@ -182,21 +207,68 @@ def main() -> int:
                 output_content = service.format_markdown_report(result)
                 filename = "CLASSIFY_MONITOR_REPORT.md"
 
-            # Emit output
-            if stdout:
-                print(output_content, end="")
+        elif args.command == "analyze-sources":
+            yield_threshold = args.yield_threshold if (hasattr(args, "yield_threshold") and args.yield_threshold is not None) else (settings.quadrant_classifier.thresholds.overall_yield if settings else 0.10)
+            relevance_threshold = args.relevance_threshold if (hasattr(args, "relevance_threshold") and args.relevance_threshold is not None) else (settings.quadrant_classifier.thresholds.relevance_rate if settings else 0.40)
+            fetch_isolation_threshold = settings.quadrant_classifier.safeguards.fetch_success_rate_isolation if settings else 0.50
+
+            service = SourceService(
+                conn,
+                sources_meta,
+                categories_meta,
+                yield_threshold=yield_threshold,
+                relevance_threshold=relevance_threshold,
+                fetch_isolation_threshold=fetch_isolation_threshold
+            )
+            logger.info(f"Running sources analysis with a lookback of {days} days...")
+            result = service.run_sources_analysis(days)
+
+            if fmt == "json":
+                output_content = json.dumps(result, indent=2)
+                filename = "SOURCE_QUALITY_REPORT.json"
             else:
-                # Resolve full path to write
-                resolved_output_dir = workspace_root / output_dir
-                resolved_output_dir.mkdir(parents=True, exist_ok=True)
-                report_file_path = resolved_output_dir / filename
-                
-                report_file_path.write_text(output_content, encoding="utf-8")
-                logger.info(f"Report successfully written to: {report_file_path}")
+                output_content = service.format_markdown_report(result)
+                filename = "SOURCE_QUALITY_REPORT.md"
+
+        elif args.command == "analyze-funnel":
+            publish_config_path = workspace_root / "modules" / "publish" / "config" / "publish_settings.yaml"
+            target_langs = []
+            if publish_config_path.exists():
+                try:
+                    with open(publish_config_path, "r", encoding="utf-8") as f:
+                        t_data = yaml.safe_load(f) or {}
+                    target_langs_dict = t_data.get("target_languages", {})
+                    if isinstance(target_langs_dict, dict):
+                        target_langs = list(target_langs_dict.keys())
+                except Exception as e:
+                    sys.stderr.write(f"Warning: Could not load target languages from publish config ({e}). Using defaults.\n")
+            if not target_langs:
+                target_langs = ["en", "zh", "ja"]
+
+            service = FunnelCalculator(conn, target_languages=target_langs)
+            logger.info(f"Running funnel analysis with a lookback of {days} days...")
+            result = service.run_funnel_analysis(days)
+
+            if fmt == "json":
+                output_content = json.dumps(result, indent=2)
+                filename = "PIPELINE_FUNNEL_REPORT.json"
+            else:
+                output_content = service.format_markdown_report(result)
+                filename = "PIPELINE_FUNNEL_REPORT.md"
 
         else:
             logger.error(f"Unsupported subcommand: {args.command}")
             return 1
+
+        # Emit output (shared for all subcommands)
+        if stdout:
+            print(output_content, end="")
+        else:
+            resolved_output_dir = workspace_root / output_dir
+            resolved_output_dir.mkdir(parents=True, exist_ok=True)
+            report_file_path = resolved_output_dir / filename
+            report_file_path.write_text(output_content, encoding="utf-8")
+            logger.info(f"Report successfully written to: {report_file_path}")
 
     except Exception as e:
         logger.exception(f"An unexpected error occurred during execution: {e}")
