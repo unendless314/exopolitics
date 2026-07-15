@@ -1,4 +1,8 @@
-# Known Issue: Metrics Catalog Contract Gaps and Low-Context Classification Boundary
+# [RESOLVED] Known Issue: Metrics Catalog Contract Gaps and Low-Context Classification Boundary
+
+> [!NOTE]
+> This issue has been successfully resolved in commits `caa0ca9` (Ingest low-context refactor) and `d9819dd` (Classify module boundary refactor).
+
 
 ## 1. Issue Summary
 
