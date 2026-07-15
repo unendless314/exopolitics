@@ -69,7 +69,7 @@ Because the `analysis` module is read-only, it must never block the core pipelin
 ### 4.2 Missing Upstream Data
 *   If a query returns zero rows or a database table is empty during the lookback window:
     *   The CLI must not crash.
-    *   The report must still be generated, representing undefined rates as `NULL` or `0` and flagging the output metrics as `[INSUFFICIENT_DATA]`.
+    *   The report must still be generated. For every ratio, rate, percentage, or proportion whose denominator is zero, emit `NULL`, never `0`, and attach `[INSUFFICIENT_DATA]`. Counts and additive workload totals remain `0` when no qualifying rows exist.
 
 ---
 

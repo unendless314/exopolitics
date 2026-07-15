@@ -84,9 +84,9 @@ To ensure stable consumption by automated dashboards, any report generated with 
           "metrics": {
             "type": "object",
             "properties": {
-              "overall_fetch_success_rate": { "type": "number" },
+              "overall_fetch_success_rate": { "type": ["number", "null"] },
               "total_ingested_items": { "type": "integer" },
-              "low_context_bypass_rate": { "type": "number" }
+              "low_context_bypass_rate": { "type": ["number", "null"] }
             },
             "required": ["overall_fetch_success_rate", "total_ingested_items", "low_context_bypass_rate"]
           },
@@ -107,10 +107,10 @@ To ensure stable consumption by automated dashboards, any report generated with 
                 "topic_class_breakdown": {
                   "type": "object",
                   "properties": {
-                    "core": { "type": "number" },
-                    "adjacent": { "type": "number" },
-                    "irrelevant": { "type": "number" },
-                    "unknown": { "type": "number" }
+                    "core": { "type": ["number", "null"] },
+                    "adjacent": { "type": ["number", "null"] },
+                    "irrelevant": { "type": ["number", "null"] },
+                    "unknown": { "type": ["number", "null"] }
                   },
                   "required": ["core", "adjacent", "irrelevant", "unknown"]
                 },
@@ -169,9 +169,9 @@ To ensure stable consumption by automated dashboards, any report generated with 
               "pipeline_lead_time_seconds": {
                 "type": "object",
                 "properties": {
-                  "average": { "type": "number" },
-                  "median": { "type": "number" },
-                  "p90": { "type": "number" }
+                  "average": { "type": ["number", "null"] },
+                  "median": { "type": ["number", "null"] },
+                  "p90": { "type": ["number", "null"] }
                 },
                 "required": ["average", "median", "p90"]
               }
@@ -183,37 +183,37 @@ To ensure stable consumption by automated dashboards, any report generated with 
             ]
           },
           "stage_latency_breakdown_seconds": {
-            "description": "Granular latency breakdown for each pipeline stage. To ensure direct comparability and statistical consistency, all stages in this breakdown—including feed freshness and fetch execution—are evaluated using the shared source_item_cohort basis (i.e. strictly for the items belonging to the ingestion cohort).",
+            "description": "Granular latency breakdown for each pipeline stage. To ensure direct comparability and statistical consistency, stage metrics in this breakdown (except Fetch Execution Latency, which maintains its event_time basis due to the absence of item-level database linkage to fetch attempts) are evaluated using the shared source_item_cohort basis (i.e. strictly for the items belonging to the ingestion cohort).",
             "type": "object",
             "properties": {
               "feed_freshness_delay": {
                 "type": "object",
-                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
                 "required": ["average", "median", "p90"]
               },
               "fetch_execution_latency": {
                 "type": "object",
-                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
                 "required": ["average", "median", "p90"]
               },
               "classification_delay": {
                 "type": "object",
-                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
                 "required": ["average", "median", "p90"]
               },
               "curation_delay": {
                 "type": "object",
-                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
                 "required": ["average", "median", "p90"]
               },
               "translation_delay": {
                 "type": "object",
-                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
                 "required": ["average", "median", "p90"]
               },
               "publish_delay": {
                 "type": "object",
-                "properties": { "average": { "type": "number" }, "median": { "type": "number" }, "p90": { "type": "number" } },
+                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
                 "required": ["average", "median", "p90"]
               }
             },
@@ -229,8 +229,8 @@ To ensure stable consumption by automated dashboards, any report generated with 
               "properties": {
                 "stage": { "type": "string" },
                 "count": { "type": "integer" },
-                "stage_conversion_rate": { "type": "number" },
-                "cumulative_yield": { "type": "number" }
+                "stage_conversion_rate": { "type": ["number", "null"] },
+                "cumulative_yield": { "type": ["number", "null"] }
               },
               "required": ["stage", "count", "stage_conversion_rate", "cumulative_yield"]
             }
@@ -242,7 +242,7 @@ To ensure stable consumption by automated dashboards, any report generated with 
               "properties": {
                 "language_code": { "type": "string" },
                 "published_count": { "type": "integer" },
-                "coverage_rate": { "type": "number" }
+                "coverage_rate": { "type": ["number", "null"] }
               },
               "required": ["language_code", "published_count", "coverage_rate"]
             }
@@ -260,10 +260,11 @@ To ensure stable consumption by automated dashboards, any report generated with 
           "metrics": {
             "type": "object",
             "properties": {
-              "overall_translation_success_rate": { "type": "number" },
-              "average_latency_seconds": { "type": "number" }
+              "overall_translation_success_rate": { "type": ["number", "null"] },
+              "overall_translation_completion_rate": { "type": ["number", "null"] },
+              "average_latency_seconds": { "type": ["number", "null"] }
             },
-            "required": ["overall_translation_success_rate", "average_latency_seconds"]
+            "required": ["overall_translation_success_rate", "overall_translation_completion_rate", "average_latency_seconds"]
           },
           "breakdowns": {
             "type": "array",
@@ -271,12 +272,13 @@ To ensure stable consumption by automated dashboards, any report generated with 
               "type": "object",
               "properties": {
                 "language_code": { "type": "string" },
-                "translation_success_rate": { "type": "number" },
-                "average_latency_seconds": { "type": "number" },
-                "stale_rate": { "type": "number" },
+                "translation_success_rate": { "type": ["number", "null"] },
+                "translation_completion_rate": { "type": ["number", "null"] },
+                "average_latency_seconds": { "type": ["number", "null"] },
+                "stale_rate": { "type": ["number", "null"] },
                 "translation_character_volume_proxy": { "type": "integer" }
               },
-              "required": ["language_code", "translation_success_rate", "average_latency_seconds", "stale_rate", "translation_character_volume_proxy"]
+              "required": ["language_code", "translation_success_rate", "translation_completion_rate", "average_latency_seconds", "stale_rate", "translation_character_volume_proxy"]
             }
           }
         }

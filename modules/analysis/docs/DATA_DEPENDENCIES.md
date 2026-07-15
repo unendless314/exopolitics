@@ -15,26 +15,31 @@ The `analysis` module queries `data/canonical.db` to calculate metrics. It is st
 | `fetch_run` | `fetch_run_id`, `started_at`, `run_scope`, `trigger_type`, `attempted_source_count`, `succeeded_source_count`, `failed_source_count` | Run Success Rate |
 | `fetch_attempt` | `fetch_attempt_id`, `fetch_run_id`, `source_id`, `started_at`, `ended_at`, `outcome`, `error_class`, `http_status` | Fetch Success Rate, Error Categorization, Fetch Execution Latency |
 | `source_state` | `source_id`, `health_status`, `consecutive_failures`, `last_http_status`, `last_error_class` | Rolling Source Health Snapshot |
-| `source_item` | `source_item_id`, `source_id`, `fetched_at`, `published_at`, `ingest_dedup_key` | Ingest Volume, Cohort definition, Feed Freshness Delay |
+| `source_item` | `source_item_id`, `source_id`, `title`, `fetched_at`, `published_at`, `ingest_dedup_key` | Ingest Volume, Cohort definition, Feed Freshness Delay, Workload Volume Proxies |
 | `source_item_text` | `source_item_id`, `sanitized_text_length`, `text_processing_status`, `text_processing_reason` | Text-Processing Outcome Rate, Workload Volume Proxies, Processing Reason Distribution |
-| `classification_result` | `source_item_id`, `classified_at`, `topic_class`, `content_density`, `additional_signals` | Relevance Rate, Content Density Distribution, Classification Delay |
+| `ingest_dedup_marker` | `source_item_id`, `dedup_key`, `dedup_rule` | Unique Contribution Rate |
+| `classification_result` | `source_item_id`, `classified_at`, `topic_class`, `content_density`, `classification_confidence`, `additional_signals` | Relevance Rate, Content Density Distribution, Classification Delay, Average Confidence |
 | `curation_decision` | `source_item_id`, `curated_at`, `decision_actor`, `downstream_action`, `curate_status` | Curation Approval Rate, Curation Rejection Mix, Curation Delay |
-| `approved_content_record` | `parent_content_id`, `source_item_id`, `approved_at`, `display_title`, `content_body`, `content_language_code` | Overall Yield, Translation Completion Rate, Workload Proxies |
-| `translation_output` | `translation_output_id`, `parent_content_id`, `source_item_id`, `language_code`, `translation_status`, `model_name`, `translated_at`, `updated_at`, `display_title`, `content` | Translation Success Rate, Translation Delay, Workload Proxies |
+| `approved_content_record` | `parent_content_id`, `source_item_id`, `approved_at`, `display_title`, `content_body`, `content_fingerprint`, `content_language_code` | Overall Yield, Translation Completion Rate, Workload Proxies, Current-version alignment |
+| `translation_output` | `translation_output_id`, `parent_content_id`, `source_item_id`, `language_code`, `translation_status`, `model_name`, `source_fingerprint`, `translated_at`, `updated_at`, `display_title`, `content` | Translation Success Rate, Translation Delay, Workload Proxies, Current-version alignment |
 | `publish_record` | `publish_record_id`, `source_item_id`, `first_published_at`, `slug` | Publish Count, Pipeline Lead Time |
-| `publish_language_status` | `publish_record_id`, `language_code`, `publish_status`, `published_at` | Publish Delay, Language Coverage Rate |
+| `publish_language_status` | `publish_record_id`, `language_code`, `publish_status`, `published_at`, `source_fingerprint` | Publish Delay, Language Coverage Rate, Current-version alignment |
 
 ---
 
 ## 2. External Configuration Dependencies
 
-Since the canonical SQLite database does not maintain a relational table for sources or categories, the `analysis` module depends on external configuration files owned by the `ingest` module.
+Since the canonical SQLite database does not maintain a relational table for sources, categories, or translation targets, the `analysis` module depends on external configuration files owned by other modules.
 
 ### 2.1 File Mappings & Paths
 *   **Sources Config**: [sources.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/sources.yaml)
     *   *Fields Used*: `id`, `title`, `xml_url`, `html_url`, `category_id`, `enabled`, `fetch_group`, `schedule_class`.
 *   **Categories Config**: [categories.yaml](file:///C:/Users/user/Documents/exopolitics/modules/ingest/config/categories.yaml)
     *   *Fields Used*: Dictionary key (resolves as category ID), `name`, `slug`, `enabled`.
+*   **Translation Model Settings**: [model_settings.yaml](file:///C:/Users/user/Documents/exopolitics/modules/translate/config/model_settings.yaml)
+    *   *Fields Used*: `target_languages` (used by Translation Completion Rate).
+*   **Publish Settings**: [publish_settings.yaml](file:///C:/Users/user/Documents/exopolitics/modules/publish/config/publish_settings.yaml)
+    *   *Fields Used*: `target_languages` and `coverage_policy` (used by Language Coverage Rate).
 
 ### 2.2 Memory-Join Rules
 1.  **Strictly In-Memory**: Direct SQL joins between the SQLite database and source details are impossible. Source metadata resolution must be completed in application memory.
