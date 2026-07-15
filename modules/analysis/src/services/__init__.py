@@ -3,3 +3,7 @@ from modules.analysis.src.services.classify_service import ClassifyService
 from modules.analysis.src.services.source_classifier import SourceQuadrantClassifier
 from modules.analysis.src.services.funnel_calculator import FunnelCalculator
 from modules.analysis.src.services.source_service import SourceService
+from modules.analysis.src.services.ingest_service import IngestService
+from modules.analysis.src.services.curate_service import CurateService
+from modules.analysis.src.services.translate_service import TranslateService
+from modules.analysis.src.services.publish_service import PublishService

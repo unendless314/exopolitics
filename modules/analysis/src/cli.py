@@ -13,7 +13,7 @@ from modules.analysis.src.config import (
     load_categories_config
 )
 from modules.analysis.src.database import get_connection
-from modules.analysis.src.services import ClassifyService, FunnelCalculator, SourceService
+from modules.analysis.src.services import ClassifyService, FunnelCalculator, SourceService, TranslateService
 
 logger = logging.getLogger("modules.analysis.cli")
 
@@ -133,6 +133,13 @@ def get_parser() -> argparse.ArgumentParser:
         "analyze-funnel",
         parents=[parent_parser],
         help="Analyze pipeline conversion rates, throughput, and bottleneck latencies"
+    )
+
+    # analyze-translation subcommand (Phase 3)
+    subparsers.add_parser(
+        "analyze-translation",
+        parents=[parent_parser],
+        help="Analyze translation pipeline success rates, character volume, and latency"
     )
 
     return parser
@@ -255,6 +262,32 @@ def main() -> int:
             else:
                 output_content = service.format_markdown_report(result)
                 filename = "PIPELINE_FUNNEL_REPORT.md"
+
+        elif args.command == "analyze-translation":
+            translate_config_path = workspace_root / "modules" / "translate" / "config" / "model_settings.yaml"
+            target_langs = []
+            if translate_config_path.exists():
+                try:
+                    with open(translate_config_path, "r", encoding="utf-8") as f:
+                        t_data = yaml.safe_load(f) or {}
+                    target_langs_dict = t_data.get("target_languages", {})
+                    if isinstance(target_langs_dict, dict):
+                        target_langs = list(target_langs_dict.keys())
+                except Exception as e:
+                    sys.stderr.write(f"Warning: Could not load target languages from translate config ({e}). Using defaults.\n")
+            if not target_langs:
+                target_langs = ["en", "zh", "ja"]
+
+            service = TranslateService(conn, target_languages=target_langs)
+            logger.info(f"Running translation analysis with a lookback of {days} days...")
+            result = service.run_translate_analysis(days)
+
+            if fmt == "json":
+                output_content = json.dumps(result, indent=2)
+                filename = "TRANSLATION_PERFORMANCE_REPORT.json"
+            else:
+                output_content = service.format_markdown_report(result)
+                filename = "TRANSLATION_PERFORMANCE_REPORT.md"
 
         else:
             logger.error(f"Unsupported subcommand: {args.command}")

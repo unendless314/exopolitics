@@ -449,6 +449,97 @@ def create_and_seed_db(db_path: pathlib.Path):
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, approved_records)
 
+    # Seed translation outputs
+    translations = [
+        # parent_content_id 1 (en): translate to ja, zh
+        (1, 1, "ja", "Texas UFO sighting (JA)", "JA translation body", "fingerprint-1", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=10)), to_str(t_1d + datetime.timedelta(minutes=10))),
+        (1, 1, "zh", "德州UFO目擊 (ZH)", "ZH translation body", "fingerprint-1", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=12)), to_str(t_1d + datetime.timedelta(minutes=12))),
+        
+        # parent_content_id 2 (en): translate to ja, zh (zh failed)
+        (2, 2, "ja", "UAP briefing (JA)", "JA body", "fingerprint-2", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=15)), to_str(t_1d + datetime.timedelta(minutes=15))),
+        (2, 2, "zh", None, None, "fingerprint-2", "failed", 3, "gemini-1.5-pro", "v1.0", None, to_str(t_1d + datetime.timedelta(minutes=20))),
+
+        # parent_content_id 3 (es): translate to en, ja, zh
+        (3, 3, "en", "Fotocat updates (EN)", "EN body", "fingerprint-3", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=10)), to_str(t_2d + datetime.timedelta(minutes=10))),
+        (3, 3, "ja", "Fotocat updates (JA)", "JA body", "fingerprint-3", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=12)), to_str(t_2d + datetime.timedelta(minutes=12))),
+        (3, 3, "zh", "Fotocat更新 (ZH)", "ZH body", "fingerprint-3", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=15)), to_str(t_2d + datetime.timedelta(minutes=15))),
+
+        # parent_content_id 4 (en): translate to ja, zh
+        (4, 5, "ja", "Study (JA)", "JA body", "fingerprint-5", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_3d + datetime.timedelta(minutes=10)), to_str(t_3d + datetime.timedelta(minutes=10))),
+        (4, 5, "zh", "研究 (ZH)", "ZH body", "fingerprint-5", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_3d + datetime.timedelta(minutes=15)), to_str(t_3d + datetime.timedelta(minutes=15))),
+
+        # parent_content_id 5 (en): translate to ja, zh
+        (5, 6, "ja", "Australia report (JA)", "JA body", "fingerprint-6", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=12)), to_str(t_2d + datetime.timedelta(minutes=12))),
+        (5, 6, "zh", "澳洲報告 (ZH)", "ZH body", "fingerprint-6", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=18)), to_str(t_2d + datetime.timedelta(minutes=18))),
+
+        # parent_content_id 6 (en): translate to ja, zh
+        (6, 7, "ja", "NewsNation (JA)", "JA body", "fingerprint-7", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=10)), to_str(t_1d + datetime.timedelta(minutes=10))),
+        (6, 7, "zh", "NewsNation (ZH)", "ZH body", "fingerprint-7", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=14)), to_str(t_1d + datetime.timedelta(minutes=14))),
+
+        # old: parent_content_id 7 (en): translate to ja, zh
+        (7, 10, "ja", "Old MUFON ja", "body ja", "fingerprint-10", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_10d), to_str(t_10d)),
+        (7, 10, "zh", "Old MUFON zh", "body zh", "fingerprint-10", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_10d), to_str(t_10d))
+    ]
+
+    conn.executemany("""
+        INSERT INTO translation_output (
+            parent_content_id, source_item_id, language_code, display_title, content,
+            source_fingerprint, translation_status, retry_count, model_name, prompt_version,
+            translated_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, translations)
+
+    # Seed publish records
+    pub_records = [
+        # source_item_id 1
+        (1, 1, "texas-ufo-sighting", to_str(t_1d + datetime.timedelta(minutes=20)), to_str(t_1d), to_str(t_1d)),
+        # source_item_id 3
+        (2, 3, "fotocat-updates-july-2026", to_str(t_2d + datetime.timedelta(minutes=30)), to_str(t_2d), to_str(t_2d)),
+        # source_item_id 5
+        (3, 5, "academic-study-unexplained-lights", to_str(t_3d + datetime.timedelta(minutes=20)), to_str(t_3d), to_str(t_3d)),
+        # source_item_id 6
+        (4, 6, "australia-historical-cases-report", to_str(t_2d + datetime.timedelta(minutes=20)), to_str(t_2d), to_str(t_2d)),
+        
+        # old source_item_id 10
+        (5, 10, "old-mufon-case-study", to_str(t_10d + datetime.timedelta(minutes=20)), to_str(t_10d), to_str(t_10d))
+    ]
+
+    conn.executemany("""
+        INSERT INTO publish_record (
+            publish_record_id, source_item_id, slug, first_published_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+    """, pub_records)
+
+    # Seed publish language statuses
+    pub_lang_statuses = [
+        # record 1 (texas-ufo): zh, ja published
+        (1, "zh", "published", to_str(t_1d + datetime.timedelta(minutes=20)), "fingerprint-1", to_str(t_1d)),
+        (1, "ja", "published", to_str(t_1d + datetime.timedelta(minutes=20)), "fingerprint-1", to_str(t_1d)),
+
+        # record 2 (fotocat): en, zh, ja published
+        (2, "en", "published", to_str(t_2d + datetime.timedelta(minutes=30)), "fingerprint-3", to_str(t_2d)),
+        (2, "zh", "published", to_str(t_2d + datetime.timedelta(minutes=30)), "fingerprint-3", to_str(t_2d)),
+        (2, "ja", "published", to_str(t_2d + datetime.timedelta(minutes=30)), "fingerprint-3", to_str(t_2d)),
+
+        # record 3 (academic study): zh, ja published
+        (3, "zh", "published", to_str(t_3d + datetime.timedelta(minutes=20)), "fingerprint-5", to_str(t_3d)),
+        (3, "ja", "published", to_str(t_3d + datetime.timedelta(minutes=20)), "fingerprint-5", to_str(t_3d)),
+
+        # record 4 (australia): zh, ja published
+        (4, "zh", "published", to_str(t_2d + datetime.timedelta(minutes=20)), "fingerprint-6", to_str(t_2d)),
+        (4, "ja", "published", to_str(t_2d + datetime.timedelta(minutes=20)), "fingerprint-6", to_str(t_2d)),
+
+        # old: record 5
+        (5, "zh", "published", to_str(t_10d + datetime.timedelta(minutes=20)), "fingerprint-10", to_str(t_10d)),
+        (5, "ja", "published", to_str(t_10d + datetime.timedelta(minutes=20)), "fingerprint-10", to_str(t_10d))
+    ]
+
+    conn.executemany("""
+        INSERT INTO publish_language_status (
+            publish_record_id, language_code, publish_status, published_at, source_fingerprint, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+    """, pub_lang_statuses)
+
     conn.commit()
     conn.close()
     print("Database seeding completed successfully.")
