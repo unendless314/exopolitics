@@ -49,13 +49,15 @@ def test_curate_service_with_mock_data(empty_db_conn):
     # Curation character volume proxy: Title 1 (7) + Body content text (100) = 107
     assert metrics["curation_character_volume_proxy"] == 107
     # Curation delay: 2026-07-10T10:30:00Z (curated_at) - 2026-07-10T10:10:00Z (classified_at) = 1200 seconds
-    assert pytest.approx(metrics["curation_delay_seconds"]["average"]) == 1200.0
-    assert pytest.approx(metrics["curation_delay_seconds"]["median"]) == 1200.0
-    assert pytest.approx(metrics["curation_delay_seconds"]["p90"]) == 1200.0
+    assert pytest.approx(metrics["curation_latency_seconds"]["average"]) == 1200.0
+    assert pytest.approx(metrics["curation_latency_seconds"]["median"]) == 1200.0
+    assert pytest.approx(metrics["curation_latency_seconds"]["p90"]) == 1200.0
 
     # 2. Rejection mix
     rejection = report["curation_rejection_mix"]
-    assert rejection["reject_discard"] == 1
+    assert len(rejection) == 1
+    assert rejection[0]["downstream_action"] == "reject_discard"
+    assert rejection[0]["count"] == 1
 
     # Markdown report formatting
     report_md = service.format_markdown_report(report)

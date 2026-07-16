@@ -12,7 +12,7 @@ def get_overall_translation_success_rate(conn: sqlite3.Connection, start: str, e
             SUM(CASE WHEN translation_status = 'completed' THEN 1 ELSE 0 END) * 1.0
             / NULLIF(COUNT(CASE WHEN translation_status IN ('completed', 'failed') THEN 1 END), 0) AS rate
         FROM translation_output
-        WHERE updated_at BETWEEN :start AND :end
+        WHERE updated_at >= :start AND updated_at < :end
     """
     cursor = safe_execute(conn, sql, {"start": start, "end": end})
     row = cursor.fetchone()
@@ -41,7 +41,7 @@ def get_overall_translation_completion_rate(
             LEFT JOIN translation_output tor ON acr.parent_content_id = tor.parent_content_id
                 AND tor.source_fingerprint = acr.content_fingerprint
                 AND tor.language_code IN (SELECT value FROM json_each(:target_languages_json) WHERE value != acr.content_language_code)
-            WHERE si.fetched_at BETWEEN :start AND :end
+            WHERE si.fetched_at >= :start AND si.fetched_at < :end
               AND cd.curate_status = 'approved'
             GROUP BY acr.parent_content_id
         ) t;
@@ -61,7 +61,7 @@ def get_overall_translation_latency(conn: sqlite3.Connection, start: str, end: s
         FROM translation_output tor
         JOIN approved_content_record acr ON tor.parent_content_id = acr.parent_content_id
         JOIN source_item si ON acr.source_item_id = si.source_item_id
-        WHERE si.fetched_at BETWEEN :start AND :end
+        WHERE si.fetched_at >= :start AND si.fetched_at < :end
           AND tor.model_name != 'bypass'
           AND tor.translated_at IS NOT NULL
           AND acr.approved_at IS NOT NULL
@@ -82,7 +82,7 @@ def get_translation_success_and_stale_rates(conn: sqlite3.Connection, start: str
             SUM(CASE WHEN translation_status = 'stale' THEN 1 ELSE 0 END) * 1.0
             / NULLIF(COUNT(CASE WHEN translation_status IN ('completed', 'failed', 'stale') THEN 1 END), 0) AS stale_rate
         FROM translation_output
-        WHERE updated_at BETWEEN :start AND :end
+        WHERE updated_at >= :start AND updated_at < :end
         GROUP BY language_code
     """
     cursor = safe_execute(conn, sql, {"start": start, "end": end})
@@ -105,7 +105,7 @@ def get_translation_completion_rates(
         JOIN curation_decision cd ON acr.source_item_id = cd.source_item_id
         LEFT JOIN translation_output tor ON acr.parent_content_id = tor.parent_content_id 
             AND tor.language_code = lang.value
-        WHERE si.fetched_at BETWEEN :start AND :end
+        WHERE si.fetched_at >= :start AND si.fetched_at < :end
           AND cd.curate_status = 'approved'
         GROUP BY lang.value
     """
@@ -123,7 +123,7 @@ def get_translation_latencies(conn: sqlite3.Connection, start: str, end: str) ->
         FROM translation_output tor
         JOIN approved_content_record acr ON tor.parent_content_id = acr.parent_content_id
         JOIN source_item si ON acr.source_item_id = si.source_item_id
-        WHERE si.fetched_at BETWEEN :start AND :end
+        WHERE si.fetched_at >= :start AND si.fetched_at < :end
           AND tor.model_name != 'bypass'
           AND tor.translated_at IS NOT NULL
           AND acr.approved_at IS NOT NULL
@@ -143,7 +143,7 @@ def get_translation_char_volumes(conn: sqlite3.Connection, start: str, end: str)
         FROM translation_output tor
         JOIN approved_content_record acr ON tor.parent_content_id = acr.parent_content_id
         JOIN source_item si ON acr.source_item_id = si.source_item_id
-        WHERE si.fetched_at BETWEEN :start AND :end
+        WHERE si.fetched_at >= :start AND si.fetched_at < :end
           AND tor.model_name != 'bypass'
         GROUP BY tor.language_code
     """

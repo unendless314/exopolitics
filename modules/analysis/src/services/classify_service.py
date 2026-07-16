@@ -37,11 +37,19 @@ class ClassifyService:
         total_classified = 0
         relevance_rate = None
         average_confidence = None
+        prop_core = None
+        prop_adjacent = None
+        prop_irrelevant = None
+        prop_unknown = None
 
         if overall_row:
             total_classified = overall_row["total_classified"] or 0
             relevance_rate = overall_row["relevance_rate"]
             average_confidence = overall_row["average_confidence"]
+            prop_core = overall_row["prop_core"]
+            prop_adjacent = overall_row["prop_adjacent"]
+            prop_irrelevant = overall_row["prop_irrelevant"]
+            prop_unknown = overall_row["prop_unknown"]
 
         # 2. Fetch character volume proxies
         char_volumes = classify_queries.get_source_char_volumes(self.conn, start_time, end_time)
@@ -52,7 +60,6 @@ class ClassifyService:
         breakdown_rows = classify_queries.get_source_classify_breakdowns(self.conn, start_time, end_time)
         breakdowns = []
 
-        # Track seen source IDs to merge/identify any missing ones if required (though only active are reported)
         for row in breakdown_rows:
             src_id = row["source_id"]
             vol = row["classify_volume"] or 0
@@ -75,12 +82,18 @@ class ClassifyService:
                     "low": density_low,
                     "medium": density_medium,
                     "high": density_high
+                },
+                "topic_class_breakdown": {
+                    "core": row["prop_core"] if vol > 0 else None,
+                    "adjacent": row["prop_adjacent"] if vol > 0 else None,
+                    "irrelevant": row["prop_irrelevant"] if vol > 0 else None,
+                    "unknown": row["prop_unknown"] if vol > 0 else None
                 }
             })
 
         return {
             "report_type": "classify",
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0",
             "generated_at": generated_at,
             "lookback_days": days,
             "window_start": start_time,
@@ -89,7 +102,13 @@ class ClassifyService:
                 "total_classified": total_classified,
                 "classification_character_volume_proxy": overall_char_vol_proxy,
                 "relevance_rate": relevance_rate,
-                "average_confidence": average_confidence
+                "average_confidence": average_confidence,
+                "overall_topic_class_breakdown": {
+                    "core": prop_core,
+                    "adjacent": prop_adjacent,
+                    "irrelevant": prop_irrelevant,
+                    "unknown": prop_unknown
+                }
             },
             "breakdowns": breakdowns
         }
@@ -107,13 +126,22 @@ class ClassifyService:
 
         def format_pct(val: Optional[float]) -> str:
             if val is None:
-                return "[INSUFFICIENT_DATA]"
+                return "0.00%"
             return f"{val * 100:.2f}%"
 
         def format_float(val: Optional[float], decimals: int = 4) -> str:
             if val is None:
                 return "[INSUFFICIENT_DATA]"
             return f"{val:.{decimals}f}"
+
+        def format_breakdown(rel: Optional[float], bd: Dict[str, Optional[float]]) -> str:
+            if rel is None:
+                return "[INSUFFICIENT_DATA]"
+            c = format_pct(bd.get("core"))
+            a = format_pct(bd.get("adjacent"))
+            i = format_pct(bd.get("irrelevant"))
+            u = format_pct(bd.get("unknown"))
+            return f"{rel * 100:.2f}% ({c} / {a} / {i} / {u})"
 
         lines = [
             "# LLM Classification Workload Report",
@@ -124,11 +152,11 @@ class ClassifyService:
             "## Overall Pipeline KPIs",
             f"- **Total Classified Items**: {metrics['total_classified']}",
             f"- **Classification Character Volume Proxy**: {metrics['classification_character_volume_proxy']}",
-            f"- **Relevance Rate**: {format_pct(metrics['relevance_rate'])}",
+            f"- **Relevance Breakdown (Core / Adj / Irr / Unk)**: {format_breakdown(metrics['relevance_rate'], metrics['overall_topic_class_breakdown'])}",
             f"- **Average Confidence**: {format_float(metrics['average_confidence'])}",
             "",
             "## Source Performance Breakdown",
-            "| Source ID | Source Title | Classify Volume | Classify Char Volume | Relevance Rate | Avg Confidence | Content Density (Low / Med / High) |",
+            "| Source ID | Source Title | Classify Volume | Classify Char Volume | Relevance Breakdown (Core / Adj / Irr / Unk) | Avg Confidence | Content Density (Low / Med / High) |",
             "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
         ]
 
@@ -136,7 +164,7 @@ class ClassifyService:
             src_id = item["source_id"]
             vol = item["classify_volume"]
             char_vol = item["classification_character_volume_proxy"]
-            rel = format_pct(item["relevance_rate"])
+            rel_bd = format_breakdown(item["relevance_rate"], item["topic_class_breakdown"])
             conf = format_float(item["average_confidence"])
             
             density = item["content_density_distribution"]
@@ -149,7 +177,7 @@ class ClassifyService:
                 title = f"Unknown Source (ID: {src_id}) [INSUFFICIENT_DATA]"
 
             lines.append(
-                f"| {src_id} | {title} | {vol} | {char_vol} | {rel} | {conf} | {density_str} |"
+                f"| {src_id} | {title} | {vol} | {char_vol} | {rel_bd} | {conf} | {density_str} |"
             )
 
         return "\n".join(lines) + "\n"

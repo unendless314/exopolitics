@@ -8,12 +8,13 @@ For command-line invocation arguments and runner policies, refer to [EXECUTION_P
 
 ## 1. Report Families
 
-The `analysis` module generates four stable report families:
+The `analysis` module generates five stable report families:
 
 1.  **Sources Report (`sources`)**: Evaluates RSS source connection health, category distribution, content density, and quadrant classification.
-2.  **Funnel Report (`funnel`)**: Details throughput volume, stage-by-stage conversion rates, and latency bottlenecks.
+2.  **Funnel Report (`funnel`)**: Details throughput volume, stage-by-stage conversion rates, and latency bottlenecks under raw and matured windows.
 3.  **Translation Report (`translation`)**: Monitors multilingual translation success rates, language volume proxies, and delays.
 4.  **Classification Report (`classify`)**: Monitors LLM classification workload volume, relevance rate, and content density.
+5.  **Curation Diagnostics Report (`curation_diagnostics`)**: Monitors curation LLM workload volume, approval rates, rejection reason mixes, and latency delays.
 
 ---
 
@@ -28,36 +29,36 @@ To ensure stable consumption by automated dashboards, any report generated with 
   "title": "AnalysisReport",
   "type": "object",
   "properties": {
-    "report_type": { 
-      "type": "string", 
-      "enum": ["sources", "funnel", "translation", "classify"] 
+    "report_type": {
+      "type": "string",
+      "enum": ["sources", "funnel", "translation", "classify", "curation_diagnostics"]
     },
-    "schema_version": { 
+    "schema_version": {
       "type": "string",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
     },
-    "generated_at": { 
-      "type": "string", 
+    "generated_at": {
+      "type": "string",
       "format": "date-time",
       "description": "ISO 8601 timestamp of report creation"
     },
-    "lookback_days": { 
+    "lookback_days": {
       "type": "integer",
       "minimum": 1
     },
-    "window_start": { 
-      "type": "string", 
+    "window_start": {
+      "type": "string",
       "format": "date-time",
-      "description": "ISO 8601 timestamp of lookback start time"
+      "description": "ISO 8601 timestamp of lookback start time (for reports retaining it)"
     },
-    "window_end": { 
-      "type": "string", 
+    "window_end": {
+      "type": "string",
       "format": "date-time",
-      "description": "ISO 8601 timestamp of lookback end time"
+      "description": "ISO 8601 timestamp of lookback end time (for reports retaining it)"
     },
     "metrics": {
       "type": "object",
-      "description": "Aggregated overall pipeline KPIs"
+      "description": "Aggregated overall pipeline KPIs (for reports retaining it)"
     },
     "breakdowns": {
       "type": "array",
@@ -65,14 +66,10 @@ To ensure stable consumption by automated dashboards, any report generated with 
     }
   },
   "required": [
-    "report_type", 
-    "schema_version", 
-    "generated_at", 
-    "lookback_days", 
-    "window_start", 
-    "window_end", 
-    "metrics", 
-    "breakdowns"
+    "report_type",
+    "schema_version",
+    "generated_at",
+    "lookback_days"
   ],
   "allOf": [
     {
@@ -140,13 +137,14 @@ To ensure stable consumption by automated dashboards, any report generated with 
                 }
               },
               "required": [
-                "source_id", "fetch_success_rate", "ingest_volume", "relevance_rate", 
-                "curation_approval_rate", "overall_yield", "classification_character_volume_proxy", 
+                "source_id", "fetch_success_rate", "ingest_volume", "relevance_rate",
+                "curation_approval_rate", "overall_yield", "classification_character_volume_proxy",
                 "curation_character_volume_proxy", "classification_filtering_overhead", "topic_class_breakdown", "decision_model"
               ]
             }
           }
-        }
+        },
+        "required": ["window_start", "window_end", "metrics", "breakdowns"]
       }
     },
     {
@@ -155,7 +153,24 @@ To ensure stable consumption by automated dashboards, any report generated with 
       },
       "then": {
         "properties": {
-          "metrics": {
+          "maturation_offset_hours": { "type": "integer" },
+          "raw_window": {
+            "type": "object",
+            "properties": {
+              "start": { "type": "string", "format": "date-time" },
+              "end": { "type": "string", "format": "date-time" }
+            },
+            "required": ["start", "end"]
+          },
+          "matured_window": {
+            "type": "object",
+            "properties": {
+              "start": { "type": "string", "format": "date-time" },
+              "end": { "type": "string", "format": "date-time" }
+            },
+            "required": ["start", "end"]
+          },
+          "raw_metrics": {
             "type": "object",
             "properties": {
               "total_ingested": { "type": "integer" },
@@ -166,6 +181,69 @@ To ensure stable consumption by automated dashboards, any report generated with 
               "curation_approved": { "type": "integer" },
               "total_translated": { "type": "integer" },
               "total_published": { "type": "integer" },
+              "classification_readiness_breakdown": {
+                "type": "object",
+                "properties": {
+                  "low_context_bypass": { "type": "integer" },
+                  "total_classified": { "type": "integer" },
+                  "pending_classification": { "type": "integer" },
+                  "failed_text_processing": { "type": "integer" },
+                  "missing_text_processing": { "type": "integer" }
+                },
+                "required": [
+                  "low_context_bypass", "total_classified", "pending_classification",
+                  "failed_text_processing", "missing_text_processing"
+                ]
+              }
+            },
+            "required": [
+              "total_ingested", "low_context_bypass_count", "total_classified",
+              "relevant_classified", "total_curated", "curation_approved",
+              "total_translated", "total_published", "classification_readiness_breakdown"
+            ]
+          },
+          "matured_metrics": {
+            "type": "object",
+            "properties": {
+              "total_ingested": { "type": "integer" },
+              "low_context_bypass_count": { "type": "integer" },
+              "total_classified": { "type": "integer" },
+              "relevant_classified": { "type": "integer" },
+              "total_curated": { "type": "integer" },
+              "curation_approved": { "type": "integer" },
+              "total_translated": { "type": "integer" },
+              "total_published": { "type": "integer" },
+              "classification_rate": { "type": ["number", "null"] },
+              "curation_rate": { "type": ["number", "null"] },
+              "curation_approval_rate": { "type": ["number", "null"] },
+              "translation_rate": { "type": ["number", "null"] },
+              "publish_rate": { "type": ["number", "null"] },
+              "classification_readiness_breakdown": {
+                "type": "object",
+                "properties": {
+                  "low_context_bypass": { "type": "integer" },
+                  "total_classified": { "type": "integer" },
+                  "pending_classification": { "type": "integer" },
+                  "failed_text_processing": { "type": "integer" },
+                  "missing_text_processing": { "type": "integer" }
+                },
+                "required": [
+                  "low_context_bypass", "total_classified", "pending_classification",
+                  "failed_text_processing", "missing_text_processing"
+                ]
+              }
+            },
+            "required": [
+              "total_ingested", "low_context_bypass_count", "total_classified",
+              "relevant_classified", "total_curated", "curation_approved",
+              "total_translated", "total_published", "classification_rate",
+              "curation_rate", "curation_approval_rate", "translation_rate",
+              "publish_rate", "classification_readiness_breakdown"
+            ]
+          },
+          "raw_latency_metrics": {
+            "type": "object",
+            "properties": {
               "pipeline_lead_time_seconds": {
                 "type": "object",
                 "properties": {
@@ -174,66 +252,48 @@ To ensure stable consumption by automated dashboards, any report generated with 
                   "p90": { "type": ["number", "null"] }
                 },
                 "required": ["average", "median", "p90"]
+              },
+              "stage_latency_breakdown_seconds": {
+                "type": "object",
+                "properties": {
+                  "feed_freshness_delay": {
+                    "type": "object",
+                    "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
+                    "required": ["average", "median", "p90"]
+                  },
+                  "fetch_execution_latency": {
+                    "type": "object",
+                    "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
+                    "required": ["average", "median", "p90"]
+                  },
+                  "classification_delay": {
+                    "type": "object",
+                    "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
+                    "required": ["average", "median", "p90"]
+                  },
+                  "curation_delay": {
+                    "type": "object",
+                    "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
+                    "required": ["average", "median", "p90"]
+                  },
+                  "translation_delay": {
+                    "type": "object",
+                    "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
+                    "required": ["average", "median", "p90"]
+                  },
+                  "publish_delay": {
+                    "type": "object",
+                    "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
+                    "required": ["average", "median", "p90"]
+                  }
+                },
+                "required": [
+                  "feed_freshness_delay", "fetch_execution_latency", "classification_delay",
+                  "curation_delay", "translation_delay", "publish_delay"
+                ]
               }
             },
-            "required": [
-              "total_ingested", "low_context_bypass_count", "total_classified", 
-              "relevant_classified", "total_curated", "curation_approved", 
-              "total_translated", "total_published", "pipeline_lead_time_seconds"
-            ]
-          },
-          "stage_latency_breakdown_seconds": {
-            "description": "Granular latency breakdown for each pipeline stage. To ensure direct comparability and statistical consistency, stage metrics in this breakdown (except Fetch Execution Latency, which maintains its event_time basis due to the absence of item-level database linkage to fetch attempts) are evaluated using the shared source_item_cohort basis (i.e. strictly for the items belonging to the ingestion cohort).",
-            "type": "object",
-            "properties": {
-              "feed_freshness_delay": {
-                "type": "object",
-                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
-                "required": ["average", "median", "p90"]
-              },
-              "fetch_execution_latency": {
-                "type": "object",
-                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
-                "required": ["average", "median", "p90"]
-              },
-              "classification_delay": {
-                "type": "object",
-                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
-                "required": ["average", "median", "p90"]
-              },
-              "curation_delay": {
-                "type": "object",
-                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
-                "required": ["average", "median", "p90"]
-              },
-              "translation_delay": {
-                "type": "object",
-                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
-                "required": ["average", "median", "p90"]
-              },
-              "publish_delay": {
-                "type": "object",
-                "properties": { "average": { "type": ["number", "null"] }, "median": { "type": ["number", "null"] }, "p90": { "type": ["number", "null"] } },
-                "required": ["average", "median", "p90"]
-              }
-            },
-            "required": [
-              "feed_freshness_delay", "fetch_execution_latency", "classification_delay", 
-              "curation_delay", "translation_delay", "publish_delay"
-            ]
-          },
-          "breakdowns": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "stage": { "type": "string" },
-                "count": { "type": "integer" },
-                "stage_conversion_rate": { "type": ["number", "null"] },
-                "cumulative_yield": { "type": ["number", "null"] }
-              },
-              "required": ["stage", "count", "stage_conversion_rate", "cumulative_yield"]
-            }
+            "required": ["pipeline_lead_time_seconds", "stage_latency_breakdown_seconds"]
           },
           "published_by_language": {
             "type": "array",
@@ -246,9 +306,25 @@ To ensure stable consumption by automated dashboards, any report generated with 
               },
               "required": ["language_code", "published_count", "coverage_rate"]
             }
+          },
+          "data_quality_anomalies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": { "type": "string" },
+                "count": { "type": "integer" },
+                "item_samples": { "type": "array", "items": { "type": "integer" } }
+              },
+              "required": ["code", "count", "item_samples"]
+            }
           }
         },
-        "required": ["metrics", "stage_latency_breakdown_seconds", "breakdowns", "published_by_language"]
+        "required": [
+          "maturation_offset_hours", "raw_window", "matured_window",
+          "raw_metrics", "matured_metrics", "raw_latency_metrics",
+          "published_by_language", "data_quality_anomalies"
+        ]
       }
     },
     {
@@ -281,7 +357,8 @@ To ensure stable consumption by automated dashboards, any report generated with 
               "required": ["language_code", "translation_success_rate", "translation_completion_rate", "average_latency_seconds", "stale_rate", "translation_character_volume_proxy"]
             }
           }
-        }
+        },
+        "required": ["window_start", "window_end", "metrics", "breakdowns"]
       }
     },
     {
@@ -294,10 +371,21 @@ To ensure stable consumption by automated dashboards, any report generated with 
             "type": "object",
             "properties": {
               "total_classified": { "type": "integer" },
+              "classification_character_volume_proxy": { "type": "integer" },
               "relevance_rate": { "type": ["number", "null"] },
-              "average_confidence": { "type": ["number", "null"] }
+              "average_confidence": { "type": ["number", "null"] },
+              "overall_topic_class_breakdown": {
+                "type": "object",
+                "properties": {
+                  "core": { "type": ["number", "null"] },
+                  "adjacent": { "type": ["number", "null"] },
+                  "irrelevant": { "type": ["number", "null"] },
+                  "unknown": { "type": ["number", "null"] }
+                },
+                "required": ["core", "adjacent", "irrelevant", "unknown"]
+              }
             },
-            "required": ["total_classified", "relevance_rate", "average_confidence"]
+            "required": ["total_classified", "classification_character_volume_proxy", "relevance_rate", "average_confidence", "overall_topic_class_breakdown"]
           },
           "breakdowns": {
             "type": "array",
@@ -306,6 +394,7 @@ To ensure stable consumption by automated dashboards, any report generated with 
               "properties": {
                 "source_id": { "type": "integer" },
                 "classify_volume": { "type": "integer" },
+                "classification_character_volume_proxy": { "type": "integer" },
                 "relevance_rate": { "type": ["number", "null"] },
                 "average_confidence": { "type": ["number", "null"] },
                 "content_density_distribution": {
@@ -316,12 +405,71 @@ To ensure stable consumption by automated dashboards, any report generated with 
                     "high": { "type": "number" }
                   },
                   "required": ["low", "medium", "high"]
+                },
+                "topic_class_breakdown": {
+                  "type": "object",
+                  "properties": {
+                    "core": { "type": ["number", "null"] },
+                    "adjacent": { "type": ["number", "null"] },
+                    "irrelevant": { "type": ["number", "null"] },
+                    "unknown": { "type": ["number", "null"] }
+                  },
+                  "required": ["core", "adjacent", "irrelevant", "unknown"]
                 }
               },
-              "required": ["source_id", "classify_volume", "relevance_rate", "average_confidence", "content_density_distribution"]
+              "required": [
+                "source_id", "classify_volume", "classification_character_volume_proxy",
+                "relevance_rate", "average_confidence", "content_density_distribution",
+                "topic_class_breakdown"
+              ]
             }
           }
-        }
+        },
+        "required": ["window_start", "window_end", "metrics", "breakdowns"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "report_type": { "const": "curation_diagnostics" } }
+      },
+      "then": {
+        "properties": {
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "curation_approval_rate": { "type": ["number", "null"] },
+              "curation_character_volume_proxy": { "type": "integer" },
+              "curation_latency_seconds": {
+                "type": "object",
+                "properties": {
+                  "average": { "type": ["number", "null"] },
+                  "median": { "type": ["number", "null"] },
+                  "p90": { "type": ["number", "null"] }
+                },
+                "required": ["average", "median", "p90"]
+              }
+            },
+            "required": ["curation_approval_rate", "curation_character_volume_proxy", "curation_latency_seconds"]
+          },
+          "curation_rejection_mix": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "downstream_action": { "type": ["string", "null"] },
+                "count": { "type": "integer" }
+              },
+              "required": ["downstream_action", "count"]
+            }
+          },
+          "breakdowns": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": ["window_start", "window_end", "metrics", "curation_rejection_mix", "breakdowns"]
       }
     }
   ]

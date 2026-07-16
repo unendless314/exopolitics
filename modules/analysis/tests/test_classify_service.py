@@ -12,14 +12,13 @@ def test_classify_service_overall_and_breakdowns(seeded_db_conn):
     }
 
     service = ClassifyService(seeded_db_conn, sources_meta=sources_meta)
-    
+
     # Force the lookback window to be 7 days from 2026-07-15 16:38:10 UTC
-    # Since get_lookback_window uses datetime.now(timezone.utc), we can mock it or just patch the method.
     service.get_lookback_window = MagicMock(return_value=("2026-07-08T00:00:00Z", "2026-07-15T23:59:59Z"))
 
     report = service.run_classify_analysis(days=7)
 
-    # 1. Assert overall metrics (items 101, 102, 103, 104 are within window. item 105 is out of window)
+    # 1. Assert overall metrics
     metrics = report["metrics"]
     assert metrics["total_classified"] == 4
     # Character volume proxy: 101(17+500=517) + 102(17+600=617) + 103(22+700=722) + 104(13+800=813) = 2669
@@ -28,6 +27,13 @@ def test_classify_service_overall_and_breakdowns(seeded_db_conn):
     assert pytest.approx(metrics["relevance_rate"]) == 0.75
     # Average confidence: (0.95 + 0.85 + 0.75 + 0.90) / 4 = 0.8625
     assert pytest.approx(metrics["average_confidence"]) == 0.8625
+
+    # Overall Topic class breakdown
+    overall_topic = metrics["overall_topic_class_breakdown"]
+    assert pytest.approx(overall_topic["core"]) == 0.50
+    assert pytest.approx(overall_topic["adjacent"]) == 0.25
+    assert pytest.approx(overall_topic["irrelevant"]) == 0.25
+    assert pytest.approx(overall_topic["unknown"]) == 0.00
 
     # 2. Assert source breakdowns
     breakdowns = report["breakdowns"]
@@ -41,7 +47,14 @@ def test_classify_service_overall_and_breakdowns(seeded_db_conn):
     assert pytest.approx(alpha["relevance_rate"]) == 2.0 / 3.0
     # Avg confidence: (0.95 + 0.85 + 0.75) / 3 = 0.85
     assert pytest.approx(alpha["average_confidence"]) == 0.85
-    
+
+    # Topic class breakdown
+    alpha_topic = alpha["topic_class_breakdown"]
+    assert pytest.approx(alpha_topic["core"]) == 1.0 / 3.0
+    assert pytest.approx(alpha_topic["adjacent"]) == 1.0 / 3.0
+    assert pytest.approx(alpha_topic["irrelevant"]) == 1.0 / 3.0
+    assert pytest.approx(alpha_topic["unknown"]) == 0.0
+
     # Content density distribution: 101 (high), 102 (medium), 103 (low) => 1/3 each
     density = alpha["content_density_distribution"]
     assert pytest.approx(density["low"]) == 1.0 / 3.0
@@ -58,17 +71,25 @@ def test_classify_service_overall_and_breakdowns(seeded_db_conn):
     assert beta["content_density_distribution"]["low"] == 0.0
     assert beta["content_density_distribution"]["high"] == 0.0
 
+    # Beta topic class breakdown
+    beta_topic = beta["topic_class_breakdown"]
+    assert pytest.approx(beta_topic["core"]) == 1.0
+    assert pytest.approx(beta_topic["adjacent"]) == 0.0
+    assert pytest.approx(beta_topic["irrelevant"]) == 0.0
+    assert pytest.approx(beta_topic["unknown"]) == 0.0
+
 def test_classify_service_empty_db(empty_db_conn):
     service = ClassifyService(empty_db_conn)
     service.get_lookback_window = MagicMock(return_value=("2026-07-08T00:00:00Z", "2026-07-15T23:59:59Z"))
 
     report = service.run_classify_analysis(days=7)
-    
+
     metrics = report["metrics"]
     assert metrics["total_classified"] == 0
     assert metrics["classification_character_volume_proxy"] == 0
     assert metrics["relevance_rate"] is None
     assert metrics["average_confidence"] is None
+    assert metrics["overall_topic_class_breakdown"]["core"] is None
     assert len(report["breakdowns"]) == 0
 
 def test_markdown_report_formatting():
@@ -76,12 +97,12 @@ def test_markdown_report_formatting():
     sources_meta = {
         1: SourceMeta(id=1, title="Alpha Source", xml_url="http://alpha", category_id=1, enabled=True, fetch_group=1, schedule_class="daily")
     }
-    
+
     service = ClassifyService(None, sources_meta=sources_meta)
-    
+
     data = {
         "report_type": "classify",
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "generated_at": "2026-07-15T12:00:00Z",
         "lookback_days": 7,
         "window_start": "2026-07-08T00:00:00Z",
@@ -90,7 +111,8 @@ def test_markdown_report_formatting():
             "total_classified": 10,
             "classification_character_volume_proxy": 5000,
             "relevance_rate": 0.50,
-            "average_confidence": 0.85
+            "average_confidence": 0.85,
+            "overall_topic_class_breakdown": {"core": 0.3, "adjacent": 0.2, "irrelevant": 0.5, "unknown": 0.0}
         },
         "breakdowns": [
             {
@@ -99,7 +121,8 @@ def test_markdown_report_formatting():
                 "classification_character_volume_proxy": 3000,
                 "relevance_rate": 0.6667,
                 "average_confidence": 0.88,
-                "content_density_distribution": {"low": 0.1, "medium": 0.5, "high": 0.4}
+                "content_density_distribution": {"low": 0.1, "medium": 0.5, "high": 0.4},
+                "topic_class_breakdown": {"core": 0.4, "adjacent": 0.2667, "irrelevant": 0.3333, "unknown": 0.0}
             },
             {
                 "source_id": 999,  # Missing from config metadata
@@ -107,11 +130,12 @@ def test_markdown_report_formatting():
                 "classification_character_volume_proxy": 2000,
                 "relevance_rate": 0.25,
                 "average_confidence": 0.80,
-                "content_density_distribution": {"low": 0.5, "medium": 0.5, "high": 0.0}
+                "content_density_distribution": {"low": 0.5, "medium": 0.5, "high": 0.0},
+                "topic_class_breakdown": {"core": 0.1, "adjacent": 0.15, "irrelevant": 0.75, "unknown": 0.0}
             }
         ]
     }
-    
+
     report = service.format_markdown_report(data)
     assert "# LLM Classification Workload Report" in report
     assert "Alpha Source" in report
@@ -140,4 +164,3 @@ def test_check_positive_days():
 
     with pytest.raises(argparse.ArgumentTypeError):
         check_positive_days("abc")
-

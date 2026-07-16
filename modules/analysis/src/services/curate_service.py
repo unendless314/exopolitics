@@ -41,13 +41,16 @@ class CurateService:
         delays = curate_queries.get_curation_delays(self.conn, start_time, end_time)
 
         rejection_rows = curate_queries.get_curation_rejection_mix(self.conn, start_time, end_time)
-        rejection_mix = {}
+        rejection_mix = []
         for row in rejection_rows:
-            rejection_mix[row["downstream_action"] or "unknown"] = row["count"]
+            rejection_mix.append({
+                "downstream_action": row["downstream_action"],
+                "count": row["count"]
+            })
 
         return {
             "report_type": "curation_diagnostics",
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0",
             "generated_at": generated_at,
             "lookback_days": days,
             "window_start": start_time,
@@ -55,13 +58,14 @@ class CurateService:
             "metrics": {
                 "curation_approval_rate": approval_rate,
                 "curation_character_volume_proxy": char_vol_proxy,
-                "curation_delay_seconds": {
+                "curation_latency_seconds": {
                     "average": self.get_average(delays),
                     "median": self.get_percentile(delays, 0.5),
                     "p90": self.get_percentile(delays, 0.9)
                 }
             },
-            "curation_rejection_mix": rejection_mix
+            "curation_rejection_mix": rejection_mix,
+            "breakdowns": []
         }
 
     def format_markdown_report(self, data: Dict[str, Any]) -> str:
@@ -70,7 +74,7 @@ class CurateService:
         days = data["lookback_days"]
         metrics = data["metrics"]
         rejection_mix = data["curation_rejection_mix"]
-        delay = metrics["curation_delay_seconds"]
+        delay = metrics["curation_latency_seconds"]
 
         def format_pct(val: Optional[float]) -> str:
             if val is None:
@@ -101,7 +105,9 @@ class CurateService:
         ]
 
         if rejection_mix:
-            for action, cnt in rejection_mix.items():
+            for item in rejection_mix:
+                action = item["downstream_action"] or "unknown"
+                cnt = item["count"]
                 lines.append(f"- **{action}**: {cnt}")
         else:
             lines.append("No curation rejections recorded.")

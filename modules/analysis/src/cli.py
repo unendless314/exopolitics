@@ -13,7 +13,7 @@ from modules.analysis.src.config import (
     load_categories_config
 )
 from modules.analysis.src.database import get_connection
-from modules.analysis.src.services import ClassifyService, FunnelCalculator, SourceService, TranslateService
+from modules.analysis.src.services import ClassifyService, FunnelCalculator, SourceService, TranslateService, CurateService
 
 logger = logging.getLogger("modules.analysis.cli")
 
@@ -66,6 +66,18 @@ def check_positive_days(value) -> int:
         raise argparse.ArgumentTypeError(f"days lookback window must be at least 1 (got {ivalue})")
     return ivalue
 
+def check_non_negative_int(value) -> int:
+    """
+    Validation helper to ensure maturation offset is >= 0.
+    """
+    try:
+        ivalue = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"'{value}' is not a valid integer")
+    if ivalue < 0:
+        raise argparse.ArgumentTypeError(f"maturation offset hours must be at least 0 (got {ivalue})")
+    return ivalue
+
 def get_parser() -> argparse.ArgumentParser:
     """
     Constructs the argparse instance.
@@ -97,6 +109,11 @@ def get_parser() -> argparse.ArgumentParser:
         "--db-path",
         type=pathlib.Path,
         help="Path to the SQLite database file (default: data/canonical.db)"
+    )
+    parent_parser.add_argument(
+        "--maturation-offset-hours",
+        type=check_non_negative_int,
+        help="Maturation lookback offset in hours (default: 2)"
     )
 
     parser = argparse.ArgumentParser(
@@ -142,6 +159,13 @@ def get_parser() -> argparse.ArgumentParser:
         help="Analyze translation pipeline success rates, character volume, and latency"
     )
 
+    # analyze-curation subcommand
+    subparsers.add_parser(
+        "analyze-curation",
+        parents=[parent_parser],
+        help="Analyze curation LLM workload volume, approval rates, rejection reason mixes, and latency delays"
+    )
+
     return parser
 
 def main() -> int:
@@ -178,6 +202,7 @@ def main() -> int:
     output_dir = args.output_dir if args.output_dir is not None else (pathlib.Path(settings.reporting.defaults.output_dir) if settings else pathlib.Path("reports/analysis"))
     stdout = args.stdout if args.stdout else (settings.reporting.defaults.stdout if settings else False)
     db_path = args.db_path if args.db_path is not None else workspace_root / "data" / "canonical.db"
+    maturation_offset_hours = args.maturation_offset_hours if getattr(args, "maturation_offset_hours", None) is not None else (settings.reporting.defaults.maturation_offset_hours if settings else 2)
     
     busy_timeout_ms = settings.database.busy_timeout_ms if settings else 10000
     log_path = settings.reporting.defaults.log_path if settings else None
@@ -252,7 +277,7 @@ def main() -> int:
             if not target_langs:
                 target_langs = ["en", "zh", "ja"]
 
-            service = FunnelCalculator(conn, target_languages=target_langs)
+            service = FunnelCalculator(conn, target_languages=target_langs, maturation_offset_hours=maturation_offset_hours)
             logger.info(f"Running funnel analysis with a lookback of {days} days...")
             result = service.run_funnel_analysis(days)
 
@@ -288,6 +313,18 @@ def main() -> int:
             else:
                 output_content = service.format_markdown_report(result)
                 filename = "TRANSLATION_PERFORMANCE_REPORT.md"
+
+        elif args.command == "analyze-curation":
+            service = CurateService(conn)
+            logger.info(f"Running curation diagnostics with a lookback of {days} days...")
+            result = service.run_curate_analysis(days)
+
+            if fmt == "json":
+                output_content = json.dumps(result, indent=2)
+                filename = "CURATION_PERFORMANCE_REPORT.json"
+            else:
+                output_content = service.format_markdown_report(result)
+                filename = "CURATION_PERFORMANCE_REPORT.md"
 
         else:
             logger.error(f"Unsupported subcommand: {args.command}")

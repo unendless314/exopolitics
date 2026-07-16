@@ -6,7 +6,7 @@ def get_publish_count(conn: sqlite3.Connection, start: str, end: str) -> int:
     sql = """
         SELECT COUNT(*) AS cnt
         FROM publish_record
-        WHERE first_published_at BETWEEN :start AND :end
+        WHERE first_published_at >= :start AND first_published_at < :end
     """
     cursor = safe_execute(conn, sql, {"start": start, "end": end})
     row = cursor.fetchone()
@@ -26,7 +26,7 @@ def get_language_coverage_rates(
         JOIN curation_decision cd ON acr.source_item_id = cd.source_item_id
         LEFT JOIN publish_record pr ON acr.source_item_id = pr.source_item_id
         LEFT JOIN publish_language_status pls ON pr.publish_record_id = pls.publish_record_id AND pls.language_code = lang.value
-        WHERE si.fetched_at BETWEEN :start AND :end
+        WHERE si.fetched_at >= :start AND si.fetched_at < :end
           AND cd.curate_status = 'approved'
         GROUP BY lang.value
     """
@@ -43,7 +43,7 @@ def get_publish_delays(conn: sqlite3.Connection, start: str, end: str) -> List[s
         JOIN approved_content_record acr ON pr.source_item_id = acr.source_item_id
         JOIN translation_output tor ON acr.parent_content_id = tor.parent_content_id AND tor.language_code = pls.language_code
         JOIN source_item si ON pr.source_item_id = si.source_item_id
-        WHERE si.fetched_at BETWEEN :start AND :end
+        WHERE si.fetched_at >= :start AND si.fetched_at < :end
           AND pls.published_at IS NOT NULL
           AND tor.translated_at IS NOT NULL
     """

@@ -106,7 +106,6 @@ class SourceService:
                 prop_unknown = None
 
             # Calculate classification filtering overhead
-            # Formula: Total Classified / NULLIF(Curate Approved, 0)
             if curate_approved_count > 0:
                 classification_filtering_overhead = classified_count / curate_approved_count
             else:
@@ -178,13 +177,22 @@ class SourceService:
 
         def format_pct(val: Optional[float]) -> str:
             if val is None:
+                return "0.00%"
+            return f"{val * 100:.2f}%"
+
+        def format_pct_or_insufficient(val: Optional[float]) -> str:
+            if val is None:
                 return "[INSUFFICIENT_DATA]"
             return f"{val * 100:.2f}%"
 
-        def format_float(val: Optional[float], decimals: int = 4) -> str:
-            if val is None:
+        def format_breakdown(rel: Optional[float], bd: Dict[str, Optional[float]]) -> str:
+            if rel is None:
                 return "[INSUFFICIENT_DATA]"
-            return f"{val:.{decimals}f}"
+            c = format_pct(bd.get("core"))
+            a = format_pct(bd.get("adjacent"))
+            i = format_pct(bd.get("irrelevant"))
+            u = format_pct(bd.get("unknown"))
+            return f"{rel * 100:.2f}% ({c} / {a} / {i} / {u})"
 
         lines = [
             "# RSS Source Connection & Content Quality Report",
@@ -193,22 +201,24 @@ class SourceService:
             f"**Lookback Period**: {days} days ({window_start} to {window_end})",
             "",
             "## Overall Pipeline KPIs",
-            f"- **Overall Fetch Success Rate**: {format_pct(metrics['overall_fetch_success_rate'])}",
+            f"- **Overall Fetch Success Rate**: {format_pct_or_insufficient(metrics['overall_fetch_success_rate'])}",
             f"- **Total Ingested Items**: {metrics['total_ingested_items']}",
-            f"- **Low-Context Bypass Rate**: {format_pct(metrics['low_context_bypass_rate'])}",
+            f"- **Low-Context Bypass Rate**: {format_pct_or_insufficient(metrics['low_context_bypass_rate'])}",
             "",
             "## Source Performance Breakdown",
-            "| Source ID | Source Title | Fetch Success | Ingest Vol | Relevance | Curation Approval | Overall Yield | Quadrant | Flags |",
-            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
+            "| Source ID | Source Title | Fetch Success | Ingest Vol | Classify Char Vol | Curate Char Vol | Relevance Breakdown (Core / Adj / Irr / Unk) | Curation Approval | Overall Yield | Quadrant | Flags |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
         ]
 
         for item in breakdowns:
             src_id = item["source_id"]
-            fetch_rate = format_pct(item["fetch_success_rate"])
+            fetch_rate = format_pct_or_insufficient(item["fetch_success_rate"])
             vol = item["ingest_volume"]
-            rel = format_pct(item["relevance_rate"])
-            cur = format_pct(item["curation_approval_rate"])
-            yld = format_pct(item["overall_yield"])
+            class_char_vol = item["classification_character_volume_proxy"]
+            curate_char_vol = item["curation_character_volume_proxy"]
+            rel_bd = format_breakdown(item["relevance_rate"], item["topic_class_breakdown"])
+            cur = format_pct_or_insufficient(item["curation_approval_rate"])
+            yld = format_pct_or_insufficient(item["overall_yield"])
             
             quadrant = item["decision_model"]["quadrant"]
             quadrant_str = quadrant.upper() if quadrant else "N/A"
@@ -222,7 +232,7 @@ class SourceService:
                 title = f"Unknown Source (ID: {src_id})"
 
             lines.append(
-                f"| {src_id} | {title} | {fetch_rate} | {vol} | {rel} | {cur} | {yld} | {quadrant_str} | {flags_str} |"
+                f"| {src_id} | {title} | {fetch_rate} | {vol} | {class_char_vol} | {curate_char_vol} | {rel_bd} | {cur} | {yld} | {quadrant_str} | {flags_str} |"
             )
 
         return "\n".join(lines) + "\n"

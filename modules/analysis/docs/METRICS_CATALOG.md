@@ -90,6 +90,33 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
     *   This is an auxiliary diagnostic metric. `text_processing_reason` is intended for diagnostic interpretation of low-context items and must not be treated as an independent quality score or automated disable trigger.
     *   Report layers may derive percentages from these grouped counts, but the canonical metric contract is count-based to avoid ambiguity.
 
+#### 2.2.2 Pending Classification `[Phase 1 / Stable]`
+*   **Purpose**: Track items that have completed text processing but have not yet been processed by the LLM classification runner.
+*   **Window Basis**: `source_item_cohort`
+*   **Formula**: Count of items where `source_item_text.text_processing_status = 'completed'` and no corresponding record exists in `classification_result` where `source_item.fetched_at` is within the lookback window.
+*   **Data Source**: `source_item`, `source_item_text`, `classification_result`
+*   **Direct Dimensions**: `source_item_id`
+*   **Derived Dimensions**: `source_id`
+*   **Update Frequency**: Executed per CLI run.
+
+#### 2.2.3 Failed Text Processing `[Phase 1 / Stable]`
+*   **Purpose**: Track items where text extraction or processing failed and did not proceed downstream.
+*   **Window Basis**: `source_item_cohort`
+*   **Formula**: Count of items where `source_item_text.text_processing_status = 'failed'` where `source_item.fetched_at` is within the lookback window.
+*   **Data Source**: `source_item`, `source_item_text`
+*   **Direct Dimensions**: `source_item_id`
+*   **Derived Dimensions**: `source_id`
+*   **Update Frequency**: Executed per CLI run.
+
+#### 2.2.4 Missing Text Processing `[Phase 1 / Stable]`
+*   **Purpose**: Track items that exist in the system but have no corresponding text processing record in the text database.
+*   **Window Basis**: `source_item_cohort`
+*   **Formula**: Count of items in `source_item` where no corresponding row exists in `source_item_text` where `source_item.fetched_at` is within the lookback window.
+*   **Data Source**: `source_item`, `source_item_text`
+*   **Direct Dimensions**: `source_item_id`
+*   **Derived Dimensions**: `source_id`
+*   **Update Frequency**: Executed per CLI run.
+
 ### 2.3 Relevance Rate `[MVP]`
 *   **Purpose**: Measure the alignment of ingested feed items with core/adjacent topics.
 *   **Window Basis**: `source_item_cohort`

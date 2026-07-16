@@ -9,7 +9,7 @@ def get_curation_approval_rate(conn: sqlite3.Connection, start: str, end: str) -
             / NULLIF(COUNT(cd.source_item_id), 0) AS rate
         FROM curation_decision cd
         JOIN source_item si ON cd.source_item_id = si.source_item_id
-        WHERE si.fetched_at BETWEEN :start AND :end
+        WHERE si.fetched_at >= :start AND si.fetched_at < :end
     """
     cursor = safe_execute(conn, sql, {"start": start, "end": end})
     row = cursor.fetchone()
@@ -22,7 +22,7 @@ def get_curation_rejection_mix(conn: sqlite3.Connection, start: str, end: str) -
             COUNT(*) AS count
         FROM curation_decision cd
         JOIN source_item si ON cd.source_item_id = si.source_item_id
-        WHERE si.fetched_at BETWEEN :start AND :end
+        WHERE si.fetched_at >= :start AND si.fetched_at < :end
           AND cd.curate_status = 'rejected'
         GROUP BY cd.downstream_action
     """
@@ -36,7 +36,7 @@ def get_curation_char_volume_proxy(conn: sqlite3.Connection, start: str, end: st
         FROM source_item si
         JOIN source_item_text sit ON si.source_item_id = sit.source_item_id
         JOIN curation_decision cd ON si.source_item_id = cd.source_item_id
-        WHERE si.fetched_at BETWEEN :start AND :end
+        WHERE si.fetched_at >= :start AND si.fetched_at < :end
     """
     cursor = safe_execute(conn, sql, {"start": start, "end": end})
     row = cursor.fetchone()
@@ -48,7 +48,7 @@ def get_curation_delays(conn: sqlite3.Connection, start: str, end: str) -> List[
         FROM curation_decision cd
         JOIN classification_result cr ON cd.source_item_id = cr.source_item_id
         JOIN source_item si ON cd.source_item_id = si.source_item_id
-        WHERE si.fetched_at BETWEEN :start AND :end
+        WHERE si.fetched_at >= :start AND si.fetched_at < :end
           AND cd.curated_at IS NOT NULL
           AND cr.classified_at IS NOT NULL
     """

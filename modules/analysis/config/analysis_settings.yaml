@@ -12,6 +12,7 @@ reporting:
     output_dir: "reports/analysis/"
     stdout: false
     log_path: null               # Optional persistent log file path (null defaults to stderr)
+    maturation_offset_hours: 2
 
 # Quadrant Source Classifier settings (Deferred to Phase 2)
 quadrant_classifier:

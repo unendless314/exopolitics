@@ -12,12 +12,20 @@ class ReportingDefaults(BaseModel):
     output_dir: str = "reports/analysis/"
     stdout: bool = False
     log_path: Optional[str] = None
+    maturation_offset_hours: int = 2
 
     @field_validator("format")
     @classmethod
     def validate_format(cls, v: str) -> str:
         if v not in ("markdown", "json"):
             raise ValueError("format must be 'markdown' or 'json'")
+        return v
+
+    @field_validator("maturation_offset_hours")
+    @classmethod
+    def validate_maturation_offset_hours(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("maturation_offset_hours must be at least 0")
         return v
 
 class ReportingSettings(BaseModel):
