@@ -219,6 +219,29 @@ Important boundary:
 - `analysis` may write derived report files to `reports/analysis/`.
 - `analysis` is not a gating stage for canonical state transitions or public publishing.
 
+### 3.9 `dashboard`
+
+Owns:
+
+- rendering of `analysis` JSON reports as interactive charts and tables
+- dashboard UI configuration and supported schema-version declarations
+- report-file loading, validation, and caching behavior
+
+May read:
+
+- JSON report files under `reports/analysis/` only
+
+Must not own:
+
+- canonical DB access or writes
+- metric computation or re-derivation
+- analysis report generation or pipeline execution
+- operational module configuration
+
+Important boundary:
+
+- `dashboard` is a pure presentation consumer of the `analysis` JSON contract; it must never open `canonical.db` or recompute metrics from raw records
+
 ---
 
 ## 4. Shared Capability Rules

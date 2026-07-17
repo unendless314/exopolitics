@@ -38,6 +38,7 @@ Respect module boundaries from `docs/MODULE_BOUNDARIES.md`:
 - `publish`: export and disclosure emission
 - `site`: render published outputs only; no canonical DB writes
 - `analysis`: read-only diagnostics, operational reporting, and metric aggregation
+- `dashboard`: read-only rendering of `analysis` JSON reports; no DB access, no metric recomputation
 
 ## Testing Guidelines
 No automated test suite is committed yet. For new executable code:

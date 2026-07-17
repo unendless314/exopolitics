@@ -1,0 +1,39 @@
+{
+  "report_type": "translation",
+  "schema_version": "1.0.0",
+  "generated_at": "2026-07-17T08:09:06Z",
+  "lookback_days": 7,
+  "window_start": "2026-07-10T08:09:06Z",
+  "window_end": "2026-07-17T08:09:06Z",
+  "metrics": {
+    "overall_translation_success_rate": 0.9994227994227994,
+    "overall_translation_completion_rate": 0.9982683982683983,
+    "average_latency_seconds": 5973.9250433275565
+  },
+  "breakdowns": [
+    {
+      "language_code": "en",
+      "translation_success_rate": 1.0,
+      "translation_completion_rate": null,
+      "average_latency_seconds": null,
+      "stale_rate": 0.0,
+      "translation_character_volume_proxy": 0
+    },
+    {
+      "language_code": "ja",
+      "translation_success_rate": 0.9995670995670995,
+      "translation_completion_rate": 0.9995670995670995,
+      "average_latency_seconds": 5987.596795149415,
+      "stale_rate": 0.0,
+      "translation_character_volume_proxy": 873790
+    },
+    {
+      "language_code": "zh",
+      "translation_success_rate": 0.9987012987012988,
+      "translation_completion_rate": 0.9987012987012988,
+      "average_latency_seconds": 5960.241439098396,
+      "stale_rate": 0.0,
+      "translation_character_volume_proxy": 873790
+    }
+  ]
+}

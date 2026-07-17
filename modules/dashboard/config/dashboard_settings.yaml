@@ -1,0 +1,25 @@
+schema_version: 1
+
+# Paths consumed by the dashboard
+paths:
+  report_dir: "reports/analysis/"   # Directory containing analysis JSON reports
+
+# JSON schema versions supported by this dashboard build.
+# Must stay in sync with the schema_version emitted by modules/analysis/src/services/*.
+supported_schema_versions:
+  sources: "1.0.0"
+  funnel: "2.0.0"
+  translation: "1.0.0"
+  classify: "2.0.0"
+  curation_diagnostics: "2.0.0"
+
+# UI defaults
+ui:
+  default_lookback_days: 7          # Displayed in header when reports use the default window
+  page_title: "UAP Aggregation Pipeline Dashboard"
+  sidebar_title: "Navigation"
+
+# Logging configuration
+logging:
+  level: "INFO"                     # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

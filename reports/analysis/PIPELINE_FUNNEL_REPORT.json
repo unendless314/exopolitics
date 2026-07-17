@@ -1,0 +1,111 @@
+{
+  "report_type": "funnel",
+  "schema_version": "2.0.0",
+  "generated_at": "2026-07-17T08:08:58Z",
+  "lookback_days": 7,
+  "maturation_offset_hours": 2,
+  "raw_window": {
+    "start": "2026-07-10T08:08:58Z",
+    "end": "2026-07-17T08:08:58Z"
+  },
+  "matured_window": {
+    "start": "2026-07-10T06:08:58Z",
+    "end": "2026-07-17T06:08:58Z"
+  },
+  "raw_metrics": {
+    "total_ingested": 4842,
+    "low_context_bypass_count": 886,
+    "total_classified": 3838,
+    "relevant_classified": 2922,
+    "total_curated": 2922,
+    "curation_approved": 2310,
+    "total_translated": 2310,
+    "total_published": 2306,
+    "classification_readiness_breakdown": {
+      "low_context_bypass": 886,
+      "total_classified": 3838,
+      "pending_classification": 117,
+      "failed_text_processing": 1,
+      "missing_text_processing": 0
+    }
+  },
+  "matured_metrics": {
+    "total_ingested": 4827,
+    "low_context_bypass_count": 882,
+    "total_classified": 3838,
+    "relevant_classified": 2922,
+    "total_curated": 2922,
+    "curation_approved": 2310,
+    "total_translated": 2310,
+    "total_published": 2306,
+    "classification_rate": 0.7951108348870934,
+    "curation_rate": 0.7613340281396561,
+    "curation_approval_rate": 0.7905544147843943,
+    "translation_rate": 1.0,
+    "publish_rate": 0.9982683982683983,
+    "classification_readiness_breakdown": {
+      "low_context_bypass": 882,
+      "total_classified": 3838,
+      "pending_classification": 106,
+      "failed_text_processing": 1,
+      "missing_text_processing": 0
+    }
+  },
+  "raw_latency_metrics": {
+    "pipeline_lead_time_seconds": {
+      "average": 111990.99739809193,
+      "median": 112562.0,
+      "p90": 112575.0
+    },
+    "stage_latency_breakdown_seconds": {
+      "feed_freshness_delay": {
+        "average": 31804397.525837123,
+        "median": 5690158.0,
+        "p90": 98305007.70000002
+      },
+      "fetch_execution_latency": {
+        "average": 8.717047451669595,
+        "median": 11.0,
+        "p90": 19.0
+      },
+      "classification_delay": {
+        "average": 87889.44971339239,
+        "median": 81853.0,
+        "p90": 90376.3
+      },
+      "curation_delay": {
+        "average": 6461.6132785763175,
+        "median": 8415.5,
+        "p90": 9423.0
+      },
+      "translation_delay": {
+        "average": 5973.9250433275565,
+        "median": 5436.0,
+        "p90": 10559.0
+      },
+      "publish_delay": {
+        "average": 14611.385660595548,
+        "median": 15799.0,
+        "p90": 18982.0
+      }
+    }
+  },
+  "published_by_language": [
+    {
+      "language_code": "zh",
+      "published_count": 2306,
+      "coverage_rate": 0.9982683982683983
+    },
+    {
+      "language_code": "en",
+      "published_count": 2306,
+      "coverage_rate": 0.9982683982683983
+    },
+    {
+      "language_code": "ja",
+      "published_count": 2306,
+      "coverage_rate": 0.9982683982683983
+    }
+  ],
+  "data_quality_anomalies": []
+}

@@ -167,10 +167,11 @@ sources:
     xml_url: https://www.ufosightingsdaily.com/feeds/posts/default
     html_url: https://www.ufosightingsdaily.com/
     category_id: 4
-    enabled: true
+    enabled: false
     fetch_group: 8
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-17: High curation rejection rate due to clickbait/sensationalist content (pareidolia claims)."
   - id: 17
     title: UFO MatriX
     xml_url: https://www.ufomatrix.org/feeds/posts/default
@@ -180,6 +181,7 @@ sources:
     fetch_group: 1
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Kept enabled per user request on 2026-07-17. Known issues: Cloudflare 403 blocks (11.11% fetch success) and low curation yield (8.00% approval) due to opinionated/clickbait filtering."
   - id: 18
     title: Spectral Vision
     xml_url: https://spectralvision.wordpress.com/feed/
@@ -263,7 +265,7 @@ sources:
     fetch_group: 3
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: HTTP 400 Bad Request (Security policy violation / block; potentially due to request headers or User-Agent)."
+    notes: "Disabled: Confirmed HTTP 400 Bad Request on automatic runs due to default python-httpx User-Agent. Needs request_headers or global crawler UA fix."
 
   - id: 28
     title: 'Scientific American Content: Global'
@@ -278,10 +280,11 @@ sources:
     xml_url: https://feeds.feedburner.com/ruanyifeng
     html_url: https://www.ruanyifeng.com/blog/
     category_id: 5
-    enabled: true
+    enabled: false
     fetch_group: 5
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-17: General tech/programming blog; content tone and topics do not match the exopolitics/UAP portal."
   - id: 30
     title: 宇宙的心弦 - 细推物理须行乐 何用浮名绊此身
     xml_url: https://www.physixfan.com/feed/
@@ -298,10 +301,11 @@ sources:
     xml_url: https://www.changhai.org/feed.xml
     html_url: https://www.changhai.org/
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 7
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-17: Summary-only RSS feed with insufficient content (too short) and topic is mathematically/historically oriented (irrelevant to exopolitics)."
   - id: 32
     title: 奇客Solidot–传递最新科技情报
     xml_url: https://www.solidot.org/index.rss
@@ -311,21 +315,24 @@ sources:
     schedule_class: daily
     sanitization_profile: default_html_article
   - id: 33
-    title: '[http://plink.anyfeeder.com/weixin/almosthuman2014](http://plink.anyfeeder.com/weixin/almosthuman2014)'
+    title: 机器之心
     xml_url: https://www.ifeed.cc/discover?q=plink.anyfeeder.com/weixin/almosthuman2014
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 1
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-17: Defunct WeChat proxy search URL; no working official site RSS feed available."
   - id: 34
-    title: '[http://plink.anyfeeder.com/weixin/The-Intellectual](http://plink.anyfeeder.com/weixin/The-Intellectual)'
-    xml_url: https://www.ifeed.cc/discover?q=plink.anyfeeder.com/weixin/The-Intellectual
+    title: 知识分子
+    xml_url: https://zhishifenzi.com/rss
+    html_url: http://www.zhishifenzi.com/
     category_id: 3
     enabled: true
     fetch_group: 2
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-17: Replaced defunct WeChat proxy search URL with working official site RSS feed."
   - id: 35
     title: MIT 科技评论 - 本周热榜
     xml_url: https://plink.anyfeeder.com/mittrchina/hot
@@ -414,18 +421,20 @@ sources:
     title: caoz的梦呓
     xml_url: https://plink.anyfeeder.com/weixin/caozsay
     category_id: 5
-    enabled: true
+    enabled: false
     fetch_group: 5
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-17: High-noise blog feed yielding 100% irrelevant articles."
   - id: 46
     title: X博士
     xml_url: https://plink.anyfeeder.com/weixin/doctorx666
     category_id: 5
-    enabled: true
+    enabled: false
     fetch_group: 6
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-17: Pop-culture/subculture blog feed yielding 100% irrelevant articles."
   - id: 47
     title: cnBeta
     xml_url: https://plink.anyfeeder.com/cnbeta
@@ -579,14 +588,15 @@ sources:
     schedule_class: daily
     sanitization_profile: default_html_article
   - id: 63
-    title: Popular Mechanics (Space)
-    xml_url: https://www.popularmechanics.com/rss/all.xml
+    title: Popular Mechanics (Science)
+    xml_url: https://www.popularmechanics.com/rss/science.xml
     html_url: https://www.popularmechanics.com/
     category_id: 3
     enabled: true
     fetch_group: 7
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-17: Switched from generic all.xml to science-specific feed to improve yield."
   - id: 64
     title: Universe Today (Astrobiology)
     xml_url: https://www.universetoday.com/category/astrobiology/feed/
@@ -681,23 +691,25 @@ sources:
     sanitization_profile: default_html_article
     notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
   - id: 74
-    title: CBS News (Latest/Space)
-    xml_url: https://www.cbsnews.com/latest/rss/main
+    title: CBS News (Science)
+    xml_url: https://www.cbsnews.com/latest/rss/science
     html_url: https://www.cbsnews.com/
     category_id: 5
     enabled: true
     fetch_group: 2
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-17: Fixed URL by removing trailing slash. This science feed is active and works."
   - id: 75
     title: CNN Science & Space
     xml_url: http://rss.cnn.com/rss/edition_space.rss
     html_url: https://www.cnn.com/
     category_id: 5
-    enabled: true
+    enabled: false
     fetch_group: 3
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-17: Legacy/deprecated CNN RSS feed frozen in time since December 2008."
   - id: 76
     title: Reuters (Science News)
     xml_url: http://feeds.reuters.com/reuters/scienceNews
@@ -790,7 +802,169 @@ sources:
     xml_url: https://breakingnewsenglish.com/rss.xml
     html_url: https://breakingnewsenglish.com/
     category_id: 5
+    enabled: false
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-17: Language summary feed yielding 100% irrelevant articles."
+  - id: 86
+    title: CNN Space
+    xml_url: https://rss.app/feeds/PLACEHOLDER_CNN_SPACE.xml
+    html_url: https://edition.cnn.com/space
+    category_id: 3
+    enabled: false
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Placeholder for CNN Space feed via RSS generator. Set enabled to true after pasting the generated feed URL."
+  - id: 87
+    title: CNN Science
+    xml_url: https://rss.app/feeds/PLACEHOLDER_CNN_SCIENCE.xml
+    html_url: https://edition.cnn.com/science
+    category_id: 3
+    enabled: false
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Placeholder for CNN Science feed via RSS generator. Set enabled to true after pasting the generated feed URL."
+  - id: 88
+    title: CBS News (Technology)
+    xml_url: https://www.cbsnews.com/latest/rss/technology
+    html_url: https://www.cbsnews.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active technology RSS feed from CBS."
+  - id: 89
+    title: CBS News (Space)
+    xml_url: https://www.cbsnews.com/latest/rss/space
+    html_url: https://www.cbsnews.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active space RSS feed from CBS."
+  - id: 90
+    title: CNN Politics
+    xml_url: https://rss.app/feeds/PLACEHOLDER_CNN_POLITICS.xml
+    html_url: https://edition.cnn.com/politics
+    category_id: 1
+    enabled: false
+    fetch_group: 2
+    schedule_class: hourly
+    sanitization_profile: default_html_article
+    notes: "RESERVE NODE: Set enabled to true during a major UAP disclosure event. Otherwise, keep disabled to save API costs."
+  - id: 91
+    title: CNN World
+    xml_url: https://rss.app/feeds/PLACEHOLDER_CNN_WORLD.xml
+    html_url: https://edition.cnn.com/world
+    category_id: 5
+    enabled: false
+    fetch_group: 3
+    schedule_class: hourly
+    sanitization_profile: default_html_article
+    notes: "RESERVE NODE: Set enabled to true during a major UAP disclosure event. Otherwise, keep disabled to save API costs."
+  - id: 92
+    title: CNN Tech
+    xml_url: https://rss.app/feeds/PLACEHOLDER_CNN_TECH.xml
+    html_url: https://edition.cnn.com/business/tech
+    category_id: 3
+    enabled: false
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Placeholder for CNN Tech feed via RSS generator. Set enabled to true after pasting the generated feed URL."
+  - id: 93
+    title: Popular Mechanics (Military)
+    xml_url: https://www.popularmechanics.com/rss/military.xml
+    html_url: https://www.popularmechanics.com/
+    category_id: 3
     enabled: true
     fetch_group: 5
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active military and advanced defense feed from Popular Mechanics."
+  - id: 94
+    title: Popular Mechanics (Technology)
+    xml_url: https://www.popularmechanics.com/rss/technology.xml
+    html_url: https://www.popularmechanics.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active technology and engineering feed from Popular Mechanics."
+  - id: 95
+    title: Popular Mechanics (Culture)
+    xml_url: https://www.popularmechanics.com/rss/culture.xml
+    html_url: https://www.popularmechanics.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active pop culture and sci-fi/mystery feed from Popular Mechanics."
+  - id: 96
+    title: Avi Loeb (Medium)
+    xml_url: https://avi-loeb.medium.com/feed
+    html_url: https://avi-loeb.medium.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active Medium blog for Avi Loeb (Galileo Project)."
+  - id: 97
+    title: NYT Science
+    xml_url: https://rss.nytimes.com/services/xml/rss/nyt/Science.xml
+    html_url: https://www.nytimes.com/section/science
+    category_id: 3
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Official NYT Science feed. Kept enabled to capture Space/Cosmos news and adjacent scientific topics."
+  - id: 98
+    title: NYT Technology
+    xml_url: https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml
+    html_url: https://www.nytimes.com/section/technology
+    category_id: 3
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Official NYT Technology feed. Kept enabled to capture advanced sensing, AI, and aerospace-adjacent technology."
+  - id: 99
+    title: NYT Politics
+    xml_url: https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml
+    html_url: https://www.nytimes.com/section/politics
+    category_id: 1
+    enabled: false
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "RESERVE NODE: Added on 2026-07-17. Set enabled to true only during major UAP legislation or congressional hearings."
+  - id: 100
+    title: NYT US News
+    xml_url: https://rss.nytimes.com/services/xml/rss/nyt/US.xml
+    html_url: https://www.nytimes.com/section/us
+    category_id: 5
+    enabled: false
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "RESERVE NODE: Added on 2026-07-17. Set enabled to true during aerospace anomalies or airspace tracking events."
+  - id: 101
+    title: NYT World News
+    xml_url: https://rss.nytimes.com/services/xml/rss/nyt/World.xml
+    html_url: https://www.nytimes.com/section/world
+    category_id: 5
+    enabled: false
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "RESERVE NODE: Added on 2026-07-17. Set enabled to true during international disclosure events or foreign aerospace tracking."
+
