@@ -314,6 +314,7 @@ sources:
     fetch_group: 8
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Kept enabled for research value. High noise ratio (~90% general IT/science news), but periodically translates high-value space, astrobiology, and exoplanet articles for the Chinese geek community."
   - id: 33
     title: 机器之心
     xml_url: https://www.ifeed.cc/discover?q=plink.anyfeeder.com/weixin/almosthuman2014
@@ -341,38 +342,43 @@ sources:
     fetch_group: 3
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Third-party WeChat-to-RSS proxy (anyfeeder). Highly stable and high yield (~74%). If this proxy fails in the future, fall back to the official English feed: https://www.technologyreview.com/feed/"
   - id: 36
     title: 果壳网
     xml_url: https://plink.anyfeeder.com/weixin/Guokr42
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 4
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-20: Poor UX due to intermediate search engine redirect hops. Redundant with the more focused ID 48 (Guokr Scientific)."
   - id: 37
     title: 利维坦
     xml_url: https://plink.anyfeeder.com/weixin/liweitan2014
     category_id: 5
-    enabled: true
+    enabled: false
     fetch_group: 5
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-20: Poor UX due to intermediate search engine redirect hops."
   - id: 38
     title: 微软研究院AI头条
     xml_url: https://plink.anyfeeder.com/weixin/MSRAsia
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 6
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-20: Poor UX due to intermediate search engine redirect hops."
   - id: 39
     title: 新智元
     xml_url: https://plink.anyfeeder.com/weixin/AI_era
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 7
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-20: Poor UX due to intermediate search engine redirect hops."
   - id: 40
     title: 稚晖君 的 bilibili 动态
     xml_url: https://rsshub.app/bilibili/user/dynamic/20259914
@@ -397,26 +403,29 @@ sources:
     title: 环球科学
     xml_url: https://plink.anyfeeder.com/weixin/ScientificAmerican
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 2
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-20: Poor UX due to intermediate search engine redirect hops."
   - id: 43
     title: 地球知识局
     xml_url: https://plink.anyfeeder.com/weixin/diqiuzhishiju
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 3
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-20: Poor UX due to intermediate search engine redirect hops."
   - id: 44
     title: 中国国家地理
     xml_url: https://plink.anyfeeder.com/weixin/dili360
     category_id: 3
-    enabled: true
+    enabled: false
     fetch_group: 4
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Disabled on 2026-07-20: Poor UX due to intermediate search engine redirect hops. Also, has 0% yield (DEAD_WEIGHT) in reports."
   - id: 45
     title: caoz的梦呓
     xml_url: https://plink.anyfeeder.com/weixin/caozsay
@@ -443,6 +452,7 @@ sources:
     fetch_group: 7
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Kept enabled using Anyfeeder proxy (100% success rate). High noise ratio (~89% general tech news), but yields occasional space/science news. If this proxy fails, fall back to self-hosted or public RSSHub: https://rsshub.app/cnbeta"
   - id: 48
     title: 果壳网 科学人
     xml_url: https://plink.anyfeeder.com/guokr/scientific
@@ -460,28 +470,29 @@ sources:
     fetch_group: 1
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+    notes: "Disabled on 2026-07-05: HTTP 404 Not Found. Officially abandoned as the site no longer supports news RSS feeds, and various third-party proxies have failed. Rely on Google News SETI feed (ID 82) instead."
 
   - id: 50
-    title: NASA Astrobiology
-    xml_url: https://astrobiology.nasa.gov/news/rss/
-    html_url: https://astrobiology.nasa.gov/
+    title: NASA UAP Research
+    xml_url: https://science.nasa.gov/feed/?category_name=uap
+    html_url: https://science.nasa.gov/uap/
     category_id: 3
-    enabled: false
+    enabled: true
     fetch_group: 2
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+    notes: "Updated on 2026-07-20: Set to NASA UAP category feed to monitor for potential official updates. Enabled by default."
 
   - id: 51
-    title: The Anomalous Review (SCU)
-    xml_url: https://media.rss.com/anomalousreview/feed.xml
-    html_url: https://www.explorescu.org/
+    title: Scientific Coalition for UAP Studies (SCU)
+    xml_url: https://www.explorescu.org/blog-feed.xml
+    html_url: https://www.explorescu.org/publications
     category_id: 3
     enabled: true
     fetch_group: 3
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-20: Switched from the 1-episode dead podcast feed on rss.com to the active Wix blog-feed.xml containing SCU's actual research papers, newsletters, and press releases."
   - id: 52
     title: Sol Foundation Updates
     xml_url: https://thesolfoundation.org/feed/
@@ -509,7 +520,7 @@ sources:
     fetch_group: 6
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: HTTP 403 Forbidden (Akamai CDN access denied / crawler block)."
+    notes: "Disabled on 2026-07-20: Officially confirmed that the Drupal site does not support XML RSS/Atom feeds, returning 404/403. It only publishes Markdown feeds (/news.md and /home.md) which the current XML parser cannot ingest."
 
   - id: 55
     title: AARO Official Releases (DOD)
@@ -520,7 +531,7 @@ sources:
     fetch_group: 7
     schedule_class: hourly
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+    notes: "Disabled on 2026-07-20: Officially confirmed that defense.gov deprecated the DNN UAP category RSS endpoint, returning 404. Official releases have migrated to aaro.mil, which does not provide any native RSS feeds."
 
   - id: 56
     title: GEIPAN (CNES)
@@ -967,4 +978,74 @@ sources:
     schedule_class: daily
     sanitization_profile: default_html_article
     notes: "RESERVE NODE: Added on 2026-07-17. Set enabled to true during international disclosure events or foreign aerospace tracking."
+  - id: 102
+    title: NASA Earth Science
+    xml_url: https://science.nasa.gov/feed/?category_name=earth
+    html_url: https://science.nasa.gov/earth/
+    category_id: 3
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA Earth category to evaluate relevance yield."
+  - id: 103
+    title: NASA Planetary Science
+    xml_url: https://science.nasa.gov/feed/?category_name=planetary-science
+    html_url: https://science.nasa.gov/planetary-science/
+    category_id: 3
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA Planetary Science category to evaluate relevance yield."
+  - id: 104
+    title: NASA Astrophysics
+    xml_url: https://science.nasa.gov/feed/?category_name=astrophysics
+    html_url: https://science.nasa.gov/astrophysics/
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA Astrophysics category to evaluate relevance yield."
+  - id: 105
+    title: NASA Biological & Physical Sciences
+    xml_url: https://science.nasa.gov/feed/?category_name=biological-physical
+    html_url: https://science.nasa.gov/biological-physical/
+    category_id: 3
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA Biological & Physical category to evaluate relevance yield."
+  - id: 106
+    title: NASA Space Technology
+    xml_url: https://science.nasa.gov/feed/?category_name=technology
+    html_url: https://science.nasa.gov/technology/
+    category_id: 3
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA Space Technology category to evaluate relevance yield."
+  - id: 107
+    title: NASA AI in Science
+    xml_url: https://science.nasa.gov/feed/?category_name=artificial-intelligence-science
+    html_url: https://science.nasa.gov/artificial-intelligence-science/
+    category_id: 3
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA AI in Science category to evaluate relevance yield."
+  - id: 108
+    title: NASA Astrobiology
+    xml_url: https://science.nasa.gov/feed/?category_name=astrobiology
+    html_url: https://science.nasa.gov/astrobiology/
+    category_id: 3
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-20: Migrated to the new NASA Science portal and updated feed URL to category-parameterized WordPress feed. Re-enabled."
 
