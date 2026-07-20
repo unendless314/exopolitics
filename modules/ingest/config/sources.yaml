@@ -635,6 +635,7 @@ sources:
     fetch_group: 2
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "[PODCAST] Megaphone audio feed. Analyzed via episode show notes."
   - id: 67
     title: Need to Know Podcast
     xml_url: https://feeds.libsyn.com/515038/rss
@@ -644,16 +645,17 @@ sources:
     fetch_group: 3
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "[PODCAST] Libsyn audio feed. Analyzed via episode show notes."
   - id: 68
     title: Theories of Everything with Curt Jaimungal
-    xml_url: https://feeds.megaphone.fm/1d42db5b-97e2-53b8-8d26-0a11eb4106a6
-    html_url: https://theoriesofeverything.org/
+    xml_url: https://curtjaimungal.substack.com/feed
+    html_url: https://curtjaimungal.substack.com/
     category_id: 5
-    enabled: false
+    enabled: true
     fetch_group: 4
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+    notes: "[PODCAST] Substack hybrid feed. Re-enabled on 2026-07-21. Contains both audio podcast episodes (with <enclosure>) and plain-text newsletter articles. Developers can check for the presence of <enclosure> to route items between standard text and audio pipelines."
 
   - id: 69
     title: The Micah Hanks Program
@@ -664,6 +666,7 @@ sources:
     fetch_group: 5
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "[PODCAST] Libsyn audio feed. Analyzed via episode show notes."
   - id: 70
     title: UFO Chronicles Podcast
     xml_url: https://www.spreaker.com/show/3395068/episodes/feed
@@ -673,6 +676,7 @@ sources:
     fetch_group: 6
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "[PODCAST] Spreaker audio feed. Analyzed via episode show notes."
   - id: 71
     title: That UFO Podcast
     xml_url: https://audioboom.com/channels/5024014.rss
@@ -682,6 +686,7 @@ sources:
     fetch_group: 7
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "[PODCAST] Audioboom audio feed. Analyzed via episode show notes."
   - id: 72
     title: UAP Unidentified Alien Podcast
     xml_url: https://rss.art19.com/uap-unidentified-alien-podcast
@@ -691,16 +696,17 @@ sources:
     fetch_group: 8
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "[PODCAST] Art19 audio feed. Analyzed via episode show notes."
   - id: 73
-    title: Somewhere in the Skies
-    xml_url: https://feeds.megaphone.fm/somewhereintheskies
-    html_url: https://www.somewhereintheskies.com/
+    title: Ryan Sprague (Somewhere in the Skies)
+    xml_url: https://ryan-sprague51.medium.com/feed
+    html_url: https://ryan-sprague51.medium.com/
     category_id: 4
-    enabled: false
+    enabled: true
     fetch_group: 1
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+    notes: "Updated on 2026-07-21: Switched to Ryan Sprague's Medium feed for text articles because the original Megaphone feed (somewhereintheskies) returned 404 and the domain was hijacked. Note: The podcast remains active on Spotify/Apple Podcasts; future developers can attempt to re-integrate the audio feed by spoofing podcast player User-Agents in request_headers or querying PodcastIndex API."
   - id: 74
     title: CBS News (Science)
     xml_url: https://www.cbsnews.com/latest/rss/science
@@ -1048,4 +1054,114 @@ sources:
     schedule_class: daily
     sanitization_profile: default_html_article
     notes: "Updated on 2026-07-20: Migrated to the new NASA Science portal and updated feed URL to category-parameterized WordPress feed. Re-enabled."
+  - id: 109
+    title: The Debrief (Defense)
+    xml_url: https://thedebrief.org/category/defense/feed/
+    html_url: https://thedebrief.org/category/defense/
+    category_id: 1
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 110
+    title: The Debrief (Space)
+    xml_url: https://thedebrief.org/category/space/feed/
+    html_url: https://thedebrief.org/category/space/
+    category_id: 3
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 111
+    title: The Debrief (Astronomy)
+    xml_url: https://thedebrief.org/category/astronomy/feed/
+    html_url: https://thedebrief.org/category/astronomy/
+    category_id: 3
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 112
+    title: The Debrief (Physics)
+    xml_url: https://thedebrief.org/category/physics/feed/
+    html_url: https://thedebrief.org/category/physics/
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 113
+    title: The Debrief (Technology)
+    xml_url: https://thedebrief.org/category/tech/feed/
+    html_url: https://thedebrief.org/category/tech/
+    category_id: 3
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 114
+    title: The Debrief (Energy)
+    xml_url: https://thedebrief.org/category/energy/feed/
+    html_url: https://thedebrief.org/category/energy/
+    category_id: 3
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 115
+    title: Space.com (Astronomy)
+    xml_url: https://www.space.com/feeds/tag/astronomy
+    html_url: https://www.space.com/astronomy
+    category_id: 3
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 116
+    title: Space.com (Technology)
+    xml_url: https://www.space.com/feeds/tag/technology
+    html_url: https://www.space.com/technology
+    category_id: 3
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 117
+    title: Space.com (Science)
+    xml_url: https://www.space.com/feeds/tag/science
+    html_url: https://www.space.com/science
+    category_id: 3
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 118
+    title: Universe Today (All News)
+    xml_url: https://www.universetoday.com/rss.xml
+    html_url: https://www.universetoday.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: General Universe Today RSS feed to evaluate category yield."
+  - id: 119
+    title: CBS News (Politics)
+    xml_url: https://www.cbsnews.com/latest/rss/politics
+    html_url: https://www.cbsnews.com/
+    category_id: 1
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-21: Active politics RSS feed from CBS for government disclosures."
 

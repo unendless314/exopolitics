@@ -25,6 +25,12 @@ def parse_feed_entries(
             guid = str(guid).strip()
 
         link = entry.get("link")
+        if not link:
+            links = entry.get("links", [])
+            for l in links:
+                if isinstance(l, dict) and l.get("rel") == "enclosure":
+                    link = l.get("href")
+                    break
         canonical_url = normalize_url(link)
 
         summary = entry.get("summary") or entry.get("description")
