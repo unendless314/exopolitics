@@ -339,6 +339,18 @@ class DedupMarkerRepository:
         cursor.execute("SELECT 1 FROM ingest_dedup_marker WHERE dedup_key = ?", (dedup_key,))
         return cursor.fetchone() is not None
 
+    def find_match(self, dedup_keys: List[str]) -> Optional[sqlite3.Row]:
+        """Returns the first matching marker row (dedup_key, dedup_rule), or None."""
+        if not dedup_keys:
+            return None
+        placeholders = ", ".join("?" for _ in dedup_keys)
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"SELECT dedup_key, dedup_rule FROM ingest_dedup_marker WHERE dedup_key IN ({placeholders}) LIMIT 1",
+            dedup_keys
+        )
+        return cursor.fetchone()
+
     def insert(self, dedup_key: str, dedup_rule: str, source_item_id: int) -> None:
         """Registers a unique dedup marker constraint."""
         now = get_utc_now_iso8601()

@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 import pathlib
+import sqlite3
 from typing import List, Optional, Dict, Any, Tuple
 
 from .config import IngestConfig, SourceConfig
@@ -36,6 +37,17 @@ def add_days_to_iso8601(iso_str: str, days: int) -> str:
     dt = datetime.datetime.strptime(iso_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
     dt_new = dt + datetime.timedelta(days=days)
     return dt_new.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+# UNIQUE constraints that represent dedup identity collisions. Only conflicts
+# on these constraints may be treated as a dedup race; any other IntegrityError
+# (CHECK violations, FK failures, other UNIQUE constraints) is a real
+# persistence bug and must surface as an item failure, not a silent skip.
+_DEDUP_KEY_UNIQUE_TARGETS = ("ingest_dedup_marker.dedup_key", "source_item.ingest_dedup_key")
+
+def _is_dedup_key_conflict(err: sqlite3.IntegrityError) -> bool:
+    """True only when the error is a UNIQUE conflict on a dedup identity key."""
+    msg = str(err)
+    return "UNIQUE constraint failed" in msg and any(t in msg for t in _DEDUP_KEY_UNIQUE_TARGETS)
 
 class SourceExecutionResult:
     def __init__(
@@ -259,9 +271,18 @@ async def orchestrate_source(
                         normalization_failure_count += 1
                         continue
 
-                    # Deduplication check
-                    if marker_repo.exists(item.ingest_dedup_key):
+                    # Deduplication check: duplicate when ANY key matches
+                    # (primary key plus extra global markers such as title hash)
+                    all_dedup_keys = [item.ingest_dedup_key] + [k for k, _ in item.extra_dedup_markers]
+                    matched_marker = marker_repo.find_match(all_dedup_keys)
+                    if matched_marker:
                         dedup_matched_count += 1
+                        logger.info(
+                            f"Item deduped in source {source.id}: "
+                            f"matched_rule={matched_marker['dedup_rule']} "
+                            f"matched_key={matched_marker['dedup_key']} "
+                            f"skipped_title={item.title!r}"
+                        )
                         continue
 
                     # Establish savepoint boundary for individual item persistence
@@ -285,6 +306,13 @@ async def orchestrate_source(
                             dedup_rule=item.dedup_rule,
                             source_item_id=item_id
                         )
+                        # Extra global markers (e.g. title hash) for cross-source dedup
+                        for extra_key, extra_rule in item.extra_dedup_markers:
+                            marker_repo.insert(
+                                dedup_key=extra_key,
+                                dedup_rule=extra_rule,
+                                source_item_id=item_id
+                            )
 
                         # Sanitization pipeline
                         san_profile = config.get_merged_sanitization_profile(source)
@@ -344,6 +372,26 @@ async def orchestrate_source(
                         conn.execute("RELEASE item_tx")
                         persisted = True
 
+                    except sqlite3.IntegrityError as int_err:
+                        try:
+                            conn.execute("ROLLBACK TO item_tx")
+                            conn.execute("RELEASE item_tx")
+                        except Exception as tx_err:
+                            logger.error(f"Failed to rollback savepoint: {tx_err}")
+                        if _is_dedup_key_conflict(int_err):
+                            # Dedup race: another source inserted an overlapping
+                            # dedup key (URL or title hash) after our pre-check.
+                            # Treat as a dedup match, not an item failure.
+                            logger.info(
+                                f"Item skipped as cross-source duplicate (key collision) "
+                                f"in source {source.id}: skipped_title={item.title!r} error={int_err}"
+                            )
+                            item_failure_class = "dedup_race"
+                        else:
+                            # Any other integrity error is a real persistence bug
+                            # and must surface as an item failure below.
+                            logger.error(f"Failed to persist item in source {source.id}: {int_err}")
+
                     except Exception as item_err:
                         logger.error(f"Failed to persist item in source {source.id}: {item_err}")
                         try:
@@ -355,6 +403,8 @@ async def orchestrate_source(
                     # Update counts and metrics in one place
                     if item_failure_class == "sanitization":
                         sanitization_failure_count += 1
+                    elif item_failure_class == "dedup_race":
+                        dedup_matched_count += 1
                     elif not persisted:
                         normalization_failure_count += 1
 

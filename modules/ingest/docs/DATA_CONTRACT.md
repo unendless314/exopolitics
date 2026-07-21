@@ -153,8 +153,10 @@ Minimum logical fields:
 - created timestamp
 
 **Implementation Note:** Deduplication key scope rules are defined as:
+- The `url` rule is cross-source (global) and ranks first in precedence: a canonical URL identifies the same article across every source. URL normalization strips well-known tracking query parameters (`utm_*`, `fbclid`, `gclid`, ...) so tracking links cannot bypass dedup.
 - `guid`, `tp`, and `fh` rules encode the `source_id` within the `dedup_key` (source-scoped) to prevent cross-source identity collisions from conflicting feed schemas.
-- The `url` rule is cross-source (global) to avoid duplicate article ingestion when multiple feeds share identical canonical links.
+- The `th` rule (normalized title hash) is cross-source (global) and is stored as an *additional* marker alongside the primary key whenever the normalized title is long enough to carry identity (see `MIN_TITLE_HASH_LENGTH` in `src/dedup.py`). It catches syndicated copies of one article whose URLs differ (for example opaque Google News redirect URLs). Title normalization keeps the Google News " - Publisher" suffix by design, so same-headline articles from different outlets are not merged.
+- An item is treated as a duplicate when ANY of its keys (primary or additional markers) already exists in `ingest_dedup_marker`.
 
 ---
 

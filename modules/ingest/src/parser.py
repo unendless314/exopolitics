@@ -2,7 +2,7 @@ import feedparser
 from typing import List, Optional, Dict, Any, Tuple
 from .models import NormalizedItem
 from .normalize import normalize_title, normalize_url, normalize_published_at
-from .dedup import generate_dedup_key_and_rule
+from .dedup import generate_dedup_keys
 
 def parse_feed_entries(
     source_id: int,
@@ -51,7 +51,7 @@ def parse_feed_entries(
         published_raw = entry.get("published") or entry.get("updated")
         published_at = normalize_published_at(published_parsed, published_raw)
 
-        dedup_key, dedup_rule = generate_dedup_key_and_rule(
+        dedup_key, dedup_rule, extra_dedup_markers = generate_dedup_keys(
             source_id=source_id,
             guid=guid,
             canonical_url=canonical_url,
@@ -71,7 +71,8 @@ def parse_feed_entries(
                     published_at=published_at,
                     fetched_at=fetched_at,
                     ingest_dedup_key=dedup_key,
-                    dedup_rule=dedup_rule
+                    dedup_rule=dedup_rule,
+                    extra_dedup_markers=tuple(extra_dedup_markers)
                 ),
                 entry
             )

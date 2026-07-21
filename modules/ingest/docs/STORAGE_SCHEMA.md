@@ -362,11 +362,13 @@ Nullability rules:
 Uniqueness direction:
 
 - `dedup_key` must be unique
-- `source_item_id` should also be unique if the implementation guarantees one active dedup key per inserted item
+- `source_item_id` is not unique: one inserted item holds one primary identity marker (`guid`, `url`, `tp`, or `fh`) plus any number of additional global markers (for example `th` title-hash)
 
 Important rules:
 
 - this table is the fast lookup path for ingest dedup decisions
+- an item is treated as a duplicate when any of its keys (primary or additional markers) matches an existing `dedup_key`
+- allowed `dedup_rule` values: `guid`, `url`, `tp`, `fh` (primary identity rules) and `th` (additional global title-hash marker)
 - dedup auditability must not depend on reconstructing identity from nullable source fields alone
 
 ---
@@ -375,7 +377,7 @@ Important rules:
 
 - one `source_item` has zero or one `source_item_text` in MVP
 - one `source_item` has zero or more `source_item_raw`
-- one `source_item` has one `ingest_dedup_marker` in the default ingest path
+- one `source_item` has one or more `ingest_dedup_marker` records (one primary identity key plus optional additional global markers such as `th`)
 - one `fetch_run` has many `fetch_attempt`
 - one `source_id` has one mutable `source_state`
 

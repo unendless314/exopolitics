@@ -107,11 +107,13 @@ CREATE TABLE IF NOT EXISTS source_item_raw (
 );
 
 -- 7. Create ingest_dedup_marker Table
+-- One source_item may hold multiple markers: one primary identity key
+-- (guid/url/tp/fh) plus additional global markers such as 'th' (title hash).
 CREATE TABLE IF NOT EXISTS ingest_dedup_marker (
     dedup_marker_id INTEGER PRIMARY KEY AUTOINCREMENT,
     dedup_key TEXT NOT NULL UNIQUE,
-    dedup_rule TEXT NOT NULL CHECK (dedup_rule IN ('guid', 'url', 'tp', 'fh')),
-    source_item_id INTEGER NOT NULL UNIQUE,
+    dedup_rule TEXT NOT NULL CHECK (dedup_rule IN ('guid', 'url', 'tp', 'fh', 'th')),
+    source_item_id INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     FOREIGN KEY (source_item_id) REFERENCES source_item(source_item_id) ON DELETE RESTRICT
 );

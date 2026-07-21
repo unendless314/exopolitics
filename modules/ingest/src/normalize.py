@@ -1,4 +1,5 @@
 import re
+import unicodedata
 import urllib.parse
 import datetime
 import time
@@ -7,7 +8,7 @@ from typing import Optional, Any
 
 def normalize_title(title: Any) -> str:
     """
-    Normalizes title by trimming leading/trailing whitespace 
+    Normalizes title by trimming leading/trailing whitespace
     and collapsing internal sequential whitespaces into a single space.
     """
     if not title or not isinstance(title, str):
@@ -15,12 +16,49 @@ def normalize_title(title: Any) -> str:
     cleaned = re.sub(r"\s+", " ", title)
     return cleaned.strip()
 
+# Typographic punctuation folded to ASCII equivalents for dedup hashing
+# (NFKC alone does not fold curly quotes or dashes).
+_DEDUP_PUNCT_TRANSLATION = str.maketrans({
+    "\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201b": "'",
+    "\u201c": '"', "\u201d": '"', "\u201e": '"', "\u201f": '"',
+    "\u2013": "-", "\u2014": "-", "\u2015": "-", "\u2212": "-",
+})
+
+def normalize_dedup_title(title: Any) -> str:
+    """
+    Normalizes a title for cross-source dedup hashing (not for display):
+    - Unicode NFKC normalization and casefolding (folds full-width chars, case)
+    - Fold common typographic quotes/dashes to ASCII equivalents
+    - Collapse all whitespace to single spaces and trim
+    The Google News " - Publisher" suffix is intentionally retained: stripping it
+    would merge genuinely different same-headline articles from different outlets.
+    Returns "" for missing or non-string input.
+    """
+    if not title or not isinstance(title, str):
+        return ""
+    cleaned = unicodedata.normalize("NFKC", title).casefold()
+    cleaned = cleaned.translate(_DEDUP_PUNCT_TRANSLATION)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+# Well-known click-tracking / campaign query parameters that do not change
+# article identity. Stripped during URL normalization so the same article
+# reached via different tracking links still dedups to one canonical URL.
+TRACKING_QUERY_PARAMS = frozenset({
+    "fbclid", "gclid", "dclid", "msclkid", "mc_cid", "mc_eid", "igshid",
+})
+
+def _is_tracking_param(param_name: str) -> bool:
+    name = param_name.lower()
+    return name.startswith("utm_") or name in TRACKING_QUERY_PARAMS
+
 def normalize_url(url: Any) -> Optional[str]:
     """
     Normalizes a canonical URL conservatively:
     - Trim whitespace
     - Lowercase scheme and host
     - Remove URL fragment
+    - Remove well-known tracking query parameters (utm_*, fbclid, gclid, ...)
     - Normalize trailing slash
     - Treat empty URL as None (do not invent one)
     """
@@ -45,12 +83,20 @@ def normalize_url(url: Any) -> Optional[str]:
         elif not path:
             path = "/"
 
+        query = parsed.query
+        if query:
+            kept = [
+                (k, v) for k, v in urllib.parse.parse_qsl(query, keep_blank_values=True)
+                if not _is_tracking_param(k)
+            ]
+            query = urllib.parse.urlencode(kept)
+
         normalized = urllib.parse.urlunparse((
             scheme,
             netloc,
             path,
             parsed.params,
-            parsed.query,
+            query,
             ""  # Strip fragment
         ))
         return normalized

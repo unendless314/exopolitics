@@ -124,16 +124,21 @@ The following policies are reasonable for MVP and may be implemented now, but th
 
 Accepted MVP direction:
 
-1. use GUID when present and usable
-2. otherwise use canonical URL when present and usable
-3. otherwise use normalized title plus `published_at`
-4. otherwise use a fallback hash from normalized item inputs
+1. use canonical URL when present and usable (cross-source global identity, tracking query parameters stripped during normalization)
+2. otherwise use GUID when present and usable (source-scoped)
+3. otherwise use normalized title plus `published_at` (source-scoped)
+4. otherwise use a fallback hash from normalized item inputs (source-scoped)
+
+Additional global markers stored alongside the primary key:
+
+- a normalized title-hash marker (`th`) is checked and stored whenever the normalized title is long enough to carry identity, catching cross-source syndicated copies whose URLs differ
 
 Requirements that still apply:
 
 - the dedup key must be deterministic
 - the chosen rule must be recorded in `dedup_rule`
 - the implementation must not assume nullable source fields are always present or globally trustworthy
+- an item is a duplicate when any of its keys (primary or additional markers) already exists in `ingest_dedup_marker`
 
 Important note:
 
