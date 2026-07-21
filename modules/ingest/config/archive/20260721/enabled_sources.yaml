@@ -1,0 +1,967 @@
+schema_version: 1
+schedule_classes:
+  hourly:
+    target_interval_minutes: 60
+    description: High-signal sources fetched every hour.
+  daily:
+    target_interval_minutes: 1440
+    description: Default cadence for most sources.
+  slow:
+    target_interval_minutes: 4320
+    description: Low-frequency or fragile sources that should be crawled less often.
+sanitization_profiles:
+  default_html_article:
+    input_preference:
+      - summary
+      - content
+    decode_entities: true
+    content_selectors: []
+    remove_selectors:
+      - script
+      - style
+      - nav
+      - footer
+    normalize_whitespace: true
+    collapse_blank_lines: true
+    max_length: 12000
+sources:
+  - id: 1
+    title: MUFON (Mutual UFO Network)
+    xml_url: https://mufon.com/feed/
+    html_url: https://mufon.com/
+    category_id: 2
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 2
+    title: UFO FOTOCAT BLOG
+    xml_url: https://fotocat.blogspot.com/feeds/posts/default?alt=rss
+    html_url: https://fotocat.blogspot.com/
+    category_id: 2
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 3
+    title: Bad UFOs (Scientific Skepticism)
+    xml_url: https://feeds.feedburner.com/BadUfosSkepticismUfosAndTheUniverse-ByRobertSheaffer
+    html_url: https://badufos.blogspot.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 4
+    title: Unidentified Aerial Phenomena Research
+    xml_url: https://ufos-scientificresearch.blogspot.com/feeds/posts/default?alt=rss
+    html_url: https://ufos-scientificresearch.blogspot.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 5
+    title: theozfiles (Forensic Anomaly)
+    xml_url: https://theozfiles.blogspot.com/feeds/posts/default?alt=rss
+    html_url: https://theozfiles.blogspot.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 6
+    title: NewsNation » UFO
+    xml_url: https://www.newsnationnow.com/space/ufo/feed/
+    html_url: https://www.newsnationnow.com/space/ufo/
+    category_id: 1
+    enabled: true
+    fetch_group: 6
+    schedule_class: hourly
+    sanitization_profile: default_html_article
+  - id: 7
+    title: The Black Vault Case Files (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:theblackvault.com&hl=en-US&gl=US&ceid=US:en
+    html_url: https://www.theblackvault.com/
+    category_id: 1
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Enabled: Switched to Google News RSS search to bypass Cloudflare 403 blocks on the direct feed (https://www.theblackvault.com/casefiles/feed/)."
+
+  - id: 8
+    title: Openminds.tv
+    xml_url: https://openminds.tv/feed/
+    html_url: https://openminds.tv/
+    category_id: 1
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 9
+    title: Earthfiles.com (Linda Moulton Howe)
+    xml_url: https://www.earthfiles.com/feed/
+    html_url: https://www.earthfiles.com/
+    category_id: 5
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 10
+    title: New York Post » UFOs
+    xml_url: https://nypost.com/tag/ufos/feed/
+    html_url: https://nypost.com/tag/ufos/
+    category_id: 1
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 11
+    title: Latest-UFO-Sightings
+    xml_url: https://www.latest-ufo-sightings.net/feed/atom
+    html_url: https://www.latest-ufo-sightings.net/
+    category_id: 4
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 12
+    title: The UFO Chronicles
+    xml_url: https://feeds.feedburner.com/TheUFOChronicles
+    html_url: https://www.theufochronicles.com/
+    category_id: 5
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 13
+    title: UFO Sightings Hotspot
+    xml_url: http://ufosightingshotspot.blogspot.com/feeds/posts/default
+    html_url: http://ufosightingshotspot.blogspot.com/
+    category_id: 4
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 14
+    title: A Different Perspective (Kevin Randle)
+    xml_url: http://kevinrandle.blogspot.com/feeds/posts/default
+    html_url: http://kevinrandle.blogspot.com/
+    category_id: 5
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 15
+    title: UFOnutt Blog (Chuck Zukowski)
+    xml_url: https://www.ufonut.com/feed/
+    html_url: https://www.ufonut.com/the-ufonut-blog/
+    category_id: 2
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 17
+    title: UFO MatriX
+    xml_url: https://www.ufomatrix.org/feeds/posts/default
+    html_url: https://www.ufomatrix.org/
+    category_id: 5
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Kept enabled per user request on 2026-07-17. Known issues: Cloudflare 403 blocks (11.11% fetch success) and low curation yield (8.00% approval) due to opinionated/clickbait filtering."
+  - id: 18
+    title: Spectral Vision
+    xml_url: https://spectralvision.wordpress.com/feed/
+    html_url: https://spectralvision.wordpress.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 19
+    title: Reddit r/UFOs Community Feed
+    xml_url: https://www.reddit.com/r/UFOs/.rss
+    html_url: https://www.reddit.com/r/UFOs/
+    category_id: 4
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 20
+    title: '/r/space: news, articles and discussion'
+    xml_url: https://www.reddit.com/r/space/.rss?format=xml
+    category_id: 3
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 21
+    title: NASA Breaking News
+    xml_url: https://www.nasa.gov/rss/dyn/breaking_news.rss
+    category_id: 3
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 22
+    title: New Scientist - Space
+    xml_url: https://www.newscientist.com/subject/space/feed/
+    category_id: 3
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 23
+    title: Sky & Telescope
+    xml_url: https://www.skyandtelescope.com/feed/
+    category_id: 3
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 24
+    title: Space | The Guardian
+    xml_url: https://www.theguardian.com/science/space/rss
+    html_url: https://www.theguardian.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 25
+    title: Space.com
+    xml_url: https://www.space.com/feeds/all
+    category_id: 3
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 26
+    title: Nature
+    xml_url: https://www.nature.com/nature.rss
+    category_id: 3
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 28
+    title: 'Scientific American Content: Global'
+    xml_url: http://rss.sciam.com/ScientificAmerican-Global
+    category_id: 3
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 32
+    title: 奇客Solidot–传递最新科技情报
+    xml_url: https://www.solidot.org/index.rss
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Kept enabled for research value. High noise ratio (~90% general IT/science news), but periodically translates high-value space, astrobiology, and exoplanet articles for the Chinese geek community."
+  - id: 34
+    title: 知识分子
+    xml_url: https://zhishifenzi.com/rss
+    html_url: http://www.zhishifenzi.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-17: Replaced defunct WeChat proxy search URL with working official site RSS feed."
+  - id: 35
+    title: MIT 科技评论 - 本周热榜
+    xml_url: https://plink.anyfeeder.com/mittrchina/hot
+    category_id: 3
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Third-party WeChat-to-RSS proxy (anyfeeder). Highly stable and high yield (~74%). If this proxy fails in the future, fall back to the official English feed: https://www.technologyreview.com/feed/"
+  - id: 47
+    title: cnBeta
+    xml_url: https://plink.anyfeeder.com/cnbeta
+    category_id: 3
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Kept enabled using Anyfeeder proxy (100% success rate). High noise ratio (~89% general tech news), but yields occasional space/science news. If this proxy fails, fall back to self-hosted or public RSSHub: https://rsshub.app/cnbeta"
+  - id: 48
+    title: 果壳网 科学人
+    xml_url: https://plink.anyfeeder.com/guokr/scientific
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 50
+    title: NASA UAP Research
+    xml_url: https://science.nasa.gov/feed/?category_name=uap
+    html_url: https://science.nasa.gov/uap/
+    category_id: 3
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-20: Set to NASA UAP category feed to monitor for potential official updates. Enabled by default."
+
+  - id: 51
+    title: Scientific Coalition for UAP Studies (SCU)
+    xml_url: https://www.explorescu.org/blog-feed.xml
+    html_url: https://www.explorescu.org/publications
+    category_id: 3
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-20: Switched from the 1-episode dead podcast feed on rss.com to the active Wix blog-feed.xml containing SCU's actual research papers, newsletters, and press releases."
+  - id: 52
+    title: Sol Foundation Updates
+    xml_url: https://thesolfoundation.org/feed/
+    html_url: https://thesolfoundation.org/
+    category_id: 3
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 53
+    title: Astrobiology Web
+    xml_url: https://astrobiology.com/feed
+    html_url: https://astrobiology.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 55
+    title: AARO Official Releases (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:aaro.mil&hl=en-US&gl=US&ceid=US:en
+    html_url: https://www.aaro.mil/
+    category_id: 1
+    enabled: true
+    fetch_group: 7
+    schedule_class: hourly
+    sanitization_profile: default_html_article
+    notes: "Enabled: Switched to Google News RSS search to track aaro.mil updates because defense.gov deprecated the native UAP category RSS feed and aaro.mil does not provide native RSS."
+
+  - id: 56
+    title: GEIPAN (CNES)
+    xml_url: https://www.cnes-geipan.fr/en/rss.xml
+    html_url: https://www.cnes-geipan.fr/
+    category_id: 1
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 57
+    title: FBI The Vault (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:vault.fbi.gov+%22unexplained+phenomenon%22&hl=en-US&gl=US&ceid=US:en
+    html_url: https://vault.fbi.gov/
+    category_id: 1
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Enabled: Switched to Google News RSS search to bypass Cloudflare Turnstile blocks (403) on direct access to vault.fbi.gov/unexplained-phenomenon/rss.xml."
+
+  - id: 58
+    title: UK National Archives (UFO)
+    xml_url: https://discovery.nationalarchives.gov.uk/results/rss?_q=UFO
+    html_url: https://discovery.nationalarchives.gov.uk/
+    category_id: 1
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 59
+    title: US Dept of Energy (DOE) Updates
+    xml_url: https://www.energy.gov/rss.xml
+    html_url: https://www.energy.gov/
+    category_id: 1
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 60
+    title: The Debrief
+    xml_url: https://thedebrief.org/category/science/feed/
+    html_url: https://thedebrief.org/
+    category_id: 3
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 61
+    title: Space.com (Space Exploration)
+    xml_url: https://www.space.com/feeds/tag/space-exploration
+    html_url: https://www.space.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 62
+    title: Scientific American (Space & Physics)
+    xml_url: https://www.scientificamerican.com/platform/syndication/rss/
+    html_url: https://www.scientificamerican.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 63
+    title: Popular Mechanics (Science)
+    xml_url: https://www.popularmechanics.com/rss/science.xml
+    html_url: https://www.popularmechanics.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-17: Switched from generic all.xml to science-specific feed to improve yield."
+  - id: 64
+    title: Universe Today (Astrobiology)
+    xml_url: https://www.universetoday.com/category/astrobiology/feed/
+    html_url: https://www.universetoday.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 65
+    title: The Black Vault Document Archive
+    xml_url: https://www.theblackvault.com/documentarchive/feed/
+    html_url: https://www.theblackvault.com/
+    category_id: 2
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+  - id: 66
+    title: WEAPONIZED with Jeremy Corbell & George Knapp
+    xml_url: https://feeds.megaphone.fm/weaponized
+    html_url: https://weaponizedpodcast.com/
+    category_id: 4
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "[PODCAST] Megaphone audio feed. Analyzed via episode show notes."
+  - id: 67
+    title: Need to Know Podcast
+    xml_url: https://feeds.libsyn.com/515038/rss
+    html_url: https://needtoknow.today/
+    category_id: 4
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "[PODCAST] Libsyn audio feed. Analyzed via episode show notes."
+  - id: 68
+    title: Theories of Everything with Curt Jaimungal
+    xml_url: https://curtjaimungal.substack.com/feed
+    html_url: https://curtjaimungal.substack.com/
+    category_id: 5
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "[PODCAST] Substack hybrid feed. Re-enabled on 2026-07-21. Contains both audio podcast episodes (with <enclosure>) and plain-text newsletter articles. Developers can check for the presence of <enclosure> to route items between standard text and audio pipelines."
+
+  - id: 69
+    title: The Micah Hanks Program
+    xml_url: https://gralienreport.libsyn.com/rss
+    html_url: https://micahhanks.com/
+    category_id: 5
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "[PODCAST] Libsyn audio feed. Analyzed via episode show notes."
+  - id: 70
+    title: UFO Chronicles Podcast
+    xml_url: https://www.spreaker.com/show/3395068/episodes/feed
+    html_url: https://www.ufochronicles.com/
+    category_id: 4
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "[PODCAST] Spreaker audio feed. Analyzed via episode show notes."
+  - id: 71
+    title: That UFO Podcast
+    xml_url: https://audioboom.com/channels/5024014.rss
+    html_url: https://twitter.com/That_UFO
+    category_id: 4
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "[PODCAST] Audioboom audio feed. Analyzed via episode show notes."
+  - id: 72
+    title: UAP Unidentified Alien Podcast
+    xml_url: https://rss.art19.com/uap-unidentified-alien-podcast
+    html_url: https://art19.com/shows/uap-unidentified-alien-podcast
+    category_id: 4
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "[PODCAST] Art19 audio feed. Analyzed via episode show notes."
+  - id: 73
+    title: Ryan Sprague (Somewhere in the Skies)
+    xml_url: https://ryan-sprague51.medium.com/feed
+    html_url: https://ryan-sprague51.medium.com/
+    category_id: 4
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-21: Switched to Ryan Sprague's Medium feed for text articles because the original Megaphone feed (somewhereintheskies) returned 404 and the domain was hijacked. Note: The podcast remains active on Spotify/Apple Podcasts; future developers can attempt to re-integrate the audio feed by spoofing podcast player User-Agents in request_headers or querying PodcastIndex API."
+  - id: 74
+    title: CBS News (Science)
+    xml_url: https://www.cbsnews.com/latest/rss/science
+    html_url: https://www.cbsnews.com/
+    category_id: 5
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-17: Fixed URL by removing trailing slash. This science feed is active and works."
+  - id: 78
+    title: JPost (UFO/UAP via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:jpost.com+%28%22UFO%22+OR+%22UAP%22%29&hl=en-US&gl=US&ceid=US:en
+    html_url: https://www.jpost.com/
+    category_id: 5
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-21: Switched from general defense feed to Google News site-search RSS for UFO/UAP keywords (with parentheses grouping) to improve yield and reduce noise."
+  - id: 79
+    title: News4JAX (UFO/UAP via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:news4jax.com+%28%22UFO%22+OR+%22UAP%22%29&hl=en-US&gl=US&ceid=US:en
+    html_url: https://www.news4jax.com/
+    category_id: 5
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Enabled: Switched to Google News RSS search for UFO/UAP keywords because News4JAX discontinued their native /arc/outboundfeeds/rss/ endpoint and their /topic/ufos/ page does not provide a valid XML RSS feed."
+
+  - id: 80
+    title: 'Google News: UAP & Non-Human Intelligence'
+    xml_url: https://news.google.com/rss/search?q=%22UAP%22+OR+%22UFO%22+OR+%22Non-Human+Intelligence%22&hl=en-US&gl=US&ceid=US:en
+    html_url: https://news.google.com/
+    category_id: 4
+    enabled: true
+    fetch_group: 8
+    schedule_class: hourly
+    sanitization_profile: default_html_article
+  - id: 81
+    title: 'Google News: Pentagon AARO & Bureaucracy'
+    xml_url: https://news.google.com/rss/search?q=%22Unidentified+Anomalous+Phenomena%22+%28AARO+OR+Pentagon+OR+Congress%29&hl=en-US&gl=US&ceid=US:en
+    html_url: https://news.google.com/
+    category_id: 1
+    enabled: true
+    fetch_group: 1
+    schedule_class: hourly
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-21: Added parentheses grouping for AARO/Pentagon/Congress to avoid pulling in all global Pentagon/Congress news."
+  - id: 82
+    title: 'Google News: Technosignatures & SETI'
+    xml_url: https://news.google.com/rss/search?q=Technosignatures+OR+SETI+OR+%22Galileo+Project%22&hl=en-US&gl=US&ceid=US:en
+    html_url: https://news.google.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-21: Removed 'Exoplanets' term to reduce general astronomy research noise and improve exopolitics focus."
+  - id: 83
+    title: 'Google News: UAP Legislation & Whistleblowers'
+    xml_url: https://news.google.com/rss/search?q=UAP+%28whistleblower+OR+Grusch+OR+%22Disclosure+Act%22%29&hl=en-US&gl=US&ceid=US:en
+    html_url: https://news.google.com/
+    category_id: 1
+    enabled: true
+    fetch_group: 3
+    schedule_class: hourly
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-21: Grouped terms with parentheses to ensure all hits are bound to UAP keyword."
+  - id: 84
+    title: 'Google News: Global Aerospace Anomalies'
+    xml_url: https://news.google.com/rss/search?q=%28%22pilot+sighting%22+OR+%22radar+anomaly%22%29+%28UAP+OR+UFO%29+-balloon&hl=en-US&gl=US&ceid=US:en
+    html_url: https://news.google.com/
+    category_id: 4
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-21: Grouped search terms to restrict general 'pilot sighting' or 'radar anomaly' news to UFO/UAP contexts."
+  - id: 86
+    title: CNN Space (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:cnn.com+%28space+OR+astronomy+OR+cosmos%29&hl=en-US&gl=US&ceid=US:en
+    html_url: https://edition.cnn.com/space
+    category_id: 3
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Enabled: Switched to Google News RSS search because CNN discontinued their native category feeds, returning frozen XML historical data."
+  - id: 87
+    title: CNN Science (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:cnn.com+%28science+OR+research+OR+discovery%29&hl=en-US&gl=US&ceid=US:en
+    html_url: https://edition.cnn.com/science
+    category_id: 3
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Enabled: Switched to Google News RSS search because CNN discontinued their native category feeds, returning frozen XML historical data."
+  - id: 88
+    title: CBS News (Technology)
+    xml_url: https://www.cbsnews.com/latest/rss/technology
+    html_url: https://www.cbsnews.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active technology RSS feed from CBS."
+  - id: 89
+    title: CBS News (Space)
+    xml_url: https://www.cbsnews.com/latest/rss/space
+    html_url: https://www.cbsnews.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active space RSS feed from CBS."
+  - id: 90
+    title: CNN Politics
+    xml_url: https://news.google.com/rss/search?q=site:cnn.com+politics&hl=en-US&gl=US&ceid=US:en
+    html_url: https://edition.cnn.com/politics
+    category_id: 1
+    enabled: true
+    fetch_group: 2
+    schedule_class: hourly
+    sanitization_profile: default_html_article
+    notes: "Re-enabled on 2026-07-21: Switched to Google News RSS search because CNN discontinued their native category feeds. Enabled to capture political/government disclosure news."
+  - id: 91
+    title: CNN World
+    xml_url: https://news.google.com/rss/search?q=site:cnn.com+world&hl=en-US&gl=US&ceid=US:en
+    html_url: https://edition.cnn.com/world
+    category_id: 5
+    enabled: true
+    fetch_group: 3
+    schedule_class: hourly
+    sanitization_profile: default_html_article
+    notes: "Re-enabled on 2026-07-21: Switched to Google News RSS search because CNN discontinued their native category feeds. Enabled to capture international UAP news."
+  - id: 92
+    title: CNN Tech (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:cnn.com+%28technology+OR+engineering%29&hl=en-US&gl=US&ceid=US:en
+    html_url: https://edition.cnn.com/business/tech
+    category_id: 3
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Enabled: Switched to Google News RSS search because CNN discontinued their native category feeds, returning frozen XML historical data."
+  - id: 93
+    title: Popular Mechanics (Military)
+    xml_url: https://www.popularmechanics.com/rss/military.xml
+    html_url: https://www.popularmechanics.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active military and advanced defense feed from Popular Mechanics."
+  - id: 94
+    title: Popular Mechanics (Technology)
+    xml_url: https://www.popularmechanics.com/rss/technology.xml
+    html_url: https://www.popularmechanics.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active technology and engineering feed from Popular Mechanics."
+  - id: 95
+    title: Popular Mechanics (Culture)
+    xml_url: https://www.popularmechanics.com/rss/culture.xml
+    html_url: https://www.popularmechanics.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active pop culture and sci-fi/mystery feed from Popular Mechanics."
+  - id: 96
+    title: Avi Loeb (Medium)
+    xml_url: https://avi-loeb.medium.com/feed
+    html_url: https://avi-loeb.medium.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Active Medium blog for Avi Loeb (Galileo Project)."
+  - id: 97
+    title: NYT Science
+    xml_url: https://rss.nytimes.com/services/xml/rss/nyt/Science.xml
+    html_url: https://www.nytimes.com/section/science
+    category_id: 3
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Official NYT Science feed. Kept enabled to capture Space/Cosmos news and adjacent scientific topics."
+  - id: 98
+    title: NYT Technology
+    xml_url: https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml
+    html_url: https://www.nytimes.com/section/technology
+    category_id: 3
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-17: Official NYT Technology feed. Kept enabled to capture advanced sensing, AI, and aerospace-adjacent technology."
+  - id: 99
+    title: NYT Politics
+    xml_url: https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml
+    html_url: https://www.nytimes.com/section/politics
+    category_id: 1
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Re-enabled on 2026-07-21: Set enabled to true for testing political/government UAP tracking."
+  - id: 100
+    title: NYT US News
+    xml_url: https://rss.nytimes.com/services/xml/rss/nyt/US.xml
+    html_url: https://www.nytimes.com/section/us
+    category_id: 5
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Re-enabled on 2026-07-21: Set enabled to true for testing aerospace anomalies or airspace tracking events."
+  - id: 101
+    title: NYT World News
+    xml_url: https://rss.nytimes.com/services/xml/rss/nyt/World.xml
+    html_url: https://www.nytimes.com/section/world
+    category_id: 5
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Re-enabled on 2026-07-21: Set enabled to true for testing international disclosure events or foreign aerospace tracking."
+  - id: 102
+    title: NASA Earth Science
+    xml_url: https://science.nasa.gov/feed/?category_name=earth
+    html_url: https://science.nasa.gov/earth/
+    category_id: 3
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA Earth category to evaluate relevance yield."
+  - id: 103
+    title: NASA Planetary Science
+    xml_url: https://science.nasa.gov/feed/?category_name=planetary-science
+    html_url: https://science.nasa.gov/planetary-science/
+    category_id: 3
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA Planetary Science category to evaluate relevance yield."
+  - id: 104
+    title: NASA Astrophysics
+    xml_url: https://science.nasa.gov/feed/?category_name=astrophysics
+    html_url: https://science.nasa.gov/astrophysics/
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA Astrophysics category to evaluate relevance yield."
+  - id: 105
+    title: NASA Biological & Physical Sciences
+    xml_url: https://science.nasa.gov/feed/?category_name=biological-physical
+    html_url: https://science.nasa.gov/biological-physical/
+    category_id: 3
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA Biological & Physical category to evaluate relevance yield."
+  - id: 106
+    title: NASA Space Technology
+    xml_url: https://science.nasa.gov/feed/?category_name=technology
+    html_url: https://science.nasa.gov/technology/
+    category_id: 3
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA Space Technology category to evaluate relevance yield."
+  - id: 107
+    title: NASA AI in Science
+    xml_url: https://science.nasa.gov/feed/?category_name=artificial-intelligence-science
+    html_url: https://science.nasa.gov/artificial-intelligence-science/
+    category_id: 3
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: Test feed for NASA AI in Science category to evaluate relevance yield."
+  - id: 108
+    title: NASA Astrobiology
+    xml_url: https://science.nasa.gov/feed/?category_name=astrobiology
+    html_url: https://science.nasa.gov/astrobiology/
+    category_id: 3
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-20: Migrated to the new NASA Science portal and updated feed URL to category-parameterized WordPress feed. Re-enabled."
+  - id: 109
+    title: The Debrief (Defense)
+    xml_url: https://thedebrief.org/category/defense/feed/
+    html_url: https://thedebrief.org/category/defense/
+    category_id: 1
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 110
+    title: The Debrief (Space)
+    xml_url: https://thedebrief.org/category/space/feed/
+    html_url: https://thedebrief.org/category/space/
+    category_id: 3
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 111
+    title: The Debrief (Astronomy)
+    xml_url: https://thedebrief.org/category/astronomy/feed/
+    html_url: https://thedebrief.org/category/astronomy/
+    category_id: 3
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 112
+    title: The Debrief (Physics)
+    xml_url: https://thedebrief.org/category/physics/feed/
+    html_url: https://thedebrief.org/category/physics/
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 113
+    title: The Debrief (Technology)
+    xml_url: https://thedebrief.org/category/tech/feed/
+    html_url: https://thedebrief.org/category/tech/
+    category_id: 3
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 114
+    title: The Debrief (Energy)
+    xml_url: https://thedebrief.org/category/energy/feed/
+    html_url: https://thedebrief.org/category/energy/
+    category_id: 3
+    enabled: true
+    fetch_group: 2
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 115
+    title: Space.com (Astronomy)
+    xml_url: https://www.space.com/feeds/tag/astronomy
+    html_url: https://www.space.com/astronomy
+    category_id: 3
+    enabled: true
+    fetch_group: 3
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 116
+    title: Space.com (Technology)
+    xml_url: https://www.space.com/feeds/tag/technology
+    html_url: https://www.space.com/technology
+    category_id: 3
+    enabled: true
+    fetch_group: 4
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 117
+    title: Space.com (Science)
+    xml_url: https://www.space.com/feeds/tag/science
+    html_url: https://www.space.com/science
+    category_id: 3
+    enabled: true
+    fetch_group: 5
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: New feed split to evaluate category yield."
+  - id: 118
+    title: Universe Today (All News)
+    xml_url: https://www.universetoday.com/rss.xml
+    html_url: https://www.universetoday.com/
+    category_id: 3
+    enabled: true
+    fetch_group: 6
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-20: General Universe Today RSS feed to evaluate category yield."
+  - id: 119
+    title: CBS News (Politics)
+    xml_url: https://www.cbsnews.com/latest/rss/politics
+    html_url: https://www.cbsnews.com/
+    category_id: 1
+    enabled: true
+    fetch_group: 7
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-21: Active politics RSS feed from CBS for government disclosures."
+  - id: 120
+    title: Reuters Science & Space (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:reuters.com+%28science+OR+space+OR+technology%29&hl=en-US&gl=US&ceid=US:en
+    html_url: https://www.reuters.com/science/
+    category_id: 3
+    enabled: true
+    fetch_group: 8
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-21: Re-enabled Reuters via Google News search RSS to track science/space section updates since their residential RSS feeds were discontinued."
+  - id: 121
+    title: HuffPost Tech & UFOs (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:huffpost.com+%28%22tech%22+OR+%22UFO%22+OR+%22UAP%22%29&hl=en-US&gl=US&ceid=US:en
+    html_url: https://www.huffpost.com/
+    category_id: 5
+    enabled: true
+    fetch_group: 1
+    schedule_class: daily
+    sanitization_profile: default_html_article
+    notes: "Added on 2026-07-21: Re-enabled HuffPost via Google News search RSS to bypass deprecated UK localized feeds and monitor general tech/UAP reports."
+
