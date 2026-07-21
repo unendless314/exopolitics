@@ -80,15 +80,15 @@ sources:
     schedule_class: hourly
     sanitization_profile: default_html_article
   - id: 7
-    title: The Black Vault Case Files (FOIA)
-    xml_url: https://www.theblackvault.com/casefiles/feed/
+    title: The Black Vault Case Files (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:theblackvault.com&hl=en-US&gl=US&ceid=US:en
     html_url: https://www.theblackvault.com/
     category_id: 1
-    enabled: false
+    enabled: true
     fetch_group: 7
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: HTTP 403 Forbidden (Cloudflare/anti-scraping protection)."
+    notes: "Enabled: Switched to Google News RSS search to bypass Cloudflare 403 blocks on the direct feed (https://www.theblackvault.com/casefiles/feed/)."
 
   - id: 8
     title: Openminds.tv
@@ -265,7 +265,7 @@ sources:
     fetch_group: 3
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled: Confirmed HTTP 400 Bad Request on automatic runs due to default python-httpx User-Agent. Needs request_headers or global crawler UA fix."
+    notes: "Disabled: Confirmed HTTP 400 Bad Request on automatic runs due to default python-httpx User-Agent. Potential workaround: Use Google News search RSS (https://news.google.com/rss/search?q=site:phys.org&hl=en-US&gl=US&ceid=US:en) to bypass User-Agent blocking."
 
   - id: 28
     title: 'Scientific American Content: Global'
@@ -520,18 +520,18 @@ sources:
     fetch_group: 6
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-20: Officially confirmed that the Drupal site does not support XML RSS/Atom feeds, returning 404/403. It only publishes Markdown feeds (/news.md and /home.md) which the current XML parser cannot ingest."
+    notes: "Disabled: Drupal site does not support XML RSS/Atom feeds, returning 404/403. Potential workaround: Use Google News search RSS (https://news.google.com/rss/search?q=site:projects.iq.harvard.edu/galileo&hl=en-US&gl=US&ceid=US:en) to fetch published updates."
 
   - id: 55
-    title: AARO Official Releases (DOD)
-    xml_url: https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?max=10&Categories=UAP
+    title: AARO Official Releases (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:aaro.mil&hl=en-US&gl=US&ceid=US:en
     html_url: https://www.aaro.mil/
     category_id: 1
-    enabled: false
+    enabled: true
     fetch_group: 7
     schedule_class: hourly
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-20: Officially confirmed that defense.gov deprecated the DNN UAP category RSS endpoint, returning 404. Official releases have migrated to aaro.mil, which does not provide any native RSS feeds."
+    notes: "Enabled: Switched to Google News RSS search to track aaro.mil updates because defense.gov deprecated the native UAP category RSS feed and aaro.mil does not provide native RSS."
 
   - id: 56
     title: GEIPAN (CNES)
@@ -543,15 +543,15 @@ sources:
     schedule_class: daily
     sanitization_profile: default_html_article
   - id: 57
-    title: FBI The Vault (Unexplained Phenomenon)
-    xml_url: https://vault.fbi.gov/unexplained-phenomenon/rss.xml
+    title: FBI The Vault (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:vault.fbi.gov+%22unexplained+phenomenon%22&hl=en-US&gl=US&ceid=US:en
     html_url: https://vault.fbi.gov/
     category_id: 1
-    enabled: false
+    enabled: true
     fetch_group: 1
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: HTTP 403 Forbidden (Cloudflare Turnstile challenge)."
+    notes: "Enabled: Switched to Google News RSS search to bypass Cloudflare Turnstile blocks (403) on direct access to vault.fbi.gov/unexplained-phenomenon/rss.xml."
 
   - id: 58
     title: UK National Archives (UFO)
@@ -736,7 +736,7 @@ sources:
     fetch_group: 4
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: DNS resolution failure (domain dead or misspelled)."
+    notes: "Disabled: Confirmed Reuters permanently discontinued all public free RSS feeds (migrated to Arc XP/Reuters Connect B2B enterprise API requiring authentication)."
 
   - id: 77
     title: HuffPost (Tech & UFOs)
@@ -747,27 +747,28 @@ sources:
     fetch_group: 5
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+    notes: "Disabled: HuffPost UK localized RSS feeds are deprecated after system migration. Abandoned."
 
   - id: 78
-    title: JPost (International Defense)
-    xml_url: https://www.jpost.com/rss/rssfeedsinternational
+    title: JPost (UFO/UAP via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:jpost.com+%28%22UFO%22+OR+%22UAP%22%29&hl=en-US&gl=US&ceid=US:en
     html_url: https://www.jpost.com/
     category_id: 5
     enabled: true
     fetch_group: 6
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-21: Switched from general defense feed to Google News site-search RSS for UFO/UAP keywords (with parentheses grouping) to improve yield and reduce noise."
   - id: 79
-    title: News4JAX (Military/Local Tracking)
-    xml_url: https://www.news4jax.com/arc/outboundfeeds/rss/
+    title: News4JAX (UFO/UAP via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:news4jax.com+%28%22UFO%22+OR+%22UAP%22%29&hl=en-US&gl=US&ceid=US:en
     html_url: https://www.news4jax.com/
     category_id: 5
-    enabled: false
+    enabled: true
     fetch_group: 7
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Disabled on 2026-07-05: HTTP 404 Not Found (feed URL dead/removed)."
+    notes: "Enabled: Switched to Google News RSS search for UFO/UAP keywords because News4JAX discontinued their native /arc/outboundfeeds/rss/ endpoint and their /topic/ufos/ page does not provide a valid XML RSS feed."
 
   - id: 80
     title: 'Google News: UAP & Non-Human Intelligence'
@@ -780,40 +781,44 @@ sources:
     sanitization_profile: default_html_article
   - id: 81
     title: 'Google News: Pentagon AARO & Bureaucracy'
-    xml_url: https://news.google.com/rss/search?q=%22Unidentified+Anomalous+Phenomena%22+AARO+OR+Pentagon+OR+Congress&hl=en-US&gl=US&ceid=US:en
+    xml_url: https://news.google.com/rss/search?q=%22Unidentified+Anomalous+Phenomena%22+%28AARO+OR+Pentagon+OR+Congress%29&hl=en-US&gl=US&ceid=US:en
     html_url: https://news.google.com/
     category_id: 1
     enabled: true
     fetch_group: 1
     schedule_class: hourly
     sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-21: Added parentheses grouping for AARO/Pentagon/Congress to avoid pulling in all global Pentagon/Congress news."
   - id: 82
     title: 'Google News: Technosignatures & SETI'
-    xml_url: https://news.google.com/rss/search?q=Technosignatures+OR+Exoplanets+OR+SETI+OR+%22Galileo+Project%22&hl=en-US&gl=US&ceid=US:en
+    xml_url: https://news.google.com/rss/search?q=Technosignatures+OR+SETI+OR+%22Galileo+Project%22&hl=en-US&gl=US&ceid=US:en
     html_url: https://news.google.com/
     category_id: 3
     enabled: true
     fetch_group: 2
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-21: Removed 'Exoplanets' term to reduce general astronomy research noise and improve exopolitics focus."
   - id: 83
     title: 'Google News: UAP Legislation & Whistleblowers'
-    xml_url: https://news.google.com/rss/search?q=UAP+whistleblower+OR+Grusch+OR+%22UAP+Disclosure+Act%22&hl=en-US&gl=US&ceid=US:en
+    xml_url: https://news.google.com/rss/search?q=UAP+%28whistleblower+OR+Grusch+OR+%22Disclosure+Act%22%29&hl=en-US&gl=US&ceid=US:en
     html_url: https://news.google.com/
     category_id: 1
     enabled: true
     fetch_group: 3
     schedule_class: hourly
     sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-21: Grouped terms with parentheses to ensure all hits are bound to UAP keyword."
   - id: 84
     title: 'Google News: Global Aerospace Anomalies'
-    xml_url: https://news.google.com/rss/search?q=%22pilot+sighting%22+OR+%22radar+anomaly%22+UAP+OR+UFO+-balloon&hl=en-US&gl=US&ceid=US:en
+    xml_url: https://news.google.com/rss/search?q=%28%22pilot+sighting%22+OR+%22radar+anomaly%22%29+%28UAP+OR+UFO%29+-balloon&hl=en-US&gl=US&ceid=US:en
     html_url: https://news.google.com/
     category_id: 4
     enabled: true
     fetch_group: 4
     schedule_class: daily
     sanitization_profile: default_html_article
+    notes: "Updated on 2026-07-21: Grouped search terms to restrict general 'pilot sighting' or 'radar anomaly' news to UFO/UAP contexts."
   - id: 85
     title: Breaking News English (Global Summaries)
     xml_url: https://breakingnewsenglish.com/rss.xml
@@ -825,25 +830,25 @@ sources:
     sanitization_profile: default_html_article
     notes: "Disabled on 2026-07-17: Language summary feed yielding 100% irrelevant articles."
   - id: 86
-    title: CNN Space
-    xml_url: https://rss.app/feeds/PLACEHOLDER_CNN_SPACE.xml
+    title: CNN Space (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:cnn.com+%28space+OR+astronomy+OR+cosmos%29&hl=en-US&gl=US&ceid=US:en
     html_url: https://edition.cnn.com/space
     category_id: 3
-    enabled: false
+    enabled: true
     fetch_group: 6
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Placeholder for CNN Space feed via RSS generator. Set enabled to true after pasting the generated feed URL."
+    notes: "Enabled: Switched to Google News RSS search because CNN discontinued their native category feeds, returning frozen XML historical data."
   - id: 87
-    title: CNN Science
-    xml_url: https://rss.app/feeds/PLACEHOLDER_CNN_SCIENCE.xml
+    title: CNN Science (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:cnn.com+%28science+OR+research+OR+discovery%29&hl=en-US&gl=US&ceid=US:en
     html_url: https://edition.cnn.com/science
     category_id: 3
-    enabled: false
+    enabled: true
     fetch_group: 7
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Placeholder for CNN Science feed via RSS generator. Set enabled to true after pasting the generated feed URL."
+    notes: "Enabled: Switched to Google News RSS search because CNN discontinued their native category feeds, returning frozen XML historical data."
   - id: 88
     title: CBS News (Technology)
     xml_url: https://www.cbsnews.com/latest/rss/technology
@@ -885,15 +890,15 @@ sources:
     sanitization_profile: default_html_article
     notes: "RESERVE NODE: Set enabled to true during a major UAP disclosure event. Otherwise, keep disabled to save API costs."
   - id: 92
-    title: CNN Tech
-    xml_url: https://rss.app/feeds/PLACEHOLDER_CNN_TECH.xml
+    title: CNN Tech (via Google News)
+    xml_url: https://news.google.com/rss/search?q=site:cnn.com+%28technology+OR+engineering%29&hl=en-US&gl=US&ceid=US:en
     html_url: https://edition.cnn.com/business/tech
     category_id: 3
-    enabled: false
+    enabled: true
     fetch_group: 4
     schedule_class: daily
     sanitization_profile: default_html_article
-    notes: "Placeholder for CNN Tech feed via RSS generator. Set enabled to true after pasting the generated feed URL."
+    notes: "Enabled: Switched to Google News RSS search because CNN discontinued their native category feeds, returning frozen XML historical data."
   - id: 93
     title: Popular Mechanics (Military)
     xml_url: https://www.popularmechanics.com/rss/military.xml
