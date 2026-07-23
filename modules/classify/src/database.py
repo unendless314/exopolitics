@@ -134,7 +134,11 @@ class ClassificationResultRepository:
             JOIN source_item_text t ON s.source_item_id = t.source_item_id
             LEFT JOIN classification_result c ON s.source_item_id = c.source_item_id
             WHERE s.ingest_status = 'ingested'
-              AND t.text_processing_status = 'completed'
+              AND t.text_processing_status != 'failed'
+              AND (
+                  t.text_processing_reason IS NULL
+                  OR t.text_processing_reason != 'post_cleanup_empty'
+              )
               AND c.classification_result_id IS NULL
             LIMIT ?;
         """

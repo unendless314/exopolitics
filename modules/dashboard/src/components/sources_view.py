@@ -40,7 +40,7 @@ def render(report: SourcesReport) -> None:
     cols = st.columns(3)
     cols[0].metric("Overall Fetch Success Rate", fmt_pct(m.overall_fetch_success_rate))
     cols[1].metric("Total Ingested Items", fmt_num(m.total_ingested_items))
-    cols[2].metric("Low-Context Bypass Rate", fmt_pct(m.low_context_bypass_rate))
+    cols[2].metric("Low-Context Observation Rate", fmt_pct(m.low_context_observation_rate))
 
     df = _to_frame(report)
     if df.empty:

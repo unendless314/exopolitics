@@ -19,7 +19,7 @@ class IngestService:
         overall_fetch_success_rate = ingest_queries.get_overall_fetch_success_rate(self.conn, start_time, end_time)
         run_success_rate = ingest_queries.get_run_success_rate(self.conn, start_time, end_time)
         ingest_volume = ingest_queries.get_ingest_volume(self.conn, start_time, end_time)
-        low_context_bypass_rate = ingest_queries.get_low_context_bypass_rate(self.conn, start_time, end_time)
+        low_context_observation_rate = ingest_queries.get_low_context_observation_rate(self.conn, start_time, end_time)
 
         error_rows = ingest_queries.get_error_categorization(self.conn, start_time, end_time)
         errors = []
@@ -48,7 +48,7 @@ class IngestService:
 
         return {
             "report_type": "ingest_diagnostics",
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0",
             "generated_at": generated_at,
             "lookback_days": days,
             "window_start": start_time,
@@ -57,7 +57,7 @@ class IngestService:
                 "overall_fetch_success_rate": overall_fetch_success_rate,
                 "run_success_rate": run_success_rate,
                 "ingest_volume": ingest_volume,
-                "low_context_bypass_rate": low_context_bypass_rate
+                "low_context_observation_rate": low_context_observation_rate
             },
             "error_categorization": errors,
             "rolling_source_health": source_healths,
@@ -88,16 +88,16 @@ class IngestService:
             f"- **Overall Fetch Success Rate**: {format_pct(metrics['overall_fetch_success_rate'])}",
             f"- **Run Success Rate**: {format_pct(metrics['run_success_rate'])}",
             f"- **Ingest Volume**: {metrics['ingest_volume']}",
-            f"- **Low-Context Bypass Rate**: {format_pct(metrics['low_context_bypass_rate'])}",
+            f"- **Low-Context Observation Rate**: {format_pct(metrics['low_context_observation_rate'])}",
             "",
-            "## Low-Context Bypass Reason Distribution",
+            "## Low-Context Reason Distribution",
         ]
 
         if reasons:
             for reason, cnt in reasons.items():
                 lines.append(f"- **{reason}**: {cnt}")
         else:
-            lines.append("No low-context bypasses recorded.")
+            lines.append("No low-context observations recorded.")
 
         lines.extend([
             "",

@@ -7,8 +7,8 @@ paths:
 # JSON schema versions supported by this dashboard build.
 # Must stay in sync with the schema_version emitted by modules/analysis/src/services/*.
 supported_schema_versions:
-  sources: "1.0.0"
-  funnel: "2.0.0"
+  sources: "2.0.0"
+  funnel: "3.0.0"
   translation: "1.0.0"
   classify: "2.0.0"
   curation_diagnostics: "2.0.0"

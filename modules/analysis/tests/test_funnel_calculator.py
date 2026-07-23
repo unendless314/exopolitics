@@ -94,7 +94,7 @@ def test_funnel_calculator_with_mock_data(empty_db_conn):
 
     # 1. Assert Schema & Basic window details
     assert report["report_type"] == "funnel"
-    assert report["schema_version"] == "2.0.0"
+    assert report["schema_version"] == "3.0.0"
     assert report["maturation_offset_hours"] == 2
     assert report["raw_window"]["start"] == "2026-07-08T12:00:00Z"
     assert report["raw_window"]["end"] == "2026-07-15T12:00:00Z"
@@ -104,6 +104,7 @@ def test_funnel_calculator_with_mock_data(empty_db_conn):
     # 2. Assert raw_metrics
     raw_m = report["raw_metrics"]
     assert raw_m["total_ingested"] == 1
+    assert raw_m["low_context_observation_count"] == 0
     assert raw_m["total_classified"] == 1
     assert raw_m["relevant_classified"] == 1
     assert raw_m["total_curated"] == 1
@@ -113,7 +114,7 @@ def test_funnel_calculator_with_mock_data(empty_db_conn):
 
     raw_rb = raw_m["classification_readiness_breakdown"]
     assert raw_rb["total_classified"] == 1
-    assert raw_rb["low_context_bypass"] == 0
+    assert raw_rb["low_context_observation_count"] == 0
     assert raw_rb["pending_classification"] == 0
     assert raw_rb["failed_text_processing"] == 0
     assert raw_rb["missing_text_processing"] == 0
@@ -171,3 +172,68 @@ def test_funnel_counts_exclude_orphaned_curation(empty_db_conn):
 
     assert report["raw_metrics"]["total_classified"] == 0
     assert report["raw_metrics"]["total_curated"] == 0
+
+
+def test_funnel_counts_classified_low_context_cohort(empty_db_conn):
+    """
+    A classified low-context item is a legitimate classification: it counts in
+    classified and later eligible stages and must not surface as an anomaly.
+    Only failed and post_cleanup_empty outcomes stay terminal; if they somehow
+    hold a classification row, ORPHANED_CLASSIFICATION flags them instead.
+    """
+    conn = empty_db_conn
+    now = "2026-07-15T12:00:00Z"
+    fetched = "2026-07-10T10:00:00Z"
+
+    conn.executemany("""
+        INSERT INTO source_item (source_item_id, source_id, title, fetched_at, ingest_dedup_key, dedup_rule)
+        VALUES (?, 1, ?, ?, ?, 'guid')
+    """, [
+        (401, "Low Context Sighting", fetched, "key-401"),
+        (402, "Empty After Cleanup", fetched, "key-402"),
+        (403, "Failed Text", fetched, "key-403"),
+    ])
+    conn.executemany("""
+        INSERT INTO source_item_text (
+            source_item_id, sanitized_text, sanitization_method, html_detected,
+            was_truncated, text_processing_status, text_processing_reason,
+            raw_text_length, sanitized_text_length, created_at, updated_at
+        ) VALUES (?, ?, 'default', 0, 0, ?, ?, ?, ?, ?, ?)
+    """, [
+        (401, "Short snippet", "low_context", "too_short", 20, 20, now, now),
+        (402, "", "low_context", "post_cleanup_empty", 0, 0, now, now),
+        (403, "", "failed", "missing_body", 0, 0, now, now),
+    ])
+    conn.executemany("""
+        INSERT INTO classification_result (
+            source_item_id, topic_class, classification_confidence, content_density, model_name, prompt_version, classified_at, created_at
+        ) VALUES (?, 'core', 0.9, 'medium', 'test-model', 'v1.0', ?, ?)
+    """, [
+        (401, "2026-07-10T10:05:00Z", now),
+        (402, "2026-07-10T10:05:00Z", now),
+        (403, "2026-07-10T10:05:00Z", now),
+    ])
+    conn.commit()
+
+    calculator = FunnelCalculator(conn, target_languages=["en", "zh", "ja"], maturation_offset_hours=2)
+    with patch("modules.analysis.src.services.funnel_calculator.datetime.datetime", MockDateTime):
+        report = calculator.run_funnel_analysis(days=7)
+
+    raw_m = report["raw_metrics"]
+    # Only the legitimate low-context item counts as classified/relevant
+    assert raw_m["total_classified"] == 1
+    assert raw_m["relevant_classified"] == 1
+    # Observation count covers every low_context status row (including
+    # post_cleanup_empty) but never failed rows
+    assert raw_m["low_context_observation_count"] == 2
+
+    raw_rb = raw_m["classification_readiness_breakdown"]
+    assert raw_rb["total_classified"] == 1
+    assert raw_rb["pending_classification"] == 0
+    assert raw_rb["failed_text_processing"] == 1
+    assert raw_rb["missing_text_processing"] == 0
+
+    # ORPHANED_CLASSIFICATION flags only terminal outcomes (402, 403), not 401
+    orphaned = next(a for a in report["data_quality_anomalies"] if a["code"] == "ORPHANED_CLASSIFICATION")
+    assert orphaned["count"] == 2
+    assert orphaned["item_samples"] == [402, 403]

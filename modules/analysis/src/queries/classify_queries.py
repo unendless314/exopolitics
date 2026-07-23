@@ -53,7 +53,8 @@ def get_source_char_volumes(conn: sqlite3.Connection, start: str, end: str) -> L
     """
     Retrieves the classification character volume proxy grouped by source_id.
     Filters by source_item.fetched_at (cohort basis).
-    Formula: SUM(length(si.title) + sit.sanitized_text_length) where text_processing_status = 'completed'.
+    Formula: SUM(length(si.title) + sit.sanitized_text_length) over the classification-eligible
+    population (text_processing_status != 'failed' and reason is NULL or not 'post_cleanup_empty').
     """
     sql = """
         SELECT
@@ -62,7 +63,11 @@ def get_source_char_volumes(conn: sqlite3.Connection, start: str, end: str) -> L
         FROM source_item si
         JOIN source_item_text sit ON si.source_item_id = sit.source_item_id
         WHERE si.fetched_at >= :start AND si.fetched_at < :end
-          AND sit.text_processing_status = 'completed'
+          AND sit.text_processing_status != 'failed'
+          AND (
+              sit.text_processing_reason IS NULL
+              OR sit.text_processing_reason != 'post_cleanup_empty'
+          )
         GROUP BY si.source_id
     """
     cursor = safe_execute(conn, sql, {"start": start, "end": end})

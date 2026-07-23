@@ -1,27 +1,27 @@
 {
   "report_type": "curation_diagnostics",
   "schema_version": "2.0.0",
-  "generated_at": "2026-07-17T08:09:08Z",
+  "generated_at": "2026-07-23T18:28:44Z",
   "lookback_days": 7,
-  "window_start": "2026-07-10T08:09:08Z",
-  "window_end": "2026-07-17T08:09:08Z",
+  "window_start": "2026-07-16T18:28:44Z",
+  "window_end": "2026-07-23T18:28:44Z",
   "metrics": {
-    "curation_approval_rate": 0.7905544147843943,
-    "curation_character_volume_proxy": 3832878,
+    "curation_approval_rate": 0.8291139240506329,
+    "curation_character_volume_proxy": 495369,
     "curation_latency_seconds": {
-      "average": 6461.6132785763175,
-      "median": 8415.5,
-      "p90": 9423.0
+      "average": 77.92088607594937,
+      "median": 75.0,
+      "p90": 153.5
     }
   },
   "curation_rejection_mix": [
     {
       "downstream_action": "edit_rewrite",
-      "count": 69
+      "count": 4
     },
     {
       "downstream_action": "reject_discard",
-      "count": 543
+      "count": 50
     }
   ],
   "breakdowns": []

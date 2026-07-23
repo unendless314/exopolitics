@@ -155,7 +155,7 @@ class SourceService:
 
         return {
             "report_type": "sources",
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0",
             "generated_at": generated_at,
             "lookback_days": days,
             "window_start": start_time,
@@ -163,7 +163,7 @@ class SourceService:
             "metrics": {
                 "overall_fetch_success_rate": overall_fetch_rate,
                 "total_ingested_items": ingest_metrics["total_ingested_items"],
-                "low_context_bypass_rate": ingest_metrics["low_context_bypass_rate"]
+                "low_context_observation_rate": ingest_metrics["low_context_observation_rate"]
             },
             "breakdowns": breakdowns
         }
@@ -203,7 +203,7 @@ class SourceService:
             "## Overall Pipeline KPIs",
             f"- **Overall Fetch Success Rate**: {format_pct_or_insufficient(metrics['overall_fetch_success_rate'])}",
             f"- **Total Ingested Items**: {metrics['total_ingested_items']}",
-            f"- **Low-Context Bypass Rate**: {format_pct_or_insufficient(metrics['low_context_bypass_rate'])}",
+            f"- **Low-Context Observation Rate**: {format_pct_or_insufficient(metrics['low_context_observation_rate'])}",
             "",
             "## Source Performance Breakdown",
             "| Source ID | Source Title | Fetch Success | Ingest Vol | Classify Char Vol | Curate Char Vol | Relevance Breakdown (Core / Adj / Irr / Unk) | Curation Approval | Overall Yield | Quadrant | Flags |",

@@ -1,17 +1,17 @@
 # Curation Performance & Diagnostics Report
 
-**Generated At**: 2026-07-17T08:12:48Z
-**Lookback Period**: 7 days (2026-07-10T08:12:48Z to 2026-07-17T08:12:48Z)
+**Generated At**: 2026-07-23T18:28:44Z
+**Lookback Period**: 7 days (2026-07-16T18:28:44Z to 2026-07-23T18:28:44Z)
 
 ## Curation KPIs
-- **Curation Approval Rate**: 79.06%
-- **Curation Character Volume Proxy**: 3832878
+- **Curation Approval Rate**: 82.91%
+- **Curation Character Volume Proxy**: 495369
 
 ## Curation Delay Analysis
-- **Average Delay**: 6461.61s
-- **Median Delay (p50)**: 8415.50s
-- **90th Percentile Delay (p90)**: 9423.00s
+- **Average Delay**: 77.92s
+- **Median Delay (p50)**: 75.00s
+- **90th Percentile Delay (p90)**: 153.50s
 
 ## Curation Rejection Mix
-- **edit_rewrite**: 69
-- **reject_discard**: 543
+- **edit_rewrite**: 4
+- **reject_discard**: 50

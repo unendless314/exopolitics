@@ -18,12 +18,12 @@ def get_overall_fetch_success_rate(conn: sqlite3.Connection, start: str, end: st
 
 def get_overall_ingest_metrics(conn: sqlite3.Connection, start: str, end: str) -> Dict[str, Any]:
     """
-    Calculates overall ingested count and low-context bypass rate under cohort basis.
+    Calculates overall ingested count and low-context observation rate under cohort basis.
     """
     sql = """
         SELECT
             COUNT(si.source_item_id) AS total_ingested_items,
-            SUM(CASE WHEN sit.text_processing_status = 'low_context' THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(si.source_item_id), 0) AS low_context_bypass_rate
+            SUM(CASE WHEN sit.text_processing_status = 'low_context' THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(si.source_item_id), 0) AS low_context_observation_rate
         FROM source_item si
         LEFT JOIN source_item_text sit ON si.source_item_id = sit.source_item_id
         WHERE si.fetched_at >= :start AND si.fetched_at < :end
@@ -33,11 +33,11 @@ def get_overall_ingest_metrics(conn: sqlite3.Connection, start: str, end: str) -
     if row:
         return {
             "total_ingested_items": row["total_ingested_items"] or 0,
-            "low_context_bypass_rate": row["low_context_bypass_rate"]
+            "low_context_observation_rate": row["low_context_observation_rate"]
         }
     return {
         "total_ingested_items": 0,
-        "low_context_bypass_rate": None
+        "low_context_observation_rate": None
     }
 
 def get_sources_fetch_stats(conn: sqlite3.Connection, start: str, end: str) -> List[sqlite3.Row]:
@@ -69,7 +69,7 @@ def get_sources_cohort_stats(conn: sqlite3.Connection, start: str, end: str) -> 
             SUM(CASE WHEN cd.curate_status = 'approved' THEN 1 ELSE 0 END) AS curate_approved_count,
             COUNT(DISTINCT acr.source_item_id) * 1.0 / NULLIF(COUNT(DISTINCT si.source_item_id), 0) AS overall_yield,
 
-            SUM(CASE WHEN sit.text_processing_status = 'completed' THEN LENGTH(si.title) + sit.sanitized_text_length ELSE 0 END) AS classification_char_volume_proxy,
+            SUM(CASE WHEN sit.text_processing_status != 'failed' AND (sit.text_processing_reason IS NULL OR sit.text_processing_reason != 'post_cleanup_empty') THEN LENGTH(si.title) + sit.sanitized_text_length ELSE 0 END) AS classification_char_volume_proxy,
             SUM(CASE WHEN cd.source_item_id IS NOT NULL THEN LENGTH(si.title) + sit.sanitized_text_length ELSE 0 END) AS curation_char_volume_proxy,
 
             SUM(CASE WHEN cr.topic_class = 'core' THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(cr.source_item_id), 0) AS prop_core,
@@ -114,14 +114,14 @@ def get_funnel_counts(conn: sqlite3.Connection, start: str, end: str, target_lan
     cursor = safe_execute(conn, "SELECT COUNT(DISTINCT source_item_id) AS cnt FROM source_item WHERE fetched_at >= :start AND fetched_at < :end", {"start": start, "end": end})
     ingested = cursor.fetchone()["cnt"] or 0
 
-    # 1.1 Low context count (not a main stage, but needed for metrics)
+    # 1.1 Low-context observation count (quality observation, not a funnel stage)
     cursor = safe_execute(conn, """
         SELECT COUNT(DISTINCT si.source_item_id) AS cnt
         FROM source_item si
         JOIN source_item_text sit ON si.source_item_id = sit.source_item_id
         WHERE si.fetched_at >= :start AND si.fetched_at < :end AND sit.text_processing_status = 'low_context'
     """, {"start": start, "end": end})
-    low_context_bypass = cursor.fetchone()["cnt"] or 0
+    low_context_observation_count = cursor.fetchone()["cnt"] or 0
 
     # 2. Classified
     cursor = safe_execute(conn, """
@@ -130,7 +130,11 @@ def get_funnel_counts(conn: sqlite3.Connection, start: str, end: str, target_lan
         JOIN source_item si ON cr.source_item_id = si.source_item_id
         JOIN source_item_text sit ON cr.source_item_id = sit.source_item_id
         WHERE si.fetched_at >= :start AND si.fetched_at < :end
-          AND sit.text_processing_status = 'completed'
+          AND sit.text_processing_status != 'failed'
+          AND (
+              sit.text_processing_reason IS NULL
+              OR sit.text_processing_reason != 'post_cleanup_empty'
+          )
     """, {"start": start, "end": end})
     classified = cursor.fetchone()["cnt"] or 0
 
@@ -142,7 +146,11 @@ def get_funnel_counts(conn: sqlite3.Connection, start: str, end: str, target_lan
         JOIN source_item_text sit ON cr.source_item_id = sit.source_item_id
         WHERE si.fetched_at >= :start AND si.fetched_at < :end
           AND cr.topic_class IN ('core', 'adjacent')
-          AND sit.text_processing_status = 'completed'
+          AND sit.text_processing_status != 'failed'
+          AND (
+              sit.text_processing_reason IS NULL
+              OR sit.text_processing_reason != 'post_cleanup_empty'
+          )
     """, {"start": start, "end": end})
     classified_relevant = cursor.fetchone()["cnt"] or 0
 
@@ -154,7 +162,11 @@ def get_funnel_counts(conn: sqlite3.Connection, start: str, end: str, target_lan
         JOIN source_item_text sit ON cd.source_item_id = sit.source_item_id
         JOIN classification_result cr ON cd.source_item_id = cr.source_item_id
         WHERE si.fetched_at >= :start AND si.fetched_at < :end
-          AND sit.text_processing_status = 'completed'
+          AND sit.text_processing_status != 'failed'
+          AND (
+              sit.text_processing_reason IS NULL
+              OR sit.text_processing_reason != 'post_cleanup_empty'
+          )
           AND cr.topic_class IN ('core', 'adjacent')
     """, {"start": start, "end": end})
     curated = cursor.fetchone()["cnt"] or 0
@@ -169,7 +181,11 @@ def get_funnel_counts(conn: sqlite3.Connection, start: str, end: str, target_lan
         JOIN classification_result cr ON acr.source_item_id = cr.source_item_id
         WHERE si.fetched_at >= :start AND si.fetched_at < :end
           AND cd.curate_status = 'approved'
-          AND sit.text_processing_status = 'completed'
+          AND sit.text_processing_status != 'failed'
+          AND (
+              sit.text_processing_reason IS NULL
+              OR sit.text_processing_reason != 'post_cleanup_empty'
+          )
           AND cr.topic_class IN ('core', 'adjacent')
     """, {"start": start, "end": end})
     approved = cursor.fetchone()["cnt"] or 0
@@ -187,7 +203,11 @@ def get_funnel_counts(conn: sqlite3.Connection, start: str, end: str, target_lan
           AND cd.curate_status = 'approved'
           AND tor.translation_status = 'completed'
           AND tor.source_fingerprint = acr.content_fingerprint
-          AND sit.text_processing_status = 'completed'
+          AND sit.text_processing_status != 'failed'
+          AND (
+              sit.text_processing_reason IS NULL
+              OR sit.text_processing_reason != 'post_cleanup_empty'
+          )
           AND cr.topic_class IN ('core', 'adjacent')
     """
     cursor = safe_execute(conn, sql_translated, {"start": start, "end": end})
@@ -207,7 +227,11 @@ def get_funnel_counts(conn: sqlite3.Connection, start: str, end: str, target_lan
           AND cd.curate_status = 'approved'
           AND pls.publish_status = 'published'
           AND pls.source_fingerprint = acr.content_fingerprint
-          AND sit.text_processing_status = 'completed'
+          AND sit.text_processing_status != 'failed'
+          AND (
+              sit.text_processing_reason IS NULL
+              OR sit.text_processing_reason != 'post_cleanup_empty'
+          )
           AND cr.topic_class IN ('core', 'adjacent')
     """
     cursor = safe_execute(conn, sql_published, {"start": start, "end": end})
@@ -215,7 +239,7 @@ def get_funnel_counts(conn: sqlite3.Connection, start: str, end: str, target_lan
 
     return {
         "ingested": ingested,
-        "low_context_bypass": low_context_bypass,
+        "low_context_observation_count": low_context_observation_count,
         "classified": classified,
         "classified_relevant": classified_relevant,
         "curated": curated,
@@ -243,7 +267,11 @@ def get_published_by_language_stats(conn: sqlite3.Connection, start: str, end: s
           AND cd.curate_status = 'approved'
           AND pls.publish_status = 'published'
           AND pls.source_fingerprint = acr.content_fingerprint
-          AND sit.text_processing_status = 'completed'
+          AND sit.text_processing_status != 'failed'
+          AND (
+              sit.text_processing_reason IS NULL
+              OR sit.text_processing_reason != 'post_cleanup_empty'
+          )
           AND cr.topic_class IN ('core', 'adjacent')
         GROUP BY pls.language_code
     """
@@ -263,7 +291,11 @@ def get_total_approved_articles_count(conn: sqlite3.Connection, start: str, end:
         JOIN classification_result cr ON acr.source_item_id = cr.source_item_id
         WHERE si.fetched_at >= :start AND si.fetched_at < :end
           AND cd.curate_status = 'approved'
-          AND sit.text_processing_status = 'completed'
+          AND sit.text_processing_status != 'failed'
+          AND (
+              sit.text_processing_reason IS NULL
+              OR sit.text_processing_reason != 'post_cleanup_empty'
+          )
           AND cr.topic_class IN ('core', 'adjacent')
     """
     cursor = safe_execute(conn, sql, {"start": start, "end": end})
@@ -359,9 +391,9 @@ def get_classification_readiness_breakdown(conn: sqlite3.Connection, start: str,
     sql = """
     SELECT
         COUNT(si.source_item_id) AS total_ingested,
-        SUM(CASE WHEN sit.text_processing_status = 'low_context' THEN 1 ELSE 0 END) AS low_context_bypass,
-        SUM(CASE WHEN sit.text_processing_status = 'completed' AND cr.source_item_id IS NOT NULL THEN 1 ELSE 0 END) AS total_classified,
-        SUM(CASE WHEN sit.text_processing_status = 'completed' AND cr.source_item_id IS NULL THEN 1 ELSE 0 END) AS pending_classification,
+        SUM(CASE WHEN sit.text_processing_status = 'low_context' THEN 1 ELSE 0 END) AS low_context_observation_count,
+        SUM(CASE WHEN sit.text_processing_status != 'failed' AND (sit.text_processing_reason IS NULL OR sit.text_processing_reason != 'post_cleanup_empty') AND cr.source_item_id IS NOT NULL THEN 1 ELSE 0 END) AS total_classified,
+        SUM(CASE WHEN sit.text_processing_status != 'failed' AND (sit.text_processing_reason IS NULL OR sit.text_processing_reason != 'post_cleanup_empty') AND cr.source_item_id IS NULL THEN 1 ELSE 0 END) AS pending_classification,
         SUM(CASE WHEN sit.text_processing_status = 'failed' THEN 1 ELSE 0 END) AS failed_text_processing,
         SUM(CASE WHEN sit.source_item_id IS NULL THEN 1 ELSE 0 END) AS missing_text_processing
     FROM source_item si
@@ -374,7 +406,7 @@ def get_classification_readiness_breakdown(conn: sqlite3.Connection, start: str,
     if row:
         return {
             "total_ingested": row["total_ingested"] or 0,
-            "low_context_bypass": row["low_context_bypass"] or 0,
+            "low_context_observation_count": row["low_context_observation_count"] or 0,
             "total_classified": row["total_classified"] or 0,
             "pending_classification": row["pending_classification"] or 0,
             "failed_text_processing": row["failed_text_processing"] or 0,
@@ -382,7 +414,7 @@ def get_classification_readiness_breakdown(conn: sqlite3.Connection, start: str,
         }
     return {
         "total_ingested": 0,
-        "low_context_bypass": 0,
+        "low_context_observation_count": 0,
         "total_classified": 0,
         "pending_classification": 0,
         "failed_text_processing": 0,
@@ -399,7 +431,11 @@ def get_data_quality_anomalies(conn: sqlite3.Connection, start: str, end: str) -
     JOIN source_item si ON cr.source_item_id = si.source_item_id
     LEFT JOIN source_item_text sit ON cr.source_item_id = sit.source_item_id
     WHERE si.fetched_at >= :start AND si.fetched_at < :end
-      AND (sit.source_item_id IS NULL OR sit.text_processing_status != 'completed')
+      AND (
+          sit.source_item_id IS NULL
+          OR sit.text_processing_status = 'failed'
+          OR sit.text_processing_reason = 'post_cleanup_empty'
+      )
     ORDER BY cr.source_item_id
     """
     cursor = safe_execute(conn, sql_orphaned_class, {"start": start, "end": end})

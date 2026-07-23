@@ -1,47 +1,83 @@
 {
   "report_type": "classify",
   "schema_version": "2.0.0",
-  "generated_at": "2026-07-17T08:09:04Z",
+  "generated_at": "2026-07-23T18:28:43Z",
   "lookback_days": 7,
-  "window_start": "2026-07-10T08:09:04Z",
-  "window_end": "2026-07-17T08:09:04Z",
+  "window_start": "2026-07-16T18:28:43Z",
+  "window_end": "2026-07-23T18:28:43Z",
   "metrics": {
-    "total_classified": 3838,
-    "classification_character_volume_proxy": 4541033,
-    "relevance_rate": 0.7613340281396561,
-    "average_confidence": 0.9646977592496091,
+    "total_classified": 901,
+    "classification_character_volume_proxy": 1000772,
+    "relevance_rate": 0.3507214206437292,
+    "average_confidence": 0.9732852386237514,
     "overall_topic_class_breakdown": {
-      "core": 0.48697238144867117,
-      "adjacent": 0.2743616466909849,
-      "irrelevant": 0.23684210526315788,
-      "unknown": 0.0018238665971860343
+      "core": 0.0932297447280799,
+      "adjacent": 0.25749167591564925,
+      "irrelevant": 0.6492785793562708,
+      "unknown": 0.0
     }
   },
   "breakdowns": [
     {
-      "source_id": 1,
-      "classify_volume": 11,
-      "classification_character_volume_proxy": 6611,
+      "source_id": 6,
+      "classify_volume": 2,
+      "classification_character_volume_proxy": 696,
       "relevance_rate": 1.0,
-      "average_confidence": 0.9672727272727273,
+      "average_confidence": 0.94,
       "content_density_distribution": {
-        "low": 0.18181818181818182,
-        "medium": 0.8181818181818182,
+        "low": 0.5,
+        "medium": 0.5,
         "high": 0.0
       },
       "topic_class_breakdown": {
-        "core": 0.6363636363636364,
-        "adjacent": 0.36363636363636365,
+        "core": 0.5,
+        "adjacent": 0.5,
         "irrelevant": 0.0,
         "unknown": 0.0
       }
     },
     {
-      "source_id": 2,
-      "classify_volume": 8,
-      "classification_character_volume_proxy": 96154,
+      "source_id": 10,
+      "classify_volume": 1,
+      "classification_character_volume_proxy": 315,
       "relevance_rate": 1.0,
-      "average_confidence": 0.9824999999999999,
+      "average_confidence": 0.98,
+      "content_density_distribution": {
+        "low": 1.0,
+        "medium": 0.0,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 1.0,
+        "adjacent": 0.0,
+        "irrelevant": 0.0,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 13,
+      "classify_volume": 2,
+      "classification_character_volume_proxy": 2082,
+      "relevance_rate": 1.0,
+      "average_confidence": 0.97,
+      "content_density_distribution": {
+        "low": 0.0,
+        "medium": 1.0,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 1.0,
+        "adjacent": 0.0,
+        "irrelevant": 0.0,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 14,
+      "classify_volume": 1,
+      "classification_character_volume_proxy": 4992,
+      "relevance_rate": 1.0,
+      "average_confidence": 0.98,
       "content_density_distribution": {
         "low": 0.0,
         "medium": 0.0,
@@ -55,374 +91,50 @@
       }
     },
     {
-      "source_id": 3,
-      "classify_volume": 25,
-      "classification_character_volume_proxy": 183960,
-      "relevance_rate": 0.96,
-      "average_confidence": 0.9608,
-      "content_density_distribution": {
-        "low": 0.0,
-        "medium": 0.16,
-        "high": 0.84
-      },
-      "topic_class_breakdown": {
-        "core": 0.6,
-        "adjacent": 0.36,
-        "irrelevant": 0.04,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 4,
-      "classify_volume": 25,
-      "classification_character_volume_proxy": 101401,
-      "relevance_rate": 0.96,
-      "average_confidence": 0.982,
-      "content_density_distribution": {
-        "low": 0.04,
-        "medium": 0.08,
-        "high": 0.88
-      },
-      "topic_class_breakdown": {
-        "core": 0.88,
-        "adjacent": 0.08,
-        "irrelevant": 0.0,
-        "unknown": 0.04
-      }
-    },
-    {
-      "source_id": 5,
-      "classify_volume": 24,
-      "classification_character_volume_proxy": 239227,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.975,
-      "content_density_distribution": {
-        "low": 0.041666666666666664,
-        "medium": 0.08333333333333333,
-        "high": 0.875
-      },
-      "topic_class_breakdown": {
-        "core": 0.75,
-        "adjacent": 0.25,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 6,
-      "classify_volume": 25,
-      "classification_character_volume_proxy": 5093,
-      "relevance_rate": 0.92,
-      "average_confidence": 0.9236,
-      "content_density_distribution": {
-        "low": 1.0,
-        "medium": 0.0,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.6,
-        "adjacent": 0.32,
-        "irrelevant": 0.08,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 8,
-      "classify_volume": 50,
-      "classification_character_volume_proxy": 20956,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.954,
-      "content_density_distribution": {
-        "low": 0.32,
-        "medium": 0.68,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.8,
-        "adjacent": 0.2,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 9,
-      "classify_volume": 10,
-      "classification_character_volume_proxy": 3574,
-      "relevance_rate": 0.6,
-      "average_confidence": 0.962,
-      "content_density_distribution": {
-        "low": 0.8,
-        "medium": 0.2,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.6,
-        "irrelevant": 0.1,
-        "unknown": 0.3
-      }
-    },
-    {
-      "source_id": 10,
-      "classify_volume": 18,
-      "classification_character_volume_proxy": 4642,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.9555555555555555,
-      "content_density_distribution": {
-        "low": 0.7222222222222222,
-        "medium": 0.2777777777777778,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.8333333333333334,
-        "adjacent": 0.16666666666666666,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 11,
-      "classify_volume": 10,
-      "classification_character_volume_proxy": 4181,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.959,
-      "content_density_distribution": {
-        "low": 0.7,
-        "medium": 0.3,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.9,
-        "adjacent": 0.1,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 12,
-      "classify_volume": 11,
-      "classification_character_volume_proxy": 4718,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.9381818181818182,
-      "content_density_distribution": {
-        "low": 1.0,
-        "medium": 0.0,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.9090909090909091,
-        "adjacent": 0.09090909090909091,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 13,
-      "classify_volume": 26,
-      "classification_character_volume_proxy": 48360,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.9526923076923077,
-      "content_density_distribution": {
-        "low": 0.038461538461538464,
-        "medium": 0.8076923076923077,
-        "high": 0.15384615384615385
-      },
-      "topic_class_breakdown": {
-        "core": 0.6923076923076923,
-        "adjacent": 0.3076923076923077,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 14,
-      "classify_volume": 26,
-      "classification_character_volume_proxy": 170227,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.9796153846153846,
-      "content_density_distribution": {
-        "low": 0.0,
-        "medium": 0.19230769230769232,
-        "high": 0.8076923076923077
-      },
-      "topic_class_breakdown": {
-        "core": 0.9615384615384616,
-        "adjacent": 0.038461538461538464,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 15,
-      "classify_volume": 6,
-      "classification_character_volume_proxy": 1405,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.9183333333333333,
-      "content_density_distribution": {
-        "low": 1.0,
-        "medium": 0.0,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 1.0,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 16,
-      "classify_volume": 27,
-      "classification_character_volume_proxy": 36649,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.9555555555555556,
-      "content_density_distribution": {
-        "low": 0.0,
-        "medium": 1.0,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.5925925925925926,
-        "adjacent": 0.4074074074074074,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 17,
-      "classify_volume": 25,
-      "classification_character_volume_proxy": 114619,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.966,
-      "content_density_distribution": {
-        "low": 0.0,
-        "medium": 0.12,
-        "high": 0.88
-      },
-      "topic_class_breakdown": {
-        "core": 0.44,
-        "adjacent": 0.56,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 18,
-      "classify_volume": 10,
-      "classification_character_volume_proxy": 4578,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.943,
-      "content_density_distribution": {
-        "low": 0.8,
-        "medium": 0.2,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.2,
-        "adjacent": 0.8,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
       "source_id": 19,
-      "classify_volume": 62,
-      "classification_character_volume_proxy": 119105,
-      "relevance_rate": 0.9193548387096774,
-      "average_confidence": 0.9603225806451613,
+      "classify_volume": 64,
+      "classification_character_volume_proxy": 129236,
+      "relevance_rate": 0.953125,
+      "average_confidence": 0.9523437499999999,
       "content_density_distribution": {
-        "low": 0.20967741935483872,
-        "medium": 0.5,
-        "high": 0.2903225806451613
+        "low": 0.203125,
+        "medium": 0.578125,
+        "high": 0.21875
       },
       "topic_class_breakdown": {
-        "core": 0.7903225806451613,
-        "adjacent": 0.12903225806451613,
-        "irrelevant": 0.06451612903225806,
-        "unknown": 0.016129032258064516
+        "core": 0.78125,
+        "adjacent": 0.171875,
+        "irrelevant": 0.046875,
+        "unknown": 0.0
       }
     },
     {
       "source_id": 20,
       "classify_volume": 16,
-      "classification_character_volume_proxy": 11501,
-      "relevance_rate": 0.4375,
-      "average_confidence": 0.963125,
+      "classification_character_volume_proxy": 13211,
+      "relevance_rate": 0.5625,
+      "average_confidence": 0.9612499999999999,
       "content_density_distribution": {
-        "low": 0.375,
+        "low": 0.4375,
         "medium": 0.5,
-        "high": 0.125
+        "high": 0.0625
       },
       "topic_class_breakdown": {
-        "core": 0.0625,
-        "adjacent": 0.375,
-        "irrelevant": 0.5625,
+        "core": 0.0,
+        "adjacent": 0.5625,
+        "irrelevant": 0.4375,
         "unknown": 0.0
       }
     },
     {
       "source_id": 21,
-      "classify_volume": 35,
-      "classification_character_volume_proxy": 11989,
-      "relevance_rate": 0.37142857142857144,
-      "average_confidence": 0.9654285714285714,
-      "content_density_distribution": {
-        "low": 0.2571428571428571,
-        "medium": 0.7428571428571429,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.02857142857142857,
-        "adjacent": 0.34285714285714286,
-        "irrelevant": 0.6285714285714286,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 22,
-      "classify_volume": 111,
-      "classification_character_volume_proxy": 26082,
-      "relevance_rate": 0.6396396396396397,
-      "average_confidence": 0.95009009009009,
-      "content_density_distribution": {
-        "low": 0.6666666666666666,
-        "medium": 0.3333333333333333,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.018018018018018018,
-        "adjacent": 0.6216216216216216,
-        "irrelevant": 0.36036036036036034,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 23,
-      "classify_volume": 14,
-      "classification_character_volume_proxy": 3824,
-      "relevance_rate": 0.5,
-      "average_confidence": 0.9635714285714286,
-      "content_density_distribution": {
-        "low": 0.6428571428571429,
-        "medium": 0.35714285714285715,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.5,
-        "irrelevant": 0.5,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 24,
       "classify_volume": 25,
-      "classification_character_volume_proxy": 17526,
+      "classification_character_volume_proxy": 10967,
       "relevance_rate": 0.64,
-      "average_confidence": 0.9584,
+      "average_confidence": 0.9564,
       "content_density_distribution": {
-        "low": 0.04,
-        "medium": 0.96,
+        "low": 0.08,
+        "medium": 0.92,
         "high": 0.0
       },
       "topic_class_breakdown": {
@@ -433,65 +145,191 @@
       }
     },
     {
-      "source_id": 25,
-      "classify_volume": 68,
-      "classification_character_volume_proxy": 16356,
-      "relevance_rate": 0.5735294117647058,
-      "average_confidence": 0.9597058823529413,
+      "source_id": 22,
+      "classify_volume": 2,
+      "classification_character_volume_proxy": 420,
+      "relevance_rate": 0.5,
+      "average_confidence": 0.9550000000000001,
       "content_density_distribution": {
-        "low": 0.6176470588235294,
-        "medium": 0.38235294117647056,
+        "low": 1.0,
+        "medium": 0.0,
         "high": 0.0
       },
       "topic_class_breakdown": {
-        "core": 0.014705882352941176,
-        "adjacent": 0.5588235294117647,
-        "irrelevant": 0.4264705882352941,
+        "core": 0.0,
+        "adjacent": 0.5,
+        "irrelevant": 0.5,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 23,
+      "classify_volume": 4,
+      "classification_character_volume_proxy": 1049,
+      "relevance_rate": 0.0,
+      "average_confidence": 0.9875,
+      "content_density_distribution": {
+        "low": 0.75,
+        "medium": 0.25,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.0,
+        "irrelevant": 1.0,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 24,
+      "classify_volume": 5,
+      "classification_character_volume_proxy": 5698,
+      "relevance_rate": 0.6,
+      "average_confidence": 0.952,
+      "content_density_distribution": {
+        "low": 0.2,
+        "medium": 0.8,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.6,
+        "irrelevant": 0.4,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 25,
+      "classify_volume": 41,
+      "classification_character_volume_proxy": 10999,
+      "relevance_rate": 0.5365853658536586,
+      "average_confidence": 0.9604878048780489,
+      "content_density_distribution": {
+        "low": 0.7560975609756098,
+        "medium": 0.24390243902439024,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.5365853658536586,
+        "irrelevant": 0.4634146341463415,
         "unknown": 0.0
       }
     },
     {
       "source_id": 26,
-      "classify_volume": 146,
-      "classification_character_volume_proxy": 42925,
-      "relevance_rate": 0.1780821917808219,
-      "average_confidence": 0.9799315068493151,
+      "classify_volume": 26,
+      "classification_character_volume_proxy": 6803,
+      "relevance_rate": 0.15384615384615385,
+      "average_confidence": 0.981923076923077,
       "content_density_distribution": {
-        "low": 0.4931506849315068,
-        "medium": 0.5068493150684932,
+        "low": 0.6923076923076923,
+        "medium": 0.3076923076923077,
         "high": 0.0
       },
       "topic_class_breakdown": {
         "core": 0.0,
-        "adjacent": 0.1780821917808219,
-        "irrelevant": 0.821917808219178,
+        "adjacent": 0.15384615384615385,
+        "irrelevant": 0.8461538461538461,
         "unknown": 0.0
       }
     },
     {
       "source_id": 28,
-      "classify_volume": 63,
-      "classification_character_volume_proxy": 13391,
-      "relevance_rate": 0.2698412698412698,
-      "average_confidence": 0.9715873015873016,
+      "classify_volume": 16,
+      "classification_character_volume_proxy": 3901,
+      "relevance_rate": 0.25,
+      "average_confidence": 0.9768749999999999,
       "content_density_distribution": {
-        "low": 0.7301587301587301,
-        "medium": 0.2698412698412698,
+        "low": 0.9375,
+        "medium": 0.0625,
         "high": 0.0
       },
       "topic_class_breakdown": {
-        "core": 0.015873015873015872,
-        "adjacent": 0.25396825396825395,
-        "irrelevant": 0.7301587301587301,
+        "core": 0.0,
+        "adjacent": 0.25,
+        "irrelevant": 0.75,
         "unknown": 0.0
       }
     },
     {
-      "source_id": 29,
-      "classify_volume": 6,
-      "classification_character_volume_proxy": 30212,
+      "source_id": 32,
+      "classify_volume": 39,
+      "classification_character_volume_proxy": 13369,
+      "relevance_rate": 0.10256410256410256,
+      "average_confidence": 0.9853846153846154,
+      "content_density_distribution": {
+        "low": 0.0,
+        "medium": 0.8717948717948718,
+        "high": 0.1282051282051282
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.10256410256410256,
+        "irrelevant": 0.8974358974358975,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 34,
+      "classify_volume": 20,
+      "classification_character_volume_proxy": 4834,
+      "relevance_rate": 0.15,
+      "average_confidence": 0.9814999999999999,
+      "content_density_distribution": {
+        "low": 0.0,
+        "medium": 1.0,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.15,
+        "irrelevant": 0.85,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 35,
+      "classify_volume": 14,
+      "classification_character_volume_proxy": 40384,
+      "relevance_rate": 0.35714285714285715,
+      "average_confidence": 0.9785714285714285,
+      "content_density_distribution": {
+        "low": 0.0,
+        "medium": 0.0,
+        "high": 1.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.35714285714285715,
+        "irrelevant": 0.6428571428571429,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 36,
+      "classify_volume": 24,
+      "classification_character_volume_proxy": 88791,
+      "relevance_rate": 0.375,
+      "average_confidence": 0.9725,
+      "content_density_distribution": {
+        "low": 0.0,
+        "medium": 0.0,
+        "high": 1.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.375,
+        "irrelevant": 0.625,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 37,
+      "classify_volume": 2,
+      "classification_character_volume_proxy": 13091,
       "relevance_rate": 0.5,
-      "average_confidence": 0.9666666666666667,
+      "average_confidence": 0.98,
       "content_density_distribution": {
         "low": 0.0,
         "medium": 0.0,
@@ -505,83 +343,11 @@
       }
     },
     {
-      "source_id": 32,
-      "classify_volume": 60,
-      "classification_character_volume_proxy": 19783,
-      "relevance_rate": 0.1,
-      "average_confidence": 0.985,
-      "content_density_distribution": {
-        "low": 0.0,
-        "medium": 0.9666666666666667,
-        "high": 0.03333333333333333
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.1,
-        "irrelevant": 0.9,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 35,
-      "classify_volume": 27,
-      "classification_character_volume_proxy": 98027,
-      "relevance_rate": 0.7407407407407407,
-      "average_confidence": 0.9707407407407408,
-      "content_density_distribution": {
-        "low": 0.0,
-        "medium": 0.0,
-        "high": 1.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.7407407407407407,
-        "irrelevant": 0.25925925925925924,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 36,
-      "classify_volume": 25,
-      "classification_character_volume_proxy": 106859,
-      "relevance_rate": 0.36,
-      "average_confidence": 0.976,
-      "content_density_distribution": {
-        "low": 0.0,
-        "medium": 0.0,
-        "high": 1.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.36,
-        "irrelevant": 0.64,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 37,
-      "classify_volume": 5,
-      "classification_character_volume_proxy": 40489,
-      "relevance_rate": 0.4,
-      "average_confidence": 0.9800000000000001,
-      "content_density_distribution": {
-        "low": 0.0,
-        "medium": 0.0,
-        "high": 1.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.4,
-        "irrelevant": 0.6,
-        "unknown": 0.0
-      }
-    },
-    {
       "source_id": 38,
-      "classify_volume": 7,
-      "classification_character_volume_proxy": 27886,
-      "relevance_rate": 0.7142857142857143,
-      "average_confidence": 0.9742857142857143,
+      "classify_volume": 1,
+      "classification_character_volume_proxy": 4153,
+      "relevance_rate": 1.0,
+      "average_confidence": 0.98,
       "content_density_distribution": {
         "low": 0.0,
         "medium": 0.0,
@@ -589,17 +355,17 @@
       },
       "topic_class_breakdown": {
         "core": 0.0,
-        "adjacent": 0.7142857142857143,
-        "irrelevant": 0.2857142857142857,
+        "adjacent": 1.0,
+        "irrelevant": 0.0,
         "unknown": 0.0
       }
     },
     {
       "source_id": 39,
       "classify_volume": 25,
-      "classification_character_volume_proxy": 86446,
-      "relevance_rate": 0.24,
-      "average_confidence": 0.9828,
+      "classification_character_volume_proxy": 88089,
+      "relevance_rate": 0.44,
+      "average_confidence": 0.9775999999999999,
       "content_density_distribution": {
         "low": 0.0,
         "medium": 0.0,
@@ -607,69 +373,33 @@
       },
       "topic_class_breakdown": {
         "core": 0.0,
-        "adjacent": 0.24,
-        "irrelevant": 0.76,
+        "adjacent": 0.44,
+        "irrelevant": 0.56,
         "unknown": 0.0
       }
     },
     {
       "source_id": 42,
-      "classify_volume": 19,
-      "classification_character_volume_proxy": 56774,
-      "relevance_rate": 0.3157894736842105,
-      "average_confidence": 0.973157894736842,
+      "classify_volume": 16,
+      "classification_character_volume_proxy": 48928,
+      "relevance_rate": 0.125,
+      "average_confidence": 0.98125,
       "content_density_distribution": {
         "low": 0.0,
-        "medium": 0.05263157894736842,
-        "high": 0.9473684210526315
+        "medium": 0.125,
+        "high": 0.875
       },
       "topic_class_breakdown": {
         "core": 0.0,
-        "adjacent": 0.3157894736842105,
-        "irrelevant": 0.6842105263157895,
+        "adjacent": 0.125,
+        "irrelevant": 0.875,
         "unknown": 0.0
       }
     },
     {
       "source_id": 43,
-      "classify_volume": 12,
-      "classification_character_volume_proxy": 34055,
-      "relevance_rate": 0.25,
-      "average_confidence": 0.9766666666666666,
-      "content_density_distribution": {
-        "low": 0.0,
-        "medium": 0.08333333333333333,
-        "high": 0.9166666666666666
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.25,
-        "irrelevant": 0.75,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 44,
-      "classify_volume": 13,
-      "classification_character_volume_proxy": 34783,
-      "relevance_rate": 0.0,
-      "average_confidence": 0.9876923076923076,
-      "content_density_distribution": {
-        "low": 0.0,
-        "medium": 0.46153846153846156,
-        "high": 0.5384615384615384
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.0,
-        "irrelevant": 1.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 45,
       "classify_volume": 5,
-      "classification_character_volume_proxy": 14752,
+      "classification_character_volume_proxy": 16345,
       "relevance_rate": 0.0,
       "average_confidence": 0.986,
       "content_density_distribution": {
@@ -685,15 +415,15 @@
       }
     },
     {
-      "source_id": 46,
-      "classify_volume": 4,
-      "classification_character_volume_proxy": 13839,
+      "source_id": 44,
+      "classify_volume": 11,
+      "classification_character_volume_proxy": 23916,
       "relevance_rate": 0.0,
-      "average_confidence": 0.99,
+      "average_confidence": 0.9836363636363636,
       "content_density_distribution": {
         "low": 0.0,
-        "medium": 0.0,
-        "high": 1.0
+        "medium": 0.36363636363636365,
+        "high": 0.6363636363636364
       },
       "topic_class_breakdown": {
         "core": 0.0,
@@ -704,28 +434,28 @@
     },
     {
       "source_id": 47,
-      "classify_volume": 102,
-      "classification_character_volume_proxy": 104351,
-      "relevance_rate": 0.12745098039215685,
-      "average_confidence": 0.9850980392156863,
+      "classify_volume": 125,
+      "classification_character_volume_proxy": 123101,
+      "relevance_rate": 0.088,
+      "average_confidence": 0.9850399999999999,
       "content_density_distribution": {
         "low": 0.0,
-        "medium": 0.3627450980392157,
-        "high": 0.6372549019607843
+        "medium": 0.352,
+        "high": 0.648
       },
       "topic_class_breakdown": {
         "core": 0.0,
-        "adjacent": 0.12745098039215685,
-        "irrelevant": 0.8725490196078431,
+        "adjacent": 0.088,
+        "irrelevant": 0.912,
         "unknown": 0.0
       }
     },
     {
       "source_id": 48,
-      "classify_volume": 24,
-      "classification_character_volume_proxy": 104718,
-      "relevance_rate": 0.4583333333333333,
-      "average_confidence": 0.9700000000000001,
+      "classify_volume": 21,
+      "classification_character_volume_proxy": 78681,
+      "relevance_rate": 0.3333333333333333,
+      "average_confidence": 0.9723809523809523,
       "content_density_distribution": {
         "low": 0.0,
         "medium": 0.0,
@@ -733,15 +463,177 @@
       },
       "topic_class_breakdown": {
         "core": 0.0,
-        "adjacent": 0.4583333333333333,
-        "irrelevant": 0.5416666666666666,
+        "adjacent": 0.3333333333333333,
+        "irrelevant": 0.6666666666666666,
         "unknown": 0.0
       }
     },
     {
-      "source_id": 51,
+      "source_id": 53,
+      "classify_volume": 41,
+      "classification_character_volume_proxy": 17248,
+      "relevance_rate": 1.0,
+      "average_confidence": 0.9431707317073171,
+      "content_density_distribution": {
+        "low": 0.0975609756097561,
+        "medium": 0.9024390243902439,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 1.0,
+        "irrelevant": 0.0,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 60,
+      "classify_volume": 11,
+      "classification_character_volume_proxy": 2599,
+      "relevance_rate": 0.5454545454545454,
+      "average_confidence": 0.9490909090909091,
+      "content_density_distribution": {
+        "low": 0.8181818181818182,
+        "medium": 0.18181818181818182,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.5454545454545454,
+        "irrelevant": 0.45454545454545453,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 61,
+      "classify_volume": 16,
+      "classification_character_volume_proxy": 4166,
+      "relevance_rate": 0.6875,
+      "average_confidence": 0.945,
+      "content_density_distribution": {
+        "low": 0.5625,
+        "medium": 0.4375,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.6875,
+        "irrelevant": 0.3125,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 62,
+      "classify_volume": 17,
+      "classification_character_volume_proxy": 4103,
+      "relevance_rate": 0.23529411764705882,
+      "average_confidence": 0.9811764705882353,
+      "content_density_distribution": {
+        "low": 0.8823529411764706,
+        "medium": 0.11764705882352941,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.23529411764705882,
+        "irrelevant": 0.7647058823529411,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 63,
+      "classify_volume": 13,
+      "classification_character_volume_proxy": 5896,
+      "relevance_rate": 0.23076923076923078,
+      "average_confidence": 0.9807692307692307,
+      "content_density_distribution": {
+        "low": 0.6923076923076923,
+        "medium": 0.3076923076923077,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.07692307692307693,
+        "adjacent": 0.15384615384615385,
+        "irrelevant": 0.7692307692307693,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 64,
+      "classify_volume": 25,
+      "classification_character_volume_proxy": 10331,
+      "relevance_rate": 0.48,
+      "average_confidence": 0.9676,
+      "content_density_distribution": {
+        "low": 0.24,
+        "medium": 0.76,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.48,
+        "irrelevant": 0.52,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 65,
       "classify_volume": 1,
-      "classification_character_volume_proxy": 1117,
+      "classification_character_volume_proxy": 691,
+      "relevance_rate": 1.0,
+      "average_confidence": 0.99,
+      "content_density_distribution": {
+        "low": 0.0,
+        "medium": 1.0,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 1.0,
+        "adjacent": 0.0,
+        "irrelevant": 0.0,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 67,
+      "classify_volume": 2,
+      "classification_character_volume_proxy": 655,
+      "relevance_rate": 1.0,
+      "average_confidence": 0.94,
+      "content_density_distribution": {
+        "low": 0.5,
+        "medium": 0.5,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 1.0,
+        "adjacent": 0.0,
+        "irrelevant": 0.0,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 70,
+      "classify_volume": 2,
+      "classification_character_volume_proxy": 3302,
+      "relevance_rate": 1.0,
+      "average_confidence": 0.9450000000000001,
+      "content_density_distribution": {
+        "low": 0.0,
+        "medium": 1.0,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.5,
+        "adjacent": 0.5,
+        "irrelevant": 0.0,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 71,
+      "classify_volume": 1,
+      "classification_character_volume_proxy": 1716,
       "relevance_rate": 1.0,
       "average_confidence": 0.98,
       "content_density_distribution": {
@@ -757,50 +649,14 @@
       }
     },
     {
-      "source_id": 52,
-      "classify_volume": 5,
-      "classification_character_volume_proxy": 1306,
+      "source_id": 72,
+      "classify_volume": 1,
+      "classification_character_volume_proxy": 424,
       "relevance_rate": 1.0,
-      "average_confidence": 0.952,
+      "average_confidence": 0.95,
       "content_density_distribution": {
-        "low": 0.6,
-        "medium": 0.4,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.6,
-        "adjacent": 0.4,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 53,
-      "classify_volume": 35,
-      "classification_character_volume_proxy": 18678,
-      "relevance_rate": 0.9428571428571428,
-      "average_confidence": 0.9382857142857142,
-      "content_density_distribution": {
-        "low": 0.17142857142857143,
-        "medium": 0.8285714285714286,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.9428571428571428,
-        "irrelevant": 0.05714285714285714,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 56,
-      "classify_volume": 9,
-      "classification_character_volume_proxy": 2554,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.9544444444444444,
-      "content_density_distribution": {
-        "low": 0.4444444444444444,
-        "medium": 0.5555555555555556,
+        "low": 1.0,
+        "medium": 0.0,
         "high": 0.0
       },
       "topic_class_breakdown": {
@@ -811,284 +667,32 @@
       }
     },
     {
-      "source_id": 59,
-      "classify_volume": 3,
-      "classification_character_volume_proxy": 2354,
-      "relevance_rate": 0.0,
-      "average_confidence": 0.98,
+      "source_id": 74,
+      "classify_volume": 27,
+      "classification_character_volume_proxy": 6092,
+      "relevance_rate": 0.18518518518518517,
+      "average_confidence": 0.9781481481481481,
       "content_density_distribution": {
-        "low": 0.3333333333333333,
-        "medium": 0.6666666666666666,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.0,
-        "irrelevant": 1.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 60,
-      "classify_volume": 102,
-      "classification_character_volume_proxy": 25662,
-      "relevance_rate": 0.5098039215686274,
-      "average_confidence": 0.9554901960784313,
-      "content_density_distribution": {
-        "low": 0.8431372549019608,
-        "medium": 0.1568627450980392,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.00980392156862745,
-        "adjacent": 0.5,
-        "irrelevant": 0.49019607843137253,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 61,
-      "classify_volume": 54,
-      "classification_character_volume_proxy": 14128,
-      "relevance_rate": 0.6296296296296297,
-      "average_confidence": 0.9568518518518518,
-      "content_density_distribution": {
-        "low": 0.6296296296296297,
-        "medium": 0.37037037037037035,
+        "low": 0.9259259259259259,
+        "medium": 0.07407407407407407,
         "high": 0.0
       },
       "topic_class_breakdown": {
         "core": 0.037037037037037035,
-        "adjacent": 0.5925925925925926,
-        "irrelevant": 0.37037037037037035,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 62,
-      "classify_volume": 56,
-      "classification_character_volume_proxy": 13391,
-      "relevance_rate": 0.25,
-      "average_confidence": 0.9723214285714287,
-      "content_density_distribution": {
-        "low": 0.7857142857142857,
-        "medium": 0.21428571428571427,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.017857142857142856,
-        "adjacent": 0.23214285714285715,
-        "irrelevant": 0.75,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 63,
-      "classify_volume": 42,
-      "classification_character_volume_proxy": 10603,
-      "relevance_rate": 0.16666666666666666,
-      "average_confidence": 0.9747619047619047,
-      "content_density_distribution": {
-        "low": 0.8095238095238095,
-        "medium": 0.19047619047619047,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.023809523809523808,
-        "adjacent": 0.14285714285714285,
-        "irrelevant": 0.8333333333333334,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 64,
-      "classify_volume": 39,
-      "classification_character_volume_proxy": 17726,
-      "relevance_rate": 0.6153846153846154,
-      "average_confidence": 0.9569230769230769,
-      "content_density_distribution": {
-        "low": 0.1282051282051282,
-        "medium": 0.8717948717948718,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.6153846153846154,
-        "irrelevant": 0.38461538461538464,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 65,
-      "classify_volume": 25,
-      "classification_character_volume_proxy": 14388,
-      "relevance_rate": 0.92,
-      "average_confidence": 0.9564,
-      "content_density_distribution": {
-        "low": 0.12,
-        "medium": 0.88,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.56,
-        "adjacent": 0.36,
-        "irrelevant": 0.08,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 66,
-      "classify_volume": 121,
-      "classification_character_volume_proxy": 226451,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.9778512396694214,
-      "content_density_distribution": {
-        "low": 0.008264462809917356,
-        "medium": 0.7520661157024794,
-        "high": 0.2396694214876033
-      },
-      "topic_class_breakdown": {
-        "core": 0.8677685950413223,
-        "adjacent": 0.1322314049586777,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 67,
-      "classify_volume": 479,
-      "classification_character_volume_proxy": 276918,
-      "relevance_rate": 0.9979123173277662,
-      "average_confidence": 0.9483089770354907,
-      "content_density_distribution": {
-        "low": 0.4384133611691023,
-        "medium": 0.5594989561586639,
-        "high": 0.0020876826722338203
-      },
-      "topic_class_breakdown": {
-        "core": 0.8517745302713987,
-        "adjacent": 0.14613778705636743,
-        "irrelevant": 0.0,
-        "unknown": 0.0020876826722338203
-      }
-    },
-    {
-      "source_id": 69,
-      "classify_volume": 101,
-      "classification_character_volume_proxy": 263147,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.9677227722772277,
-      "content_density_distribution": {
-        "low": 0.0,
-        "medium": 0.7623762376237624,
-        "high": 0.2376237623762376
-      },
-      "topic_class_breakdown": {
-        "core": 0.6633663366336634,
-        "adjacent": 0.33663366336633666,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 70,
-      "classify_volume": 481,
-      "classification_character_volume_proxy": 679815,
-      "relevance_rate": 0.9958419958419958,
-      "average_confidence": 0.9688773388773388,
-      "content_density_distribution": {
-        "low": 0.158004158004158,
-        "medium": 0.8378378378378378,
-        "high": 0.004158004158004158
-      },
-      "topic_class_breakdown": {
-        "core": 0.7796257796257796,
-        "adjacent": 0.21621621621621623,
-        "irrelevant": 0.004158004158004158,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 71,
-      "classify_volume": 498,
-      "classification_character_volume_proxy": 631214,
-      "relevance_rate": 0.9979919678714859,
-      "average_confidence": 0.9663253012048192,
-      "content_density_distribution": {
-        "low": 0.142570281124498,
-        "medium": 0.8473895582329317,
-        "high": 0.010040160642570281
-      },
-      "topic_class_breakdown": {
-        "core": 0.7369477911646586,
-        "adjacent": 0.26104417670682734,
-        "irrelevant": 0.0,
-        "unknown": 0.002008032128514056
-      }
-    },
-    {
-      "source_id": 72,
-      "classify_volume": 355,
-      "classification_character_volume_proxy": 195379,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.9549859154929577,
-      "content_density_distribution": {
-        "low": 0.323943661971831,
-        "medium": 0.676056338028169,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.5915492957746479,
-        "adjacent": 0.4084507042253521,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 74,
-      "classify_volume": 105,
-      "classification_character_volume_proxy": 32898,
-      "relevance_rate": 0.01904761904761905,
-      "average_confidence": 0.9893333333333333,
-      "content_density_distribution": {
-        "low": 0.7047619047619048,
-        "medium": 0.29523809523809524,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.009523809523809525,
-        "adjacent": 0.009523809523809525,
-        "irrelevant": 0.9809523809523809,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 75,
-      "classify_volume": 3,
-      "classification_character_volume_proxy": 589,
-      "relevance_rate": 0.0,
-      "average_confidence": 0.9899999999999999,
-      "content_density_distribution": {
-        "low": 0.6666666666666666,
-        "medium": 0.3333333333333333,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.0,
-        "adjacent": 0.0,
-        "irrelevant": 1.0,
+        "adjacent": 0.14814814814814814,
+        "irrelevant": 0.8148148148148148,
         "unknown": 0.0
       }
     },
     {
       "source_id": 78,
-      "classify_volume": 80,
-      "classification_character_volume_proxy": 23918,
+      "classify_volume": 55,
+      "classification_character_volume_proxy": 14006,
       "relevance_rate": 0.0,
-      "average_confidence": 0.9872500000000001,
+      "average_confidence": 0.9883636363636363,
       "content_density_distribution": {
-        "low": 0.675,
-        "medium": 0.325,
+        "low": 0.7454545454545455,
+        "medium": 0.2545454545454545,
         "high": 0.0
       },
       "topic_class_breakdown": {
@@ -1100,28 +704,10 @@
     },
     {
       "source_id": 80,
-      "classify_volume": 14,
-      "classification_character_volume_proxy": 3072,
+      "classify_volume": 4,
+      "classification_character_volume_proxy": 17920,
       "relevance_rate": 1.0,
-      "average_confidence": 0.9807142857142858,
-      "content_density_distribution": {
-        "low": 1.0,
-        "medium": 0.0,
-        "high": 0.0
-      },
-      "topic_class_breakdown": {
-        "core": 0.9285714285714286,
-        "adjacent": 0.07142857142857142,
-        "irrelevant": 0.0,
-        "unknown": 0.0
-      }
-    },
-    {
-      "source_id": 81,
-      "classify_volume": 5,
-      "classification_character_volume_proxy": 1196,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.986,
+      "average_confidence": 0.99,
       "content_density_distribution": {
         "low": 1.0,
         "medium": 0.0,
@@ -1136,10 +722,10 @@
     },
     {
       "source_id": 82,
-      "classify_volume": 2,
-      "classification_character_volume_proxy": 430,
-      "relevance_rate": 1.0,
-      "average_confidence": 0.945,
+      "classify_volume": 3,
+      "classification_character_volume_proxy": 9122,
+      "relevance_rate": 0.6666666666666666,
+      "average_confidence": 0.9333333333333332,
       "content_density_distribution": {
         "low": 1.0,
         "medium": 0.0,
@@ -1147,17 +733,71 @@
       },
       "topic_class_breakdown": {
         "core": 0.0,
-        "adjacent": 1.0,
-        "irrelevant": 0.0,
+        "adjacent": 0.6666666666666666,
+        "irrelevant": 0.3333333333333333,
         "unknown": 0.0
       }
     },
     {
-      "source_id": 85,
-      "classify_volume": 12,
-      "classification_character_volume_proxy": 2071,
+      "source_id": 88,
+      "classify_volume": 31,
+      "classification_character_volume_proxy": 7119,
       "relevance_rate": 0.0,
-      "average_confidence": 0.9899999999999999,
+      "average_confidence": 0.9890322580645161,
+      "content_density_distribution": {
+        "low": 0.7096774193548387,
+        "medium": 0.2903225806451613,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.0,
+        "irrelevant": 1.0,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 89,
+      "classify_volume": 28,
+      "classification_character_volume_proxy": 6308,
+      "relevance_rate": 0.42857142857142855,
+      "average_confidence": 0.9657142857142856,
+      "content_density_distribution": {
+        "low": 0.6785714285714286,
+        "medium": 0.32142857142857145,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.14285714285714285,
+        "adjacent": 0.2857142857142857,
+        "irrelevant": 0.5714285714285714,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 93,
+      "classify_volume": 8,
+      "classification_character_volume_proxy": 3185,
+      "relevance_rate": 0.5,
+      "average_confidence": 0.9575,
+      "content_density_distribution": {
+        "low": 0.25,
+        "medium": 0.75,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.375,
+        "adjacent": 0.125,
+        "irrelevant": 0.5,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 94,
+      "classify_volume": 18,
+      "classification_character_volume_proxy": 7494,
+      "relevance_rate": 0.0,
+      "average_confidence": 0.99,
       "content_density_distribution": {
         "low": 1.0,
         "medium": 0.0,
@@ -1167,6 +807,78 @@
         "core": 0.0,
         "adjacent": 0.0,
         "irrelevant": 1.0,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 95,
+      "classify_volume": 6,
+      "classification_character_volume_proxy": 2394,
+      "relevance_rate": 0.0,
+      "average_confidence": 0.9866666666666667,
+      "content_density_distribution": {
+        "low": 0.8333333333333334,
+        "medium": 0.16666666666666666,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.0,
+        "irrelevant": 1.0,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 96,
+      "classify_volume": 15,
+      "classification_character_volume_proxy": 120045,
+      "relevance_rate": 1.0,
+      "average_confidence": 0.9686666666666667,
+      "content_density_distribution": {
+        "low": 0.0,
+        "medium": 0.13333333333333333,
+        "high": 0.8666666666666667
+      },
+      "topic_class_breakdown": {
+        "core": 0.6666666666666666,
+        "adjacent": 0.3333333333333333,
+        "irrelevant": 0.0,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 97,
+      "classify_volume": 39,
+      "classification_character_volume_proxy": 8589,
+      "relevance_rate": 0.20512820512820512,
+      "average_confidence": 0.9771794871794872,
+      "content_density_distribution": {
+        "low": 0.9487179487179487,
+        "medium": 0.05128205128205128,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.20512820512820512,
+        "irrelevant": 0.7948717948717948,
+        "unknown": 0.0
+      }
+    },
+    {
+      "source_id": 98,
+      "classify_volume": 29,
+      "classification_character_volume_proxy": 6350,
+      "relevance_rate": 0.06896551724137931,
+      "average_confidence": 0.9813793103448276,
+      "content_density_distribution": {
+        "low": 0.896551724137931,
+        "medium": 0.10344827586206896,
+        "high": 0.0
+      },
+      "topic_class_breakdown": {
+        "core": 0.0,
+        "adjacent": 0.06896551724137931,
+        "irrelevant": 0.9310344827586207,
         "unknown": 0.0
       }
     }

@@ -55,6 +55,8 @@ def test_ingest_service_with_mock_data(empty_db_conn):
     report = service.run_ingest_analysis(days=7)
 
     # 1. Assert overall metrics
+    assert report["report_type"] == "ingest_diagnostics"
+    assert report["schema_version"] == "2.0.0"
     metrics = report["metrics"]
     # Fetch Success Rate: 1 success, 1 failed -> 1/2 = 0.50
     assert pytest.approx(metrics["overall_fetch_success_rate"]) == 0.50
@@ -62,8 +64,8 @@ def test_ingest_service_with_mock_data(empty_db_conn):
     assert pytest.approx(metrics["run_success_rate"]) == 0.50
     # Ingest Volume: 2 items
     assert metrics["ingest_volume"] == 2
-    # Low-Context Bypass Rate: 1 low_context, 1 completed -> 1/2 = 0.50
-    assert pytest.approx(metrics["low_context_bypass_rate"]) == 0.50
+    # Low-Context Observation Rate: 1 low_context, 1 completed -> 1/2 = 0.50
+    assert pytest.approx(metrics["low_context_observation_rate"]) == 0.50
 
     # 2. Error Categorization
     errors = report["error_categorization"]
@@ -88,3 +90,7 @@ def test_ingest_service_with_mock_data(empty_db_conn):
     assert "Overall Fetch Success Rate" in report_md
     assert "50.00%" in report_md
     assert "too_short" in report_md
+    # Renamed quality-observation labels; no bypass semantics
+    assert "Low-Context Observation Rate" in report_md
+    assert "Low-Context Reason Distribution" in report_md
+    assert "Bypass" not in report_md

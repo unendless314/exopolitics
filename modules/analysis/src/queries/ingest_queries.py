@@ -61,7 +61,7 @@ def get_ingest_volume(conn: sqlite3.Connection, start: str, end: str) -> int:
     row = cursor.fetchone()
     return row["cnt"] if row else 0
 
-def get_low_context_bypass_rate(conn: sqlite3.Connection, start: str, end: str) -> Optional[float]:
+def get_low_context_observation_rate(conn: sqlite3.Connection, start: str, end: str) -> Optional[float]:
     sql = """
         SELECT 
             SUM(CASE WHEN sit.text_processing_status = 'low_context' THEN 1 ELSE 0 END) * 1.0 

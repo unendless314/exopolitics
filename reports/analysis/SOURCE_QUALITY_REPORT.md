@@ -1,98 +1,111 @@
 # RSS Source Connection & Content Quality Report
 
-**Generated At**: 2026-07-17T08:12:47Z
-**Lookback Period**: 7 days (2026-07-10T08:12:47Z to 2026-07-17T08:12:47Z)
+**Generated At**: 2026-07-23T18:24:52Z
+**Lookback Period**: 7 days (2026-07-16T18:24:52Z to 2026-07-23T18:24:52Z)
 
 ## Overall Pipeline KPIs
-- **Overall Fetch Success Rate**: 98.24%
-- **Total Ingested Items**: 4842
-- **Low-Context Bypass Rate**: 18.30%
+- **Overall Fetch Success Rate**: 99.27%
+- **Total Ingested Items**: 1231
+- **Low-Context Observation Rate**: 26.81%
 
 ## Source Performance Breakdown
 | Source ID | Source Title | Fetch Success | Ingest Vol | Classify Char Vol | Curate Char Vol | Relevance Breakdown (Core / Adj / Irr / Unk) | Curation Approval | Overall Yield | Quadrant | Flags |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | MUFON (Mutual UFO Network) | 100.00% | 11 | 6611 | 6611 | 100.00% (63.64% / 36.36% / 0.00% / 0.00%) | 81.82% | 81.82% | GOLDEN_SOURCE | None |
-| 2 | UFO FOTOCAT BLOG | 100.00% | 8 | 96154 | 96154 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 100.00% | 100.00% | GOLDEN_SOURCE | None |
-| 3 | Bad UFOs (Scientific Skepticism) | 100.00% | 25 | 183960 | 174314 | 96.00% (60.00% / 36.00% / 4.00% / 0.00%) | 62.50% | 60.00% | GOLDEN_SOURCE | [AUTHORITY] |
-| 4 | Unidentified Aerial Phenomena Research | 100.00% | 25 | 101401 | 100588 | 96.00% (88.00% / 8.00% / 0.00% / 4.00%) | 100.00% | 96.00% | GOLDEN_SOURCE | [AUTHORITY] |
-| 5 | theozfiles (Forensic Anomaly) | 100.00% | 25 | 239227 | 239227 | 100.00% (75.00% / 25.00% / 0.00% / 0.00%) | 87.50% | 84.00% | GOLDEN_SOURCE | [AUTHORITY] |
-| 6 | NewsNation » UFO | 100.00% | 55 | 5093 | 4696 | 92.00% (60.00% / 32.00% / 8.00% / 0.00%) | 65.22% | 27.27% | GOLDEN_SOURCE | [AUTHORITY] |
-| 7 | The Black Vault Case Files (FOIA) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 8 | Openminds.tv | 100.00% | 50 | 20956 | 20956 | 100.00% (80.00% / 20.00% / 0.00% / 0.00%) | 96.00% | 96.00% | GOLDEN_SOURCE | [AUTHORITY] |
-| 9 | Earthfiles.com (Linda Moulton Howe) | 100.00% | 10 | 3574 | 2401 | 60.00% (0.00% / 60.00% / 10.00% / 30.00%) | 33.33% | 20.00% | GOLDEN_SOURCE | None |
-| 10 | New York Post » UFOs | 100.00% | 21 | 4642 | 4642 | 100.00% (83.33% / 16.67% / 0.00% / 0.00%) | 44.44% | 38.10% | GOLDEN_SOURCE | [AUTHORITY] |
-| 11 | Latest-UFO-Sightings | 83.33% | 10 | 4181 | 4181 | 100.00% (90.00% / 10.00% / 0.00% / 0.00%) | 30.00% | 30.00% | GOLDEN_SOURCE | None |
-| 12 | The UFO Chronicles | 100.00% | 11 | 4718 | 4718 | 100.00% (90.91% / 9.09% / 0.00% / 0.00%) | 54.55% | 54.55% | GOLDEN_SOURCE | None |
-| 13 | UFO Sightings Hotspot | 100.00% | 26 | 48360 | 48360 | 100.00% (69.23% / 30.77% / 0.00% / 0.00%) | 34.62% | 34.62% | GOLDEN_SOURCE | None |
-| 14 | A Different Perspective (Kevin Randle) | 100.00% | 26 | 170227 | 170227 | 100.00% (96.15% / 3.85% / 0.00% / 0.00%) | 73.08% | 73.08% | GOLDEN_SOURCE | None |
-| 15 | UFOnutt Blog (Chuck Zukowski) | 100.00% | 6 | 1405 | 1405 | 100.00% (0.00% / 100.00% / 0.00% / 0.00%) | 50.00% | 50.00% | GOLDEN_SOURCE | None |
-| 16 | UFO Sightings Daily | 100.00% | 27 | 36649 | 36649 | 100.00% (59.26% / 40.74% / 0.00% / 0.00%) | 0.00% | 0.00% | FILTERING_BURDEN | None |
-| 17 | UFO MatriX | 11.11% | 25 | 114619 | 114619 | 100.00% (44.00% / 56.00% / 0.00% / 0.00%) | 8.00% | 8.00% | N/A | [CONNECTION_DIAGNOSTICS] |
-| 18 | Spectral Vision | 100.00% | 10 | 4578 | 4578 | 100.00% (20.00% / 80.00% / 0.00% / 0.00%) | 60.00% | 60.00% | GOLDEN_SOURCE | [AUTHORITY] |
-| 19 | Reddit r/UFOs Community Feed | 83.33% | 85 | 119105 | 102853 | 91.94% (79.03% / 12.90% / 6.45% / 1.61%) | 50.88% | 34.12% | GOLDEN_SOURCE | None |
-| 20 | /r/space: news, articles and discussion | 100.00% | 63 | 11501 | 6471 | 43.75% (6.25% / 37.50% / 56.25% / 0.00%) | 85.71% | 9.52% | FILTERING_BURDEN | [AUTHORITY] |
-| 21 | NASA Breaking News | 100.00% | 35 | 11989 | 4970 | 37.14% (2.86% / 34.29% / 62.86% / 0.00%) | 100.00% | 37.14% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
-| 22 | New Scientist - Space | 100.00% | 112 | 26082 | 16869 | 63.96% (1.80% / 62.16% / 36.04% / 0.00%) | 95.77% | 60.71% | GOLDEN_SOURCE | [AUTHORITY] |
-| 23 | Sky & Telescope | 100.00% | 14 | 3824 | 2000 | 50.00% (0.00% / 50.00% / 50.00% / 0.00%) | 100.00% | 50.00% | GOLDEN_SOURCE | [AUTHORITY] |
-| 24 | Space | The Guardian | 100.00% | 25 | 17526 | 11573 | 64.00% (0.00% / 64.00% / 36.00% / 0.00%) | 93.75% | 60.00% | GOLDEN_SOURCE | [AUTHORITY] |
-| 25 | Space.com | 100.00% | 90 | 16356 | 9595 | 57.35% (1.47% / 55.88% / 42.65% / 0.00%) | 94.87% | 41.11% | GOLDEN_SOURCE | [AUTHORITY] |
-| 26 | Nature | 100.00% | 148 | 42925 | 7615 | 17.81% (0.00% / 17.81% / 82.19% / 0.00%) | 100.00% | 17.57% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
-| 27 | Phys.org - latest science and technology news stories | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 28 | Scientific American Content: Global | 100.00% | 79 | 13391 | 3560 | 26.98% (1.59% / 25.40% / 73.02% / 0.00%) | 94.12% | 20.25% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
-| 29 | 阮一峰的网络日志 | 100.00% | 6 | 30212 | 17658 | 50.00% (0.00% / 50.00% / 50.00% / 0.00%) | 100.00% | 50.00% | GOLDEN_SOURCE | None |
-| 30 | 宇宙的心弦 - 细推物理须行乐 何用浮名绊此身 | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 31 | 卢昌海个人主页 | 100.00% | 30 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | 0.00% | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 32 | 奇客Solidot–传递最新科技情报 | 100.00% | 60 | 19783 | 1779 | 10.00% (0.00% / 10.00% / 90.00% / 0.00%) | 100.00% | 10.00% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
-| 33 | [http://plink.anyfeeder.com/weixin/almosthuman2014](http://plink.anyfeeder.com/weixin/almosthuman2014) | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 34 | [http://plink.anyfeeder.com/weixin/The-Intellectual](http://plink.anyfeeder.com/weixin/The-Intellectual) | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 35 | MIT 科技评论 - 本周热榜 | 100.00% | 27 | 98027 | 79843 | 74.07% (0.00% / 74.07% / 25.93% / 0.00%) | 100.00% | 74.07% | GOLDEN_SOURCE | [AUTHORITY] |
-| 36 | 果壳网 | 100.00% | 25 | 106859 | 41849 | 36.00% (0.00% / 36.00% / 64.00% / 0.00%) | 44.44% | 16.00% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
-| 37 | 利维坦 | 100.00% | 7 | 40489 | 15931 | 40.00% (0.00% / 40.00% / 60.00% / 0.00%) | 100.00% | 28.57% | GOLDEN_SOURCE | None |
-| 38 | 微软研究院AI头条 | 100.00% | 7 | 27886 | 20574 | 71.43% (0.00% / 71.43% / 28.57% / 0.00%) | 100.00% | 71.43% | GOLDEN_SOURCE | [AUTHORITY] |
-| 39 | 新智元 | 100.00% | 25 | 86446 | 32100 | 24.00% (0.00% / 24.00% / 76.00% / 0.00%) | 66.67% | 16.00% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
-| 40 | 稚晖君 的 bilibili 动态 | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 41 | 科学松鼠会 | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 42 | 环球科学 | 100.00% | 19 | 56774 | 18186 | 31.58% (0.00% / 31.58% / 68.42% / 0.00%) | 100.00% | 31.58% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
-| 43 | 地球知识局 | 100.00% | 13 | 34055 | 9833 | 25.00% (0.00% / 25.00% / 75.00% / 0.00%) | 66.67% | 15.38% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
-| 44 | 中国国家地理 | 100.00% | 16 | 34783 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | [AUTHORITY] |
-| 45 | caoz的梦呓 | 100.00% | 5 | 14752 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | None |
-| 46 | X博士 | 100.00% | 5 | 13839 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | None |
-| 47 | cnBeta | 100.00% | 118 | 104351 | 12709 | 12.75% (0.00% / 12.75% / 87.25% / 0.00%) | 100.00% | 11.02% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
-| 48 | 果壳网 科学人 | 100.00% | 30 | 104718 | 41551 | 45.83% (0.00% / 45.83% / 54.17% / 0.00%) | 100.00% | 36.67% | GOLDEN_SOURCE | [AUTHORITY] |
-| 49 | SETI Institute News | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 50 | NASA Astrobiology | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 51 | The Anomalous Review (SCU) | 100.00% | 1 | 1117 | 1117 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 100.00% | 100.00% | GOLDEN_SOURCE | [AUTHORITY] |
-| 52 | Sol Foundation Updates | 100.00% | 5 | 1306 | 1306 | 100.00% (60.00% / 40.00% / 0.00% / 0.00%) | 100.00% | 100.00% | GOLDEN_SOURCE | [AUTHORITY] |
-| 53 | Astrobiology Web | 100.00% | 45 | 18678 | 13784 | 94.29% (0.00% / 94.29% / 5.71% / 0.00%) | 100.00% | 73.33% | GOLDEN_SOURCE | [AUTHORITY] |
-| 54 | Harvard Galileo Project | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 55 | AARO Official Releases (DOD) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 56 | GEIPAN (CNES) | 100.00% | 20 | 2554 | 2554 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 77.78% | 35.00% | GOLDEN_SOURCE | [AUTHORITY] |
-| 57 | FBI The Vault (Unexplained Phenomenon) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 58 | UK National Archives (UFO) | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 59 | US Dept of Energy (DOE) Updates | 100.00% | 10 | 2354 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | [AUTHORITY] |
-| 60 | The Debrief | 100.00% | 104 | 25662 | 13258 | 50.98% (0.98% / 50.00% / 49.02% / 0.00%) | 80.77% | 40.38% | GOLDEN_SOURCE | [AUTHORITY] |
-| 61 | Space.com (Space Exploration) | 100.00% | 67 | 14128 | 8259 | 62.96% (3.70% / 59.26% / 37.04% / 0.00%) | 94.12% | 47.76% | GOLDEN_SOURCE | [AUTHORITY] |
-| 62 | Scientific American (Space & Physics) | 100.00% | 79 | 13391 | 2933 | 25.00% (1.79% / 23.21% / 75.00% / 0.00%) | 92.86% | 16.46% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
-| 63 | Popular Mechanics (Space) | 100.00% | 92 | 10603 | 1686 | 16.67% (2.38% / 14.29% / 83.33% / 0.00%) | 71.43% | 5.43% | DEAD_WEIGHT | [AUTHORITY] |
-| 64 | Universe Today (Astrobiology) | 100.00% | 40 | 17726 | 10992 | 61.54% (0.00% / 61.54% / 38.46% / 0.00%) | 100.00% | 60.00% | GOLDEN_SOURCE | [AUTHORITY] |
-| 65 | The Black Vault Document Archive | 100.00% | 25 | 14388 | 13178 | 92.00% (56.00% / 36.00% / 8.00% / 0.00%) | 100.00% | 92.00% | GOLDEN_SOURCE | None |
-| 66 | WEAPONIZED with Jeremy Corbell & George Knapp | 100.00% | 121 | 226451 | 226451 | 100.00% (86.78% / 13.22% / 0.00% / 0.00%) | 99.17% | 99.17% | GOLDEN_SOURCE | None |
-| 67 | Need to Know Podcast | 100.00% | 482 | 276918 | 276030 | 99.79% (85.18% / 14.61% / 0.00% / 0.21%) | 35.98% | 35.68% | GOLDEN_SOURCE | None |
-| 68 | Theories of Everything with Curt Jaimungal | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
-| 69 | The Micah Hanks Program | 100.00% | 101 | 263147 | 263147 | 100.00% (66.34% / 33.66% / 0.00% / 0.00%) | 100.00% | 100.00% | GOLDEN_SOURCE | None |
-| 70 | UFO Chronicles Podcast | 100.00% | 482 | 679815 | 676411 | 99.58% (77.96% / 21.62% / 0.42% / 0.00%) | 99.37% | 98.76% | GOLDEN_SOURCE | None |
-| 71 | That UFO Podcast | 100.00% | 502 | 631214 | 629399 | 99.80% (73.69% / 26.10% / 0.00% / 0.20%) | 98.19% | 97.21% | GOLDEN_SOURCE | None |
-| 72 | UAP Unidentified Alien Podcast | 100.00% | 355 | 195379 | 195379 | 100.00% (59.15% / 40.85% / 0.00% / 0.00%) | 71.83% | 71.83% | GOLDEN_SOURCE | None |
-| 73 | Somewhere in the Skies | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
-| 74 | CBS News (Latest/Space) | 100.00% | 144 | 32898 | 451 | 1.90% (0.95% / 0.95% / 98.10% / 0.00%) | 100.00% | 1.39% | DEAD_WEIGHT | None |
-| 75 | CNN Science & Space | 100.00% | 5 | 589 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | None |
-| 76 | Reuters (Science News) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
-| 77 | HuffPost (Tech & UFOs) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
-| 78 | JPost (International Defense) | 100.00% | 101 | 23918 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | None |
-| 79 | News4JAX (Military/Local Tracking) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
-| 80 | Google News: UAP & Non-Human Intelligence | 100.00% | 210 | 3072 | 3072 | 100.00% (92.86% / 7.14% / 0.00% / 0.00%) | 100.00% | 6.67% | FILTERING_BURDEN | None |
-| 81 | Google News: Pentagon AARO & Bureaucracy | 100.00% | 145 | 1196 | 1196 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 80.00% | 2.76% | FILTERING_BURDEN | [AUTHORITY] |
-| 82 | Google News: Technosignatures & SETI | 100.00% | 142 | 430 | 430 | 100.00% (0.00% / 100.00% / 0.00% / 0.00%) | 100.00% | 1.41% | FILTERING_BURDEN | [AUTHORITY] |
-| 83 | Google News: UAP Legislation & Whistleblowers | 100.00% | 128 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | 0.00% | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
-| 84 | Google News: Global Aerospace Anomalies | 100.00% | 5 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | 0.00% | N/A | [INSUFFICIENT_DATA] |
-| 85 | Breaking News English (Global Summaries) | 100.00% | 16 | 2071 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | None |
+| 1 | CNN Space (via Google News) | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 2 | CNN Science (via Google News) | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 3 | CNN Politics | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 4 | CNN World | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 5 | CNN Tech (via Google News) | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 6 | NYT Science | 100.00% | 3 | 696 | 544 | 100.00% (50.00% / 50.00% / 0.00% / 0.00%) | 100.00% | 66.67% | GOLDEN_SOURCE | [AUTHORITY] |
+| 7 | NYT Technology | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 8 | NYT Politics | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 9 | NYT US News | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 10 | NYT World News | 100.00% | 1 | 315 | 315 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 100.00% | 100.00% | GOLDEN_SOURCE | None |
+| 11 | NewsNation » UFO | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 12 | The Debrief | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 13 | The Debrief (Defense) | 100.00% | 2 | 2082 | 2082 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 0.00% | 0.00% | FILTERING_BURDEN | [AUTHORITY] |
+| 14 | The Debrief (Space) | 100.00% | 1 | 4992 | 4992 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 100.00% | 100.00% | GOLDEN_SOURCE | [AUTHORITY] |
+| 15 | The Debrief (Astronomy) | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 16 | The Debrief (Physics) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 17 | The Debrief (Technology) | 0.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [CONNECTION_DIAGNOSTICS] |
+| 18 | The Debrief (Energy) | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 19 | Space.com | 100.00% | 80 | 129236 | 124785 | 95.31% (78.12% / 17.19% / 4.69% / 0.00%) | 42.62% | 32.50% | GOLDEN_SOURCE | [AUTHORITY] |
+| 20 | Space.com (Space Exploration) | 100.00% | 37 | 13211 | 6795 | 56.25% (0.00% / 56.25% / 43.75% / 0.00%) | 88.89% | 21.62% | GOLDEN_SOURCE | [AUTHORITY] |
+| 21 | Space.com (Astronomy) | 100.00% | 26 | 10967 | 7125 | 64.00% (0.00% / 64.00% / 36.00% / 0.00%) | 100.00% | 61.54% | GOLDEN_SOURCE | [AUTHORITY] |
+| 22 | Space.com (Technology) | 100.00% | 2 | 420 | 191 | 50.00% (0.00% / 50.00% / 50.00% / 0.00%) | 100.00% | 50.00% | GOLDEN_SOURCE | [AUTHORITY] |
+| 23 | Space.com (Science) | 100.00% | 4 | 1049 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | [AUTHORITY] |
+| 24 | NASA Breaking News | 100.00% | 5 | 5698 | 4615 | 60.00% (0.00% / 60.00% / 40.00% / 0.00%) | 100.00% | 60.00% | GOLDEN_SOURCE | [AUTHORITY] |
+| 25 | NASA UAP Research | 100.00% | 49 | 10999 | 5134 | 53.66% (0.00% / 53.66% / 46.34% / 0.00%) | 90.91% | 40.82% | GOLDEN_SOURCE | [AUTHORITY] |
+| 26 | NASA Earth Science | 100.00% | 26 | 6803 | 1058 | 15.38% (0.00% / 15.38% / 84.62% / 0.00%) | 100.00% | 15.38% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
+| 27 | NASA Planetary Science | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 28 | NASA Astrophysics | 100.00% | 20 | 3901 | 829 | 25.00% (0.00% / 25.00% / 75.00% / 0.00%) | 100.00% | 20.00% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
+| 29 | NASA Biological & Physical Sciences | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 30 | NASA Space Technology | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 31 | NASA AI in Science | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 32 | NASA Astrobiology | 100.00% | 39 | 13369 | 1474 | 10.26% (0.00% / 10.26% / 89.74% / 0.00%) | 100.00% | 10.26% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
+| 33 | The Black Vault Case Files (via Google News) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 34 | The Black Vault Document Archive | 100.00% | 20 | 4834 | 703 | 15.00% (0.00% / 15.00% / 85.00% / 0.00%) | 100.00% | 15.00% | NEEDLE_IN_A_HAYSTACK | None |
+| 35 | MUFON (Mutual UFO Network) | 100.00% | 14 | 40384 | 16488 | 35.71% (0.00% / 35.71% / 64.29% / 0.00%) | 100.00% | 35.71% | NEEDLE_IN_A_HAYSTACK | None |
+| 36 | Scientific Coalition for UAP Studies (SCU) | 100.00% | 24 | 88791 | 33656 | 37.50% (0.00% / 37.50% / 62.50% / 0.00%) | 77.78% | 29.17% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
+| 37 | Sol Foundation Updates | 100.00% | 3 | 13091 | 9381 | 50.00% (0.00% / 50.00% / 50.00% / 0.00%) | 100.00% | 33.33% | GOLDEN_SOURCE | [AUTHORITY] |
+| 38 | AARO Official Releases (via Google News) | 100.00% | 1 | 4153 | 4153 | 100.00% (0.00% / 100.00% / 0.00% / 0.00%) | 100.00% | 100.00% | GOLDEN_SOURCE | [AUTHORITY] |
+| 39 | UAP Unidentified Alien Podcast | 100.00% | 25 | 88089 | 42079 | 44.00% (0.00% / 44.00% / 56.00% / 0.00%) | 90.91% | 40.00% | GOLDEN_SOURCE | None |
+| 40 | Astrobiology Web | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 41 | Avi Loeb (Medium) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 42 | Bad UFOs (Scientific Skepticism) | 100.00% | 16 | 48928 | 11312 | 12.50% (0.00% / 12.50% / 87.50% / 0.00%) | 100.00% | 12.50% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
+| 43 | CBS News (Science) | 100.00% | 9 | 16345 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | None |
+| 44 | CBS News (Technology) | 100.00% | 11 | 23916 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | [AUTHORITY] |
+| 45 | CBS News (Space) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 46 | CBS News (Politics) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 47 | GEIPAN (CNES) | 100.00% | 125 | 123101 | 19166 | 8.80% (0.00% / 8.80% / 91.20% / 0.00%) | 90.91% | 8.00% | DEAD_WEIGHT | [AUTHORITY] |
+| 48 | Theories of Everything with Curt Jaimungal | 100.00% | 22 | 78681 | 35225 | 33.33% (0.00% / 33.33% / 66.67% / 0.00%) | 85.71% | 27.27% | NEEDLE_IN_A_HAYSTACK | None |
+| 49 | UK National Archives (UFO) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 50 | Earthfiles.com (Linda Moulton Howe) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 51 | US Dept of Energy (DOE) Updates | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 52 | UFO FOTOCAT BLOG | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 53 | HuffPost Tech & UFOs (via Google News) | 100.00% | 41 | 17248 | 17248 | 100.00% (0.00% / 100.00% / 0.00% / 0.00%) | 100.00% | 100.00% | GOLDEN_SOURCE | None |
+| 54 | JPost (UFO/UAP via Google News) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 55 | A Different Perspective (Kevin Randle) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 56 | Latest-UFO-Sightings | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 57 | The Micah Hanks Program | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 58 | Nature | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 59 | Need to Know Podcast | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 60 | Google News: UAP & Non-Human Intelligence | 100.00% | 11 | 2599 | 1434 | 54.55% (0.00% / 54.55% / 45.45% / 0.00%) | 100.00% | 54.55% | GOLDEN_SOURCE | None |
+| 61 | Google News: Pentagon AARO & Bureaucracy | 100.00% | 17 | 4166 | 2600 | 68.75% (0.00% / 68.75% / 31.25% / 0.00%) | 100.00% | 64.71% | GOLDEN_SOURCE | [AUTHORITY] |
+| 62 | Google News: Technosignatures & SETI | 100.00% | 21 | 4103 | 829 | 23.53% (0.00% / 23.53% / 76.47% / 0.00%) | 100.00% | 19.05% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
+| 63 | Google News: UAP Legislation & Whistleblowers | 100.00% | 33 | 5896 | 695 | 23.08% (7.69% / 15.38% / 76.92% / 0.00%) | 33.33% | 3.03% | DEAD_WEIGHT | [AUTHORITY] |
+| 64 | Google News: Global Aerospace Anomalies | 100.00% | 25 | 10331 | 5592 | 48.00% (0.00% / 48.00% / 52.00% / 0.00%) | 100.00% | 48.00% | GOLDEN_SOURCE | None |
+| 65 | News4JAX (UFO/UAP via Google News) | 100.00% | 1 | 691 | 691 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 100.00% | 100.00% | GOLDEN_SOURCE | None |
+| 66 | New Scientist - Space | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 67 | New York Post » UFOs | 100.00% | 2 | 655 | 655 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 0.00% | 0.00% | FILTERING_BURDEN | [AUTHORITY] |
+| 68 | Openminds.tv | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 69 | MIT 科技评论 - 本周热榜 | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 70 | cnBeta | 100.00% | 2 | 3302 | 3302 | 100.00% (50.00% / 50.00% / 0.00% / 0.00%) | 50.00% | 50.00% | GOLDEN_SOURCE | [AUTHORITY] |
+| 71 | 果壳网 科学人 | 100.00% | 1 | 1716 | 1716 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 100.00% | 100.00% | GOLDEN_SOURCE | [AUTHORITY] |
+| 72 | Popular Mechanics (Science) | 100.00% | 1 | 424 | 424 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 100.00% | 100.00% | GOLDEN_SOURCE | [AUTHORITY] |
+| 73 | Popular Mechanics (Military) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 74 | Popular Mechanics (Technology) | 100.00% | 29 | 6092 | 994 | 18.52% (3.70% / 14.81% / 81.48% / 0.00%) | 100.00% | 17.24% | NEEDLE_IN_A_HAYSTACK | [AUTHORITY] |
+| 75 | Popular Mechanics (Culture) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 76 | Reddit r/UFOs Community Feed | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 77 | /r/space: news, articles and discussion | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 78 | Reuters Science & Space (via Google News) | 100.00% | 55 | 14006 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | [AUTHORITY] |
+| 79 | Scientific American Content: Global | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 80 | Ryan Sprague (Somewhere in the Skies) | 100.00% | 109 | 17920 | 816 | 100.00% (100.00% / 0.00% / 0.00% / 0.00%) | 100.00% | 3.67% | FILTERING_BURDEN | None |
+| 81 | Scientific American (Space & Physics) | 100.00% | 28 | 4602 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | 0.00% | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 82 | Sky & Telescope | 100.00% | 49 | 9122 | 474 | 66.67% (0.00% / 66.67% / 33.33% / 0.00%) | 100.00% | 4.08% | FILTERING_BURDEN | [AUTHORITY] |
+| 83 | 奇客Solidot–传递最新科技情报 | 100.00% | 14 | 2364 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | 0.00% | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 84 | Spectral Vision | 100.00% | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 85 | Space | The Guardian | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 86 | theozfiles (Forensic Anomaly) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 87 | The UFO Chronicles | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 88 | That UFO Podcast | 100.00% | 32 | 7119 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | None |
+| 89 | UFO Chronicles Podcast | 100.00% | 30 | 6308 | 2593 | 42.86% (14.29% / 28.57% / 57.14% / 0.00%) | 100.00% | 40.00% | GOLDEN_SOURCE | None |
+| 90 | UFO MatriX | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 91 | UFOnutt Blog (Chuck Zukowski) | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [INSUFFICIENT_DATA] |
+| 92 | Unidentified Aerial Phenomena Research | [INSUFFICIENT_DATA] | 0 | 0 | 0 | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | N/A | [AUTHORITY], [INSUFFICIENT_DATA] |
+| 93 | UFO Sightings Hotspot | 100.00% | 15 | 3185 | 1013 | 50.00% (37.50% / 12.50% / 50.00% / 0.00%) | 50.00% | 13.33% | GOLDEN_SOURCE | None |
+| 94 | Universe Today (Astrobiology) | 100.00% | 46 | 7494 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | [AUTHORITY] |
+| 95 | Universe Today (All News) | 100.00% | 13 | 2394 | 0 | 0.00% (0.00% / 0.00% / 100.00% / 0.00%) | [INSUFFICIENT_DATA] | 0.00% | DEAD_WEIGHT | [AUTHORITY] |
+| 96 | FBI The Vault (via Google News) | 100.00% | 15 | 120045 | 120045 | 100.00% (66.67% / 33.33% / 0.00% / 0.00%) | 93.33% | 93.33% | GOLDEN_SOURCE | [AUTHORITY] |
+| 97 | WEAPONIZED with Jeremy Corbell & George Knapp | 100.00% | 44 | 8589 | 1691 | 20.51% (0.00% / 20.51% / 79.49% / 0.00%) | 87.50% | 15.91% | NEEDLE_IN_A_HAYSTACK | None |
+| 98 | 知识分子 | 100.00% | 32 | 6350 | 455 | 6.90% (0.00% / 6.90% / 93.10% / 0.00%) | 100.00% | 6.25% | DEAD_WEIGHT | [AUTHORITY] |

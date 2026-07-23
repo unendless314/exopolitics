@@ -1,4 +1,6 @@
 import asyncio
+import contextlib
+import io
 import json
 import os
 import pathlib
@@ -308,14 +310,27 @@ class TestDatabaseRepository(unittest.TestCase):
         try:
             repo = ClassificationResultRepository(conn)
 
-            # 1. Seed two items: one completed (pending classification), one low_context (excluded)
-            self.seed_test_item(conn, 10, "First Item", "This is working text body.", text_processing_status='completed')
-            self.seed_test_item(conn, 20, "Second Item", "Thin", text_processing_status='low_context', text_processing_reason='too_short')
+            # 1. Seed the queue-eligibility matrix: every outcome except
+            # post_cleanup_empty and failed enters the pending queue
+            self.seed_test_item(conn, 10, "Completed Item", "This is working text body.", text_processing_status='completed')
+            self.seed_test_item(conn, 20, "Mostly Links", "https://example.com/a https://example.com/b", text_processing_status='low_context', text_processing_reason='mostly_links')
+            self.seed_test_item(conn, 21, "Too Short", "Thin", text_processing_status='low_context', text_processing_reason='too_short')
+            self.seed_test_item(conn, 22, "Title Heavy", "Title-like text", text_processing_status='low_context', text_processing_reason='title_heavy')
+            self.seed_test_item(conn, 23, "Title Only", "Title only text", text_processing_status='low_context', text_processing_reason='title_only')
+            self.seed_test_item(conn, 24, "Template Heavy", "Boilerplate text", text_processing_status='low_context', text_processing_reason='template_heavy')
+            self.seed_test_item(conn, 25, "Truncated", "Truncated text", text_processing_status='low_context', text_processing_reason='truncated_to_low_context')
+            self.seed_test_item(conn, 26, "Empty After Cleanup", "", text_processing_status='low_context', text_processing_reason='post_cleanup_empty')
+            self.seed_test_item(conn, 27, "Missing Body", "", text_processing_status='failed', text_processing_reason='missing_body')
+            self.seed_test_item(conn, 28, "Sanitizer Exception", "", text_processing_status='failed', text_processing_reason='sanitizer_exception')
 
-            # 2. Get pending items (should only find Item 10)
-            pending = repo.get_pending_items(limit=5)
-            self.assertEqual(len(pending), 1)
-            self.assertEqual(pending[0]["source_item_id"], 10)
+            # 2. Get pending items: completed plus every allowed low-context reason
+            pending = repo.get_pending_items(limit=20)
+            pending_ids = {row["source_item_id"] for row in pending}
+            self.assertEqual(pending_ids, {10, 20, 21, 22, 23, 24, 25})
+
+            # Pending rows expose only the prompt inputs, never status/reason metadata
+            for row in pending:
+                self.assertEqual(set(row.keys()), {"source_item_id", "title", "sanitized_text"})
 
             # 3. Write classification for item 10
             repo.upsert({
@@ -333,9 +348,9 @@ class TestDatabaseRepository(unittest.TestCase):
             })
             conn.commit()
 
-            # 4. Get pending again (should find zero now, since 20 is excluded and 10 is classified)
-            pending_after = repo.get_pending_items(limit=5)
-            self.assertEqual(len(pending_after), 0)
+            # 4. Item 10 leaves the pending queue once a classification_result exists
+            pending_after = repo.get_pending_items(limit=20)
+            self.assertEqual({row["source_item_id"] for row in pending_after}, {20, 21, 22, 23, 24, 25})
 
             # 5. Test ON CONFLICT DO UPDATE upsert behaviour on item 10
             repo.upsert({
@@ -485,12 +500,15 @@ class TestOrchestrator(unittest.TestCase):
 
     @patch.dict(os.environ, {"TEST_API_KEY": "dummy_key"})
     @patch("httpx.AsyncClient.post")
-    def test_orchestrate_success_and_bypass(self, mock_post) -> None:
-        # Seed two items: one normal, one low-context (bypass)
+    def test_orchestrate_success_and_exclusions(self, mock_post) -> None:
+        # Seed one completed item and one allowed low-context item (both proceed
+        # through the normal LLM path), plus the two excluded outcomes
         self.seed_test_item(1, "Core UAP Hearing", "Active congressional committee discussed military radar tracks.", text_processing_status='completed')
-        self.seed_test_item(2, "Low Context", "Thin text", text_processing_status='low_context')
+        self.seed_test_item(2, "Link Wrapper", "https://news.example/a https://news.example/b", text_processing_status='low_context', text_processing_reason='mostly_links')
+        self.seed_test_item(3, "Empty After Cleanup", "", text_processing_status='low_context', text_processing_reason='post_cleanup_empty')
+        self.seed_test_item(4, "Missing Body", "", text_processing_status='failed', text_processing_reason='missing_body')
 
-        # Mock LLM API Response for item 1
+        # Mock LLM API Response for every eligible item
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
@@ -519,15 +537,30 @@ class TestOrchestrator(unittest.TestCase):
             batch_size=10
         ))
 
-        self.assertEqual(summary["total_queried"], 1)
-        self.assertEqual(summary["processed_successfully"], 1)
+        # Items 1 and 2 are queried and classified; excluded items never invoke the model
+        self.assertEqual(summary["total_queried"], 2)
+        self.assertEqual(summary["processed_successfully"], 2)
         self.assertEqual(summary["failures"], 0)
+        self.assertEqual(mock_post.call_count, 2)
+
+        # Prompt payloads carry only title and sanitized text, never status/reason metadata
+        user_contents = set()
+        for call in mock_post.call_args_list:
+            payload = call.kwargs["json"]
+            user_contents.add(payload["messages"][1]["content"])
+        self.assertEqual(user_contents, {
+            "Title: Core UAP Hearing, Text: Active congressional committee discussed military radar tracks.",
+            "Title: Link Wrapper, Text: https://news.example/a https://news.example/b",
+        })
+        for content in user_contents:
+            self.assertNotIn("low_context", content)
+            self.assertNotIn("mostly_links", content)
 
         # Validate database values
         conn = get_connection(self.db_path)
         try:
             cursor = conn.cursor()
-            
+
             # Check normal LLM item (1)
             cursor.execute("SELECT * FROM classification_result WHERE source_item_id = 1")
             res1 = cursor.fetchone()
@@ -538,10 +571,15 @@ class TestOrchestrator(unittest.TestCase):
             signals = json.loads(res1["additional_signals"])
             self.assertEqual(signals.get("primary_evidence_type"), "radar_sensor")
 
-            # Check that low-context item (2) has no classification result
+            # Check that the allowed low-context item (2) was classified too
             cursor.execute("SELECT * FROM classification_result WHERE source_item_id = 2")
-            res2 = cursor.fetchone()
-            self.assertIsNone(res2)
+            self.assertIsNotNone(cursor.fetchone())
+
+            # Check that the excluded outcomes (3 and 4) have no classification result
+            cursor.execute("SELECT * FROM classification_result WHERE source_item_id = 3")
+            self.assertIsNone(cursor.fetchone())
+            cursor.execute("SELECT * FROM classification_result WHERE source_item_id = 4")
+            self.assertIsNone(cursor.fetchone())
         finally:
             conn.close()
 
@@ -652,19 +690,30 @@ class TestOrchestrator(unittest.TestCase):
 
     def test_orchestrate_preview_prompts_summary(self) -> None:
         self.seed_test_item(400, "Preview Case 1", "Content 1.", text_processing_status='completed')
-        self.seed_test_item(500, "Preview Case 2", "Content 2.", text_processing_status='low_context')
+        self.seed_test_item(500, "Preview Case 2", "Content 2.", text_processing_status='low_context', text_processing_reason='too_short')
+        self.seed_test_item(600, "Preview Case 3", "", text_processing_status='low_context', text_processing_reason='post_cleanup_empty')
+        self.seed_test_item(700, "Preview Case 4", "", text_processing_status='failed', text_processing_reason='sanitizer_exception')
 
-        summary = asyncio.run(orchestrate_run(
-            config=self.config,
-            db_path=self.db_path,
-            batch_size=10,
-            preview_prompts=True
-        ))
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            summary = asyncio.run(orchestrate_run(
+                config=self.config,
+                db_path=self.db_path,
+                batch_size=10,
+                preview_prompts=True
+            ))
 
-        self.assertEqual(summary["total_queried"], 1)
+        # Allowed items (completed + low_context) are previewed; excluded outcomes are not
+        self.assertEqual(summary["total_queried"], 2)
         self.assertEqual(summary["processed_successfully"], 0)
-        self.assertEqual(summary["previewed"], 1)
+        self.assertEqual(summary["previewed"], 2)
         self.assertEqual(summary["status"], "preview")
+
+        preview_output = stdout.getvalue()
+        self.assertIn("Source Item ID: 400", preview_output)
+        self.assertIn("Source Item ID: 500", preview_output)
+        self.assertNotIn("Source Item ID: 600", preview_output)
+        self.assertNotIn("Source Item ID: 700", preview_output)
 
     @patch.dict(os.environ, {"TEST_API_KEY": "dummy_key"})
     @patch("httpx.AsyncClient.post")

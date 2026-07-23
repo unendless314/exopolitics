@@ -144,6 +144,12 @@ def test_json_schema_validation_endpoints(temp_db):
     assert res.returncode == 0, f"Error: {res.stderr}"
     data = json.loads(res.stdout)
     jsonschema.validate(instance=data, schema=schema)
+    # funnel 3.0.0: low-context observation fields replace the bypass fields
+    assert data["schema_version"] == "3.0.0"
+    assert "low_context_observation_count" in data["raw_metrics"]
+    assert "low_context_observation_count" in data["raw_metrics"]["classification_readiness_breakdown"]
+    assert "low_context_bypass_count" not in data["raw_metrics"]
+    assert "low_context_bypass" not in data["raw_metrics"]["classification_readiness_breakdown"]
 
     # 2. analyze-classify
     res = run_cli_command(temp_db, ["analyze-classify", "--format", "json", "--stdout"])
@@ -156,6 +162,10 @@ def test_json_schema_validation_endpoints(temp_db):
     assert res.returncode == 0, f"Error: {res.stderr}"
     data = json.loads(res.stdout)
     jsonschema.validate(instance=data, schema=schema)
+    # sources 2.0.0: renamed low-context observation rate
+    assert data["schema_version"] == "2.0.0"
+    assert "low_context_observation_rate" in data["metrics"]
+    assert "low_context_bypass_rate" not in data["metrics"]
 
     # 4. analyze-translation
     res = run_cli_command(temp_db, ["analyze-translation", "--format", "json", "--stdout"])

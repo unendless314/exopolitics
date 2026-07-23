@@ -19,7 +19,6 @@ _PLOTLY_LAYOUT = dict(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plo
 
 _FUNNEL_STAGES: list[tuple[str, str]] = [
     ("Ingested", "total_ingested"),
-    ("Low-Context Bypass", "low_context_bypass_count"),
     ("Classified", "total_classified"),
     ("Relevant", "relevant_classified"),
     ("Curated", "total_curated"),

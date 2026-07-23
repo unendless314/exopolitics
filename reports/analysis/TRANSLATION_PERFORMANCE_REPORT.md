@@ -1,16 +1,16 @@
 # Translation Performance & Queue Report
 
-**Generated At**: 2026-07-17T08:12:47Z
-**Lookback Period**: 7 days (2026-07-10T08:12:47Z to 2026-07-17T08:12:47Z)
+**Generated At**: 2026-07-23T18:28:44Z
+**Lookback Period**: 7 days (2026-07-16T18:28:44Z to 2026-07-23T18:28:44Z)
 
 ## Overall Translation KPIs
-- **Overall Translation Success Rate**: 99.94%
-- **Overall Translation Completion Rate**: 99.83%
-- **Average Latency**: 5973.93s
+- **Overall Translation Success Rate**: 100.00%
+- **Overall Translation Completion Rate**: 100.00%
+- **Average Latency**: 92.20s
 
 ## Language Performance Breakdown
 | Language Code | Success Rate | Completion Rate | Avg Latency | Stale Rate | Character Volume Proxy |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | en | 100.00% | [INSUFFICIENT_DATA] | [INSUFFICIENT_DATA] | 0.00% | 0 |
-| ja | 99.96% | 99.96% | 5987.60s | 0.00% | 873790 |
-| zh | 99.87% | 99.87% | 5960.24s | 0.00% | 873790 |
+| ja | 100.00% | 100.00% | 92.30s | 0.00% | 133772 |
+| zh | 100.00% | 100.00% | 92.10s | 0.00% | 133772 |

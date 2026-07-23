@@ -181,8 +181,8 @@ def test_source_service_with_mock_data(empty_db_conn):
     metrics = report["metrics"]
     assert metrics["overall_fetch_success_rate"] == 0.50
     assert metrics["total_ingested_items"] == 2
-    # low context bypass rate: 1/2 = 0.50
-    assert metrics["low_context_bypass_rate"] == 0.50
+    # low-context observation rate: 1 low_context of 2 ingested -> 1/2 = 0.50
+    assert metrics["low_context_observation_rate"] == 0.50
 
     # Verify breakdown for Source 1
     breakdowns = report["breakdowns"]
@@ -197,8 +197,11 @@ def test_source_service_with_mock_data(empty_db_conn):
     assert src_1["curation_approval_rate"] == 1.0
     # Overall yield: 1/2 = 0.50
     assert src_1["overall_yield"] == 0.50
-    # Char volume classification: length("Government disclosure") = 21 + 100 = 121
-    assert src_1["classification_character_volume_proxy"] == 121
+    # Char volume classification over the eligible population:
+    # 201 (completed): length("Government disclosure") = 21 + 100 = 121
+    # 202 (low_context, too_short): length("Low context article") = 19 + 0 = 19
+    # Eligible total: 121 + 19 = 140
+    assert src_1["classification_character_volume_proxy"] == 140
     # Char volume curation: 201 has curation_decision, so 121
     assert src_1["curation_character_volume_proxy"] == 121
     # Topic breakdown
@@ -221,3 +224,6 @@ def test_source_service_with_mock_data(empty_db_conn):
     assert "# RSS Source Connection & Content Quality Report" in report_md
     assert "Official Source" in report_md
     assert "Unknown Source (ID: 2)" in report_md
+    # Renamed quality-observation KPI; the report must not describe it as a bypass
+    assert "Low-Context Observation Rate" in report_md
+    assert "Bypass" not in report_md

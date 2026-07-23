@@ -23,8 +23,8 @@ from modules.dashboard.src.loaders.report_loader import (
 )
 
 SUPPORTED = {
-    "sources": "1.0.0",
-    "funnel": "2.0.0",
+    "sources": "2.0.0",
+    "funnel": "3.0.0",
     "translation": "1.0.0",
     "classify": "2.0.0",
     "curation_diagnostics": "2.0.0",
@@ -32,10 +32,10 @@ SUPPORTED = {
 
 FUNNEL_PAYLOAD = {
     "report_type": "funnel",
-    "schema_version": "2.0.0",
+    "schema_version": "3.0.0",
     "generated_at": "2026-07-17T03:24:37Z",
     "lookback_days": 7,
-    "raw_metrics": {"total_ingested": 10},
+    "raw_metrics": {"total_ingested": 10, "low_context_observation_count": 1},
     "matured_metrics": {"total_ingested": 10, "classification_rate": 0.8},
     "raw_latency_metrics": {},
     "published_by_language": [],
@@ -51,7 +51,8 @@ def _write(tmp_path: Path, name: str, payload: dict) -> Path:
 
 def test_load_settings_reads_supported_versions():
     settings = load_settings(DEFAULT_SETTINGS_PATH)
-    assert settings["supported_schema_versions"]["funnel"] == "2.0.0"
+    assert settings["supported_schema_versions"]["funnel"] == "3.0.0"
+    assert settings["supported_schema_versions"]["sources"] == "2.0.0"
     assert settings["paths"]["report_dir"]
 
 
@@ -83,6 +84,7 @@ def test_valid_payload_loads(tmp_path):
     assert result.status == "ok", result.messages
     assert isinstance(result.model, FunnelReport)
     assert result.model.matured_metrics.classification_rate == 0.8
+    assert result.model.raw_metrics.low_context_observation_count == 1
 
 
 def test_missing_schema_version_is_error(tmp_path):
@@ -100,14 +102,14 @@ def test_invalid_semver_is_error(tmp_path):
 
 
 def test_major_mismatch_is_refused(tmp_path):
-    payload = {**FUNNEL_PAYLOAD, "schema_version": "3.0.0"}
+    payload = {**FUNNEL_PAYLOAD, "schema_version": "4.0.0"}
     result = load_report(_write(tmp_path, "f.json", payload), "funnel", SUPPORTED)
     assert result.status == "error"
     assert not result.ok
 
 
 def test_minor_mismatch_loads_with_warning(tmp_path):
-    payload = {**FUNNEL_PAYLOAD, "schema_version": "2.1.0"}
+    payload = {**FUNNEL_PAYLOAD, "schema_version": "3.1.0"}
     result = load_report(_write(tmp_path, "f.json", payload), "funnel", SUPPORTED)
     assert result.status == "warning"
     assert result.ok  # forward-compatible minor change must still render
@@ -144,6 +146,19 @@ def test_load_all_reports_tolerates_missing_files(tmp_path):
     results = load_all_reports(tmp_path, SUPPORTED)
     assert results["funnel"].ok
     assert results["sources"].status == "missing"
+
+
+def test_sources_payload_with_observation_rate_loads(tmp_path):
+    """sources 2.0.0 renames the bypass rate to low_context_observation_rate."""
+    payload = {
+        "report_type": "sources",
+        "schema_version": "2.0.0",
+        "metrics": {"total_ingested_items": 4, "low_context_observation_rate": 0.25},
+        "breakdowns": [],
+    }
+    result = load_report(_write(tmp_path, "SOURCE_QUALITY_REPORT.json", payload), "sources", SUPPORTED)
+    assert result.status == "ok", result.messages
+    assert result.model.metrics.low_context_observation_rate == 0.25
 
 
 @pytest.mark.skipif(not Path("reports/analysis").is_dir(), reason="analysis reports not generated")

@@ -1,14 +1,14 @@
 {
   "report_type": "translation",
   "schema_version": "1.0.0",
-  "generated_at": "2026-07-17T08:09:06Z",
+  "generated_at": "2026-07-23T18:28:44Z",
   "lookback_days": 7,
-  "window_start": "2026-07-10T08:09:06Z",
-  "window_end": "2026-07-17T08:09:06Z",
+  "window_start": "2026-07-16T18:28:44Z",
+  "window_end": "2026-07-23T18:28:44Z",
   "metrics": {
-    "overall_translation_success_rate": 0.9994227994227994,
-    "overall_translation_completion_rate": 0.9982683982683983,
-    "average_latency_seconds": 5973.9250433275565
+    "overall_translation_success_rate": 1.0,
+    "overall_translation_completion_rate": 1.0,
+    "average_latency_seconds": 92.19847328244275
   },
   "breakdowns": [
     {
@@ -21,19 +21,19 @@
     },
     {
       "language_code": "ja",
-      "translation_success_rate": 0.9995670995670995,
-      "translation_completion_rate": 0.9995670995670995,
-      "average_latency_seconds": 5987.596795149415,
+      "translation_success_rate": 1.0,
+      "translation_completion_rate": 1.0,
+      "average_latency_seconds": 92.29770992366412,
       "stale_rate": 0.0,
-      "translation_character_volume_proxy": 873790
+      "translation_character_volume_proxy": 133772
     },
     {
       "language_code": "zh",
-      "translation_success_rate": 0.9987012987012988,
-      "translation_completion_rate": 0.9987012987012988,
-      "average_latency_seconds": 5960.241439098396,
+      "translation_success_rate": 1.0,
+      "translation_completion_rate": 1.0,
+      "average_latency_seconds": 92.09923664122137,
       "stale_rate": 0.0,
-      "translation_character_volume_proxy": 873790
+      "translation_character_volume_proxy": 133772
     }
   ]
 }

@@ -55,7 +55,7 @@ class LatencyStats(_PermissiveModel):
 
 class StageCounts(_PermissiveModel):
     total_ingested: int = 0
-    low_context_bypass_count: int = 0
+    low_context_observation_count: int = 0
     total_classified: int = 0
     relevant_classified: int = 0
     total_curated: int = 0
@@ -117,7 +117,7 @@ class SourceRow(_PermissiveModel):
 class SourcesMetrics(_PermissiveModel):
     overall_fetch_success_rate: Optional[float] = None
     total_ingested_items: int = 0
-    low_context_bypass_rate: Optional[float] = None
+    low_context_observation_rate: Optional[float] = None
 
 
 class SourcesReport(_PermissiveModel):
