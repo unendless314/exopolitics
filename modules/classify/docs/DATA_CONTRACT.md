@@ -8,7 +8,7 @@
 
 ## 1. Purpose
 
-`classification_result` stores the latest classification outcome for each `source_item` that has completed classification (where `text_processing_status = 'completed'`).
+`classification_result` stores the latest classification outcome for each `source_item` that has completed classification. The classify pending queue admits every ingested item with classifiable input: all `completed` items and low-context items whose `text_processing_reason` is not `post_cleanup_empty`. It excludes only `failed` items and `post_cleanup_empty` outcomes.
 
 The design is constrained as follows:
 * **One-to-One:** Each `source_item` has at most one classification record (`source_item_id` is unique).
@@ -86,10 +86,14 @@ FROM source_item s
 JOIN source_item_text t ON s.source_item_id = t.source_item_id
 LEFT JOIN classification_result c ON s.source_item_id = c.source_item_id
 WHERE s.ingest_status = 'ingested'
-  AND t.text_processing_status = 'completed'
+  AND t.text_processing_status != 'failed'
+  AND (
+      t.text_processing_reason IS NULL
+      OR t.text_processing_reason != 'post_cleanup_empty'
+  )
   AND c.classification_result_id IS NULL;
 ```
 
 ### Benefits of the New Join
 * **Guaranteed Sanitization:** By performing an `INNER JOIN` on `source_item_text`, we ensure we never attempt to classify items that have not yet had their text sanitized.
-* **Separation of Concerns:** We filter on `text_processing_status = 'completed'` using the `source_item_text` table directly, allowing the database query to exclude both low-context and failed text-processing outcomes from entering the classify queue.
+* **Separation of Concerns:** We filter on `text_processing_status` and `text_processing_reason` using the `source_item_text` table directly, allowing the database query to exclude only failed items and post-cleanup-empty outcomes from entering the classify queue. All other items, including low-context ones, are admitted. The explicit `IS NULL` branch preserves `completed` items, whose reason is normally `NULL`.

@@ -32,9 +32,9 @@ Assigned when the item is too vague, context-poor, or ambiguous to classify. Thi
 
 ---
 
-## 3. Low-Context Exclusion Policy
+## 3. Queue Eligibility Policy
 
-`classify` excludes items where `source_item_text.text_processing_status` is not `completed`. This means both `low_context` items (content too sparse for classification) and `failed` items (text-processing pipeline failures) bypass the classification queue entirely and are not processed by this module. All items that enter classification must have `text_processing_status = 'completed'` and will proceed directly to LLM-based evaluation.
+`classify` admits every ingested item with classifiable input. It excludes only items where `source_item_text.text_processing_status` is `failed` (text-processing pipeline failures) and items where `source_item_text.text_processing_reason` is `post_cleanup_empty` (no usable cleaned text). Low-context items with any other reason (`mostly_links`, `too_short`, `title_only`, `title_heavy`, `template_heavy`, `truncated_to_low_context`) enter the classification queue. Every selected item proceeds directly to normal LLM-based evaluation; text-processing status and reason are used only for queue selection and are never passed into prompts, and no placeholder classification rows are written for excluded items.
 
 ---
 

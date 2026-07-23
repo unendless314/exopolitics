@@ -51,8 +51,8 @@ The dashboard declares the JSON schema versions it supports in `dashboard_settin
 
 ```yaml
 supported_schema_versions:
-  sources: "1.0.0"
-  funnel: "2.0.0"
+  sources: "2.0.0"
+  funnel: "3.0.0"
   translation: "1.0.0"
   classify: "2.0.0"
   curation_diagnostics: "2.0.0"
@@ -131,3 +131,4 @@ Each JSON report drives exactly one dashboard view:
 - The `analysis` module owns the JSON schemas. Any backward-incompatible change must increment the major version of `schema_version` and be documented in `modules/analysis/docs/REPORT_CONTRACTS.md`.
 - The `dashboard` module owns its supported-version list. When `analysis` introduces a compatible minor/patch change, the dashboard may update its supported version without code changes. When a major change occurs, the dashboard code must be updated.
 - Both modules must agree on the supported schema versions before deployment.
+- The `funnel` 3.0.0 and `sources` 2.0.0 major versions replace the `low_context_bypass_*` fields with low-context observation fields (`low_context_observation_count`, `low_context_observation_rate`); the dashboard consumes the renamed fields and no longer renders a low-context bypass funnel stage.

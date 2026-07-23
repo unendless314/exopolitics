@@ -153,7 +153,7 @@ Ownership:
 
 ### 4.6 Classification Result
 
-This entity family represents the initial machine classification outcome. It is strictly reserved for items where `text_processing_status = 'completed'` that actually enter and complete classify-stage processing (which primarily represents LLM-based classification, but may include future rule-based non-LLM classify-stage classifiers). It must not contain rows for items where `text_processing_status` is `low_context` or `failed`.
+This entity family represents the initial machine classification outcome. It is reserved for items that actually enter and complete classify-stage processing (which primarily represents LLM-based classification, but may include future rule-based non-LLM classify-stage classifiers), including low-context items whose `text_processing_reason` is not `post_cleanup_empty`. It must not contain rows for items where `text_processing_status` is `failed` or `text_processing_reason` is `post_cleanup_empty`.
 
 Minimum semantic contents:
 
@@ -172,7 +172,7 @@ Ownership:
 
 Important rule:
 
-- items with `text_processing_status` of `low_context` or `failed` remain observable through ingest-owned text-processing outcome signals and do not generate `Classification Result` entities.
+- items with `text_processing_status` of `failed` or `text_processing_reason` of `post_cleanup_empty` remain observable only through ingest-owned text-processing outcome signals and do not generate `Classification Result` entities. The observed status and reason remain ingest-owned; `classify` consumes them only for pending-queue selection.
 
 ### 4.7 Curation Decision
 
@@ -280,14 +280,14 @@ The top-level canonical model recognizes four non-interchangeable content repres
 
 Boundary rules:
 
-- `classify` reads sanitized working text, not raw retained evidence by default, and excludes items where `text_processing_status` is not `completed`
+- `classify` reads sanitized working text, not raw retained evidence by default, and excludes only items where `text_processing_status` is `failed` or `text_processing_reason` is `post_cleanup_empty`
 - `curate` may inspect sanitized working text by default and raw retained evidence only when needed
 - `translate` reads approved content records (`approved_content_record`), and writes translation outputs
 - `publish` reads completed translation outputs together with upstream editorial eligibility state
 - `site` reads publish-layer outputs only
 - cleanup of raw retained evidence must not invalidate the source item record or sanitized working text record
 - `analysis` outputs are derived reporting artifacts, not canonical entity families
-- items with `text_processing_status` of `low_context` or `failed` do not generate `Classification Result` entities and are bypassed before classify-stage processing
+- items with `text_processing_status` of `failed` or `text_processing_reason` of `post_cleanup_empty` do not generate `Classification Result` entities and terminate before classify-stage processing; low-context items otherwise enter classify and may generate `Classification Result` entities
 
 ---
 

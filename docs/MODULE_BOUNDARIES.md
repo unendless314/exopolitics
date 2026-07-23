@@ -71,7 +71,8 @@ Owns:
 May read:
 
 - normalized source item metadata
-- sanitized working text (only for items where `text_processing_status = 'completed'`)
+- sanitized working text
+- `text_processing_status` and `text_processing_reason` (only for pending-queue selection)
 - source URL and timestamp metadata
 
 Must not own:
@@ -84,8 +85,8 @@ Must not own:
 
 Important boundary:
 
-- `classify` reads sanitized working text and filters out non-completed items at queue-selection time using `text_processing_status`
-- `classify` must not create placeholder classification rows for items where `text_processing_status` is `low_context` or `failed`
+- `classify` reads sanitized working text and excludes only `failed` items and `post_cleanup_empty` outcomes at queue-selection time using `text_processing_status` and `text_processing_reason`; all other items, including `low_context` ones, enter classification
+- `classify` must not create placeholder classification rows; every selected item proceeds to normal classification
 - `classify` must not define or propagate downstream mother-draft language semantics.
 
 ### 3.3 `curate`

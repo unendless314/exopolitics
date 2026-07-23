@@ -38,9 +38,9 @@ raw feed item
   -> normalized ingest item
   -> sanitized working text
   -> [text_processing_status boundary]
-       |-- low_context -> stop before classify (content too sparse)
-       |-- failed      -> stop before classify (processing failure)
-       |-- completed   -> classification result
+       |-- failed                              -> stop before classify (processing failure)
+       |-- low_context: post_cleanup_empty     -> stop before classify (no usable cleaned text)
+       |-- completed / low_context (all other reasons) -> classification result
             -> curation decision (approved)
             -> approved content record (finalized mother-draft)
             -> translation output (completed translated records)
@@ -152,7 +152,8 @@ Classification produces:
 ### 6.3 Failure Semantics
 
 - classification failure should not destroy the ingest record
-- items with `text_processing_status` of `low_context` or `failed` do not generate canonical classification rows and terminate before classify
+- items with `text_processing_status` of `failed`, or `text_processing_reason` of `post_cleanup_empty`, do not generate canonical classification rows and terminate before classify
+- low-context items with any other reason continue to classification
 - workflow retry policy belongs to classify, not ingest
 
 ---
@@ -262,7 +263,7 @@ That means:
 - approved content handoff is assembled from finalized curation approvals or finalized edited drafts before downstream processing
 - translation pulls data from `approved_content_record` rather than accepting direct upstream writes into translation-owned storage
 - publish exports only consume completed translation records of actively approved items, and synchronize removals when items are withdrawn
-- items with `text_processing_status` of `low_context` or `failed` terminate inside ingest and do not generate downstream classification records
+- only items with `text_processing_status` of `failed` or `text_processing_reason` of `post_cleanup_empty` terminate before classify and do not generate downstream classification records; low-context items otherwise continue to classification
 
 ---
 

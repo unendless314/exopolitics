@@ -17,7 +17,7 @@ The module reads `source_item` rows that have been successfully ingested but lac
 ### Core Architectural Separation (Post-Rewrite)
 In this rewrite, `classify` is decoupled from text cleanup and raw data parsing:
 * **Inputs:** `classify` strictly consumes the **sanitized working text** (`source_item_text` table) produced by the `ingest` module. It does not parse raw HTML, RSS summaries, or raw feeds.
-* **Low-Context Filtering:** `classify` excludes all non-completed items (where `text_processing_status` is `low_context` or `failed`) at queue-selection time. It does not run LLM evaluation or write placeholder records for these items.
+* **Queue Eligibility:** `classify` admits every ingested item with classifiable input. At queue-selection time it excludes only items where `text_processing_status` is `failed` or `text_processing_reason` is `post_cleanup_empty`. Low-context items with any other reason (`mostly_links`, `too_short`, `title_only`, `title_heavy`, `template_heavy`, `truncated_to_low_context`) enter classification and proceed through the normal LLM path without any status/reason metadata in prompts. It does not run LLM evaluation or write placeholder records for excluded items.
 
 ### Downstream Consumption
 * **Downstream Consumer:** The direct consumer of classification results is the **`curate`** module. 
@@ -27,7 +27,7 @@ In this rewrite, `classify` is decoupled from text cleanup and raw data parsing:
 
 ## 2. Key Responsibilities
 
-1. **Pending Queue Selection:** Identify unclassified items using a joined query between `source_item` and `source_item_text` where no `classification_result` exists and `text_processing_status = 'completed'`.
+1. **Pending Queue Selection:** Identify unclassified items using a joined query between `source_item` and `source_item_text` where no `classification_result` exists, `text_processing_status != 'failed'`, and `text_processing_reason` is `NULL` or not `post_cleanup_empty`.
 2. **LLM Classification:** Submit sanitized text to the LLM to categorize items into `core`, `adjacent`, `irrelevant`, or `unknown`.
 4. **Descriptive Tagging:** Generate structured descriptive signals (content density, text quality, language, and official involvement) and an optional experimental JSON metadata signal to support downstream curation triage.
 5. **Persistence:** Write structured classification outcomes back to `classification_result` in the canonical database.
@@ -39,7 +39,7 @@ In this rewrite, `classify` is decoupled from text cleanup and raw data parsing:
 * [DATA_CONTRACT.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md)  
   Defines the `classification_result` table schema, index strategy, and pending item query semantics.
 * [CLASSIFICATION_POLICY.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/CLASSIFICATION_POLICY.md)  
-  Defines the classification categories (`core`, `adjacent`, `irrelevant`, `unknown`) and policies for low-context exclusion and descriptive tagging.
+  Defines the classification categories (`core`, `adjacent`, `irrelevant`, `unknown`), the queue eligibility policy admitting low-context items, and descriptive tagging.
 * [PROMPT_CONTRACT.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/PROMPT_CONTRACT.md)  
   Defines model instruction templates, prompt variables, and JSON response schema guidelines.
 * [EXECUTION_POLICY.md](file:///C:/Users/user/documents/exopolitics/modules/classify/docs/EXECUTION_POLICY.md)  

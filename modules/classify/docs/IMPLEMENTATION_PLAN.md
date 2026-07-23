@@ -34,8 +34,8 @@ The following requirements must be followed during implementation:
 - Retrieve pending items using the `LEFT JOIN` query specified in [DATA_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md).
 - Do not process items that have not yet had their text sanitized (ensure `source_item_text` is populated).
 
-### 3.3 Active Policy: Low-Context Exclusion (Phase Policy)
-- Exclude items where `source_item_text.text_processing_status != 'completed'` from the pending selection queue as defined in [DATA_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md).
+### 3.3 Active Policy: Queue Eligibility (Phase Policy)
+- Exclude only items where `source_item_text.text_processing_status = 'failed'` or `source_item_text.text_processing_reason = 'post_cleanup_empty'` from the pending selection queue as defined in [DATA_CONTRACT.md](file:///C:/Users/user/Documents/exopolitics/modules/classify/docs/DATA_CONTRACT.md). Low-context items with any other reason are admitted.
 - Do not perform deterministic bypasses or write placeholder rows in the database. All items entering `classify` must proceed to LLM classification.
 
 ### 3.4 Prompting & Schema Enforcement (Contract-Locked)
@@ -135,8 +135,8 @@ Build prompt constructors, integrate the LLM HTTP client, and parse structured J
 ### Epic 4: Pipeline Execution & Orchestration
 Assemble the pipeline execution loop, enforcing concurrency, rate-limits, and routing policies.
 
-* **Story 1: Low-Context Queue Filtering**
-  * **Task 1.1:** Update pending query to filter on `text_processing_status = 'completed'` (no classify-side routing/writing is required).
+* **Story 1: Queue Eligibility Filtering**
+  * **Task 1.1:** Update pending query to exclude only `failed` items and `post_cleanup_empty` outcomes using the NULL-safe predicate (no classify-side routing/writing is required).
 * **Story 2: Orchestration Loop**
   * **Task 2.1:** Implement batching query fetching up to `batch_size` items.
   * **Task 2.2:** Use `asyncio.Semaphore` to cap concurrent requests at `max_concurrent_requests`.
@@ -162,7 +162,7 @@ Validate contract enforcement and pipeline execution using high-value testing sc
 * **Story 1: Unit & Policy Tests**
   * **Task 1.1:** Add prompt builder tests verifying title and body injection.
   * **Task 1.2:** Add config parsing tests ensuring invalid configuration schemas are rejected.
-  * **Task 1.3:** Write unit tests verifying that low-context items are excluded from classify pending selection.
+  * **Task 1.3:** Write unit tests verifying that low-context items with allowed reasons (`mostly_links`, `too_short`, `title_only`, `title_heavy`, `template_heavy`, `truncated_to_low_context`) enter classify pending selection, while `failed` items and `post_cleanup_empty` outcomes are excluded.
   * **Task 1.4:** Write unit tests for **allowlisted `additional_signals` filtering** (verifying that non-allowlisted keys are discarded).
 * **Story 2: Integration & DB Tests**
   * **Task 2.1:** Write repository tests verifying SQLite check constraints, **duplicate write/unique constraint behavior**, and cascade deletes.

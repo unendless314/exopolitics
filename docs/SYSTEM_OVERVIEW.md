@@ -127,7 +127,7 @@ Owns:
 
 Owns:
 
-- pending item selection (excluding items where `text_processing_status` is not `completed`)
+- pending item selection (excluding only items where `text_processing_status` is `failed` or `text_processing_reason` is `post_cleanup_empty`; all other items, including normal `low_context` outcomes, enter classify)
 - initial topic classification
 - confidence and rationale persistence
 - generating descriptive signals (descriptors) for downstream curation triage

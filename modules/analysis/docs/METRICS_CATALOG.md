@@ -69,17 +69,17 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Derived Dimensions**: None
 *   **Update Frequency**: Executed per CLI run.
 
-### 2.2 Low-Context Bypass Rate `[MVP]`
-*   **Purpose**: Monitor sources producing thin snippet content that bypasses LLM classification.
+### 2.2 Low-Context Observation Rate `[MVP]`
+*   **Purpose**: Monitor sources producing thin snippet content as a source-text quality observation. Low-context items still enter LLM classification; this rate observes source text sparsity and does not describe a bypass.
 *   **Window Basis**: `source_item_cohort`
-*   **Formula**: $$\text{Low-Context Bypass Rate} = \frac{\text{Low-Context Ingested Items (source\_item\_text.text\_processing\_status = 'low\_context')}}{\text{NULLIF(Total Ingested, 0)}}$$ where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: $$\text{Low-Context Observation Rate} = \frac{\text{Low-Context Ingested Items (source\_item\_text.text\_processing\_status = 'low\_context')}}{\text{NULLIF(Total Ingested, 0)}}$$ where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `source_item_text`, `source_item`
 *   **Direct Dimensions**: `source_item_id`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
 
 #### 2.2.1 Low-Context Reason Distribution `[Phase 2 / Catalog]`
-*   **Purpose**: Diagnose the specific causes of low-context bypasses to distinguish between parser/crawler failures (e.g. `missing_body`) and inherent source properties (e.g. `title_only`).
+*   **Purpose**: Diagnose the specific causes of low-context observations to distinguish between parser/crawler failures (e.g. `missing_body`) and inherent source properties (e.g. `title_only`).
 *   **Window Basis**: `source_item_cohort`
 *   **Formula**: Group count of low-context items (`source_item_text.text_processing_status = 'low_context'`) by `source_item_text.text_processing_reason` where `source_item.fetched_at` is within the lookback window.
 *   **Data Source**: `source_item_text`, `source_item`
@@ -91,9 +91,9 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
     *   Report layers may derive percentages from these grouped counts, but the canonical metric contract is count-based to avoid ambiguity.
 
 #### 2.2.2 Pending Classification `[Phase 1 / Stable]`
-*   **Purpose**: Track items that have completed text processing but have not yet been processed by the LLM classification runner.
+*   **Purpose**: Track items that are eligible for classification but have not yet been processed by the LLM classification runner.
 *   **Window Basis**: `source_item_cohort`
-*   **Formula**: Count of items where `source_item_text.text_processing_status = 'completed'` and no corresponding record exists in `classification_result` where `source_item.fetched_at` is within the lookback window.
+*   **Formula**: Count of items where `source_item_text.text_processing_status != 'failed'`, `source_item_text.text_processing_reason` is `NULL` or not `post_cleanup_empty`, and no corresponding record exists in `classification_result` where `source_item.fetched_at` is within the lookback window. This eligible population includes completed items and low-context items with any other reason.
 *   **Data Source**: `source_item`, `source_item_text`, `classification_result`
 *   **Direct Dimensions**: `source_item_id`
 *   **Derived Dimensions**: `source_id`
@@ -125,7 +125,7 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 *   **Direct Dimensions**: `source_item_id` (from `classification_result`)
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)
 *   **Update Frequency**: Executed per CLI run.
-*   **Notes**: Under the V2 architecture, `classification_result` contains only items that actually entered classification (low-context bypass items do not receive rows). Thus, this rate is defined strictly over the actual classified population.
+*   **Notes**: `classification_result` contains only items that actually entered and completed classification (failed and post-cleanup-empty items never receive rows; low-context items enter classification and receive rows). Thus, this rate is defined strictly over the actual classified population.
 
 #### 2.3.1 Topic Class Breakdown `[MVP]`
 *   **Purpose**: Preserve the full distribution of `classification_result.topic_class` for each source instead of flattening all relevant outcomes into a single scalar.
@@ -239,14 +239,14 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 > [!NOTE]
 > **Workload Volume Proxies Comparison & Conceptual Boundaries**:
 > To ensure consistent interpretation of workload across stages, engineers and analysts must respect these conceptual boundaries:
-> 1.  **Classification Character Volume Proxy** = Representing the **classify stage input volume** (all raw feeds after passing basic low-context checks, i.e., `text_processing_status = 'completed'`).
+> 1.  **Classification Character Volume Proxy** = Representing the **classify stage input volume** (all raw feeds eligible for classification, i.e., `text_processing_status != 'failed'` and `text_processing_reason` is `NULL` or not `post_cleanup_empty`).
 > 2.  **Curation Character Volume Proxy** = Representing the **curate stage input volume** (only the high-relevance subset of items filtered by the classification stage that reached a curation decision).
 > 3.  **Translation Character Volume Proxy** = Representing the downstream **translation workload**, which is conceptually different from the ingest-text proxies because it is calculated using the finalized, edited, and approved mother-draft text (`approved_content_record`) rather than the sanitized ingest text (`source_item_text`).
 
 #### 3.1.1 Classification Character Volume Proxy `[MVP]`
 *   **Purpose**: Track raw classification workload.
 *   **Window Basis**: `source_item_cohort`
-*   **Formula**: Sum of `length(source_item.title) + source_item_text.sanitized_text_length` where `source_item.fetched_at` is within the lookback window and `source_item_text.text_processing_status = 'completed'`.
+*   **Formula**: Sum of `length(source_item.title) + source_item_text.sanitized_text_length` where `source_item.fetched_at` is within the lookback window and the item is eligible for classification (`source_item_text.text_processing_status != 'failed'` and `source_item_text.text_processing_reason` is `NULL` or not `post_cleanup_empty`).
 *   **Data Source**: `source_item`, `source_item_text`
 *   **Direct Dimensions**: `source_item_id`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)

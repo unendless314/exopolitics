@@ -8,13 +8,16 @@ For command-line invocation arguments and runner policies, refer to [EXECUTION_P
 
 ## 1. Report Families
 
-The `analysis` module generates five stable report families:
+The `analysis` module generates six report families, five of which are stable dashboard-facing contracts:
 
 1.  **Sources Report (`sources`)**: Evaluates RSS source connection health, category distribution, content density, and quadrant classification.
 2.  **Funnel Report (`funnel`)**: Details throughput volume, stage-by-stage conversion rates, and latency bottlenecks under raw and matured windows.
 3.  **Translation Report (`translation`)**: Monitors multilingual translation success rates, language volume proxies, and delays.
 4.  **Classification Report (`classify`)**: Monitors LLM classification workload volume, relevance rate, and content density.
 5.  **Curation Diagnostics Report (`curation_diagnostics`)**: Monitors curation LLM workload volume, approval rates, rejection reason mixes, and latency delays.
+6.  **Ingest Diagnostics Report (`ingest_diagnostics`)**: Monitors ingestion KPIs, error categorization, rolling source health, and the low-context observation rate. This is a non-dashboard diagnostic report: the `dashboard` module does not load it, and it is excluded from the dashboard-facing schema contract in §2.1 (see §2.2).
+
+Current schema versions: `sources` 2.0.0, `funnel` 3.0.0, `translation` 1.0.0, `classify` 2.0.0, `curation_diagnostics` 2.0.0, `ingest_diagnostics` 2.0.0 (non-dashboard).
 
 ---
 
@@ -83,9 +86,9 @@ To ensure stable consumption by automated dashboards, any report generated with 
             "properties": {
               "overall_fetch_success_rate": { "type": ["number", "null"] },
               "total_ingested_items": { "type": "integer" },
-              "low_context_bypass_rate": { "type": ["number", "null"] }
+              "low_context_observation_rate": { "type": ["number", "null"] }
             },
-            "required": ["overall_fetch_success_rate", "total_ingested_items", "low_context_bypass_rate"]
+            "required": ["overall_fetch_success_rate", "total_ingested_items", "low_context_observation_rate"]
           },
           "breakdowns": {
             "type": "array",
@@ -174,7 +177,7 @@ To ensure stable consumption by automated dashboards, any report generated with 
             "type": "object",
             "properties": {
               "total_ingested": { "type": "integer" },
-              "low_context_bypass_count": { "type": "integer" },
+              "low_context_observation_count": { "type": "integer" },
               "total_classified": { "type": "integer" },
               "relevant_classified": { "type": "integer" },
               "total_curated": { "type": "integer" },
@@ -184,20 +187,20 @@ To ensure stable consumption by automated dashboards, any report generated with 
               "classification_readiness_breakdown": {
                 "type": "object",
                 "properties": {
-                  "low_context_bypass": { "type": "integer" },
+                  "low_context_observation_count": { "type": "integer" },
                   "total_classified": { "type": "integer" },
                   "pending_classification": { "type": "integer" },
                   "failed_text_processing": { "type": "integer" },
                   "missing_text_processing": { "type": "integer" }
                 },
                 "required": [
-                  "low_context_bypass", "total_classified", "pending_classification",
+                  "low_context_observation_count", "total_classified", "pending_classification",
                   "failed_text_processing", "missing_text_processing"
                 ]
               }
             },
             "required": [
-              "total_ingested", "low_context_bypass_count", "total_classified",
+              "total_ingested", "low_context_observation_count", "total_classified",
               "relevant_classified", "total_curated", "curation_approved",
               "total_translated", "total_published", "classification_readiness_breakdown"
             ]
@@ -206,7 +209,7 @@ To ensure stable consumption by automated dashboards, any report generated with 
             "type": "object",
             "properties": {
               "total_ingested": { "type": "integer" },
-              "low_context_bypass_count": { "type": "integer" },
+              "low_context_observation_count": { "type": "integer" },
               "total_classified": { "type": "integer" },
               "relevant_classified": { "type": "integer" },
               "total_curated": { "type": "integer" },
@@ -221,20 +224,20 @@ To ensure stable consumption by automated dashboards, any report generated with 
               "classification_readiness_breakdown": {
                 "type": "object",
                 "properties": {
-                  "low_context_bypass": { "type": "integer" },
+                  "low_context_observation_count": { "type": "integer" },
                   "total_classified": { "type": "integer" },
                   "pending_classification": { "type": "integer" },
                   "failed_text_processing": { "type": "integer" },
                   "missing_text_processing": { "type": "integer" }
                 },
                 "required": [
-                  "low_context_bypass", "total_classified", "pending_classification",
+                  "low_context_observation_count", "total_classified", "pending_classification",
                   "failed_text_processing", "missing_text_processing"
                 ]
               }
             },
             "required": [
-              "total_ingested", "low_context_bypass_count", "total_classified",
+              "total_ingested", "low_context_observation_count", "total_classified",
               "relevant_classified", "total_curated", "curation_approved",
               "total_translated", "total_published", "classification_rate",
               "curation_rate", "curation_approval_rate", "translation_rate",
@@ -476,6 +479,45 @@ To ensure stable consumption by automated dashboards, any report generated with 
 }
 ```
 
+### 2.2 Non-Dashboard Diagnostic Report Schema (`ingest_diagnostics`)
+
+The `ingest_diagnostics` report is emitted for operator diagnostics only. The `dashboard` module does not load it, it is absent from `dashboard_settings.yaml`, and it is excluded from the dashboard-facing `report_type` enum in §2.1. Its JSON payload uses the same top-level envelope (`report_type`, `schema_version`, `generated_at`, `lookback_days`, `window_start`, `window_end`, `metrics`) with the following contract at schema version `2.0.0`:
+
+```json
+{
+  "report_type": "ingest_diagnostics",
+  "schema_version": "2.0.0",
+  "metrics": {
+    "overall_fetch_success_rate": { "type": ["number", "null"] },
+    "run_success_rate": { "type": ["number", "null"] },
+    "ingest_volume": { "type": "integer" },
+    "low_context_observation_rate": { "type": ["number", "null"] }
+  },
+  "error_categorization": [
+    {
+      "error_class": { "type": ["string", "null"] },
+      "http_status": { "type": ["integer", "null"] },
+      "error_count": { "type": "integer" }
+    }
+  ],
+  "rolling_source_health": [
+    {
+      "source_id": { "type": "integer" },
+      "health_status": { "type": ["string", "null"] },
+      "consecutive_failures": { "type": "integer" },
+      "last_http_status": { "type": ["integer", "null"] },
+      "last_error_class": { "type": ["string", "null"] }
+    }
+  ],
+  "low_context_reason_distribution": {
+    "type": "object",
+    "description": "Count breakdown keyed by text_processing_reason. Keys may be omitted when a reason does not appear in the current window."
+  }
+}
+```
+
+`low_context_observation_rate` replaces the v1 `low_context_bypass_rate` field. It is defined as the low-context observation count divided by total ingested items in the report cohort. It is a source-text quality observation, not a claimed bypass rate: low-context items still enter classification. `low_context_reason_distribution` remains a count breakdown keyed by `text_processing_reason` and retains its diagnostic-only interpretation.
+
 ---
 
 ## 3. Dashboard Integration Contract
@@ -485,3 +527,4 @@ The `analysis` module exposes query services and CLI JSON outputs as a stable da
 *   **Boundary Separation**: The downstream `dashboard` module (e.g. a Streamlit Web UI) is responsible *only* for reading JSON payloads and rendering visual plots.
 *   **No Direct SQL**: The dashboard must **never** execute raw database queries or implement custom metric formulas. This prevents metric formula duplication and logic drift.
 *   **Versioning Rule**: Any backward-incompatible JSON schema change must increment the `schema_version` (following Semantic Versioning: `MAJOR.MINOR.PATCH`) and be updated in this contract file before deployment.
+*   **Version History (low-context observation rename)**: `funnel` 2.0.0 → 3.0.0 and `sources` 1.0.0 → 2.0.0 replace the `low_context_bypass_*` fields with `low_context_observation_count` / `low_context_observation_rate`. Low-context is a non-terminal source-text quality observation, not a funnel stage: low-context items enter classification, and downstream funnel stages (classified, curated, approved, translated, published) are defined over the eligible population (all items except `failed` and `post_cleanup_empty` outcomes). `ingest_diagnostics` 1.0.0 → 2.0.0 applies the same rename to its non-dashboard diagnostic output.

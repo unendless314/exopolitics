@@ -59,7 +59,7 @@ Components:
    - Curation Approval Rate
    - Publication Rate
 3. **Funnel chart**: horizontal bar chart showing counts at each stage.
-   - Ingested → Low-Context Bypass → Classified → Relevant → Curated → Approved → Translated → Published
+   - Ingested → Classified → Relevant → Curated → Approved → Translated → Published
 4. **Stage latency bar chart**: grouped bars for avg / p50 / p90 per stage.
 5. **Language coverage table**: published count and coverage rate by language.
 6. **Data quality anomalies**: small table or alert if anomalies exist.
@@ -71,7 +71,7 @@ Components:
 1. **Summary KPIs**:
    - Overall Fetch Success Rate
    - Total Ingested Items
-   - Low-Context Bypass Rate
+   - Low-Context Observation Rate
 2. **Source table**: sortable, searchable, with column filters.
    - Columns: Source ID, Source Title (if available in JSON), Fetch Success, Ingest Volume, Relevance Rate, Curation Approval, Overall Yield, Quadrant, Flags.
    - Note: the current `analysis` JSON output contains `source_id` only. Until `source_title` is added to the JSON schema, the table renders `source_id`. Human-readable titles can be added later without dashboard code changes once the JSON contract is enriched.

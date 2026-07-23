@@ -174,7 +174,7 @@ The V2 contract replaces `is_low_context` / `low_context_reason` with `text_proc
 Allowed `text_processing_status` values:
 
 - `completed`: text extraction and sanitization succeeded, content has sufficient context for classify
-- `low_context`: text extraction and sanitization succeeded, but the result is too sparse for classify
+- `low_context`: text extraction and sanitization succeeded, but the result is sparse; this is a source-text quality observation, not a classify ineligibility determination
 - `failed`: the text-processing pipeline did not produce a valid result
 
 Allowed `text_processing_reason` values under `low_context`:
@@ -200,9 +200,10 @@ Important rule:
 
 - `low_context` means the cleaned text may be insufficient for stable downstream interpretation
 - `low_context` does not mean the item should be dropped automatically; it remains stored as a valid ingested record
+- `low_context` is a sparse-text quality observation, not a classify ineligibility verdict; except for `post_cleanup_empty`, low-context items enter the classify pending queue
 - `failed` means the text-processing pipeline encountered an engineering error; sanitization failures must not be labeled as `low_context`
 - text-processing outcome does not mean `ingest` should make a classification judgment
-- items with `text_processing_status` of `low_context` or `failed` are excluded from the classify pending queue, meaning they stop before classify-stage processing
+- only items with `text_processing_status` of `failed`, or `text_processing_reason` of `post_cleanup_empty`, are excluded from the classify pending queue, meaning they stop before classify-stage processing
 
 ---
 

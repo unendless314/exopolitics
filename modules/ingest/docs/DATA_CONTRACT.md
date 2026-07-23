@@ -205,4 +205,4 @@ If an item cannot produce useful sanitized working text, `ingest` should still p
 - sanitized working text is created before classification
 - raw retention is policy-driven and time-bounded by default
 - downstream modules must not rely on ambiguous summary semantics
-- text-processing outcome classification (`text_processing_status`: `completed`, `low_context`, `failed`) remains an ingest-owned sanitization outcome on `source_item_text` and downstream classification modules exclude non-completed items at queue selection time
+- text-processing outcome classification (`text_processing_status`: `completed`, `low_context`, `failed`) remains an ingest-owned sanitization outcome on `source_item_text`; downstream classification modules consume these fields only for pending-queue selection, excluding `failed` items and `post_cleanup_empty` outcomes while admitting all other items, including low-context ones
