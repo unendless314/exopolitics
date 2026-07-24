@@ -1,0 +1,23 @@
+{
+  "source_item_id": 902,
+  "language_code": "en",
+  "slug": "invalid-blank-summary-short",
+  "display_title": "Invalid Item With Blank summary_short",
+  "summary_short": "   \n\t  ",
+  "bullets": {
+    "key_claim": "A claim.",
+    "evidence_level": "Some evidence.",
+    "objective_impact": "Some impact."
+  },
+  "canonical_url": "https://example.com/invalid-blank-summary-short",
+  "source_published_at": "2026-07-20T14:30:00Z",
+  "approved_at": "2026-07-21T09:05:00Z",
+  "published_at": "2026-07-22T03:00:00Z",
+  "downstream_action": "publish_summary",
+  "disclosure_note": "This item is AI-assisted and human-curated.",
+  "author_metadata": {
+    "source_module": "edit",
+    "writer_type": "human",
+    "editor": "john_doe"
+  }
+}

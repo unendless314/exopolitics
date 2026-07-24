@@ -1,0 +1,23 @@
+{
+  "source_item_id": 5,
+  "language_code": "zh",
+  "slug": "label-emphasis-prefix",
+  "display_title": "標籤強調前綴測試",
+  "summary_short": "這是一段正常的繁體中文摘要,直接來自 translation_output.summary_short。",
+  "bullets": {
+    "key_claim": "**Key Claim**: 第一條結構化重點內容。",
+    "evidence_level": "第二條結構化重點內容。",
+    "objective_impact": "第三條結構化重點內容。"
+  },
+  "canonical_url": "https://example.com/label-emphasis-prefix",
+  "source_published_at": "2026-06-16T08:00:00Z",
+  "approved_at": "2026-06-16T12:00:00Z",
+  "published_at": "2026-06-24T10:00:00Z",
+  "downstream_action": "publish_summary",
+  "disclosure_note": "This item is AI-assisted and human-curated.",
+  "author_metadata": {
+    "source_module": "edit",
+    "writer_type": "human",
+    "editor": "john_doe"
+  }
+}

@@ -123,10 +123,15 @@ The `publish` module depends on these upstream contracts only:
 - `source_item_id`
 - `language_code`
 - `display_title`
-- `content`
+- `summary_short`
+- `bullet_1`
+- `bullet_2`
+- `bullet_3`
 - `source_fingerprint`
 - `translation_status`
 - `translated_at`
+
+The legacy monolithic `content` column has been removed upstream; `publish` reads the five structured content fields above instead.
 
 ### 4.3 `curation_decision` (Owned by `curate`)
 
@@ -159,7 +164,10 @@ SELECT
     a.author_metadata,
     t.language_code,
     t.display_title,
-    t.content,
+    t.summary_short,
+    t.bullet_1,
+    t.bullet_2,
+    t.bullet_3,
     t.source_fingerprint,
     t.translated_at,
     c.curate_status,
@@ -226,6 +234,22 @@ Contract requirements:
   - If `writer_type` is `'AI'` or `'machine'`, the note must be: `"This item is AI-generated."`
   - **Validation Rule**: To ensure reliability, when `writer_type` is `'human'` or `'hybrid'`, the `author_metadata` must contain a non-empty `editor` field. If `editor` is missing or empty for human/hybrid content, the artifact fails validation and must not be published (see [EXECUTION_POLICY.md](file:///C:/Users/user/Documents/exopolitics/modules/publish/docs/EXECUTION_POLICY.md)).
 
+**Structured Content Fields**:
+- `summary_short` is required for every exported item and must be a string that remains non-empty after trimming whitespace. It is passed through from `translation_output.summary_short` and serves as the single summary source for item, index, and archive entries.
+- `bullets` is required on every item JSON and must never be omitted. It has exactly two valid shapes:
+  - for `downstream_action = 'publish_summary'`: an object containing exactly the keys `key_claim`, `evidence_level`, and `objective_impact`, each with a non-empty string value
+  - for `downstream_action = 'publish_link'`: JSON `null`
+- An empty object or a partial key set is never a valid `bullets` value.
+- The semantic key mapping is established exactly once, inside `publish`; no other module assigns these keys:
+
+| Upstream `translation_output` Field | Export `bullets` Key |
+| :--- | :--- |
+| `bullet_1` | `key_claim` |
+| `bullet_2` | `evidence_level` |
+| `bullet_3` | `objective_impact` |
+
+- Exported content values must not contain presentation UI labels (e.g. "Key Claim", "Evidence Level", "Objective Impact"); those labels are applied by `site` at build time.
+
 Contract example:
 
 ```json
@@ -234,7 +258,12 @@ Contract example:
   "language_code": "en",
   "slug": "al-seckel-appears-in-epstein-related-files-and-correspondence",
   "display_title": "Al Seckel appears in Epstein-related files and correspondence",
-  "content": "## Summary\n\nTranslated markdown content...",
+  "summary_short": "Translated short summary text.",
+  "bullets": {
+    "key_claim": "Key claim text.",
+    "evidence_level": "Evidence level text.",
+    "objective_impact": "Objective impact text."
+  },
   "canonical_url": "https://example.com/al-seckel-epstein-files",
   "source_published_at": "2026-06-16T08:00:00Z",
   "approved_at": "2026-06-16T12:00:00Z",
@@ -264,7 +293,7 @@ Contract example:
   {
     "slug": "al-seckel-appears-in-epstein-related-files-and-correspondence",
     "display_title": "Al Seckel appears in Epstein-related files and correspondence",
-    "summary_short": "Translated first paragraph or derived preview text.",
+    "summary_short": "Translated short summary text.",
     "canonical_url": "https://example.com/al-seckel-epstein-files",
     "source_published_at": "2026-06-16T08:00:00Z",
     "approved_at": "2026-06-16T12:00:00Z",
@@ -273,8 +302,8 @@ Contract example:
 ]
 ```
 
-**Summary Short Parsing Rule**:
-- `summary_short` is a short preview text. Since the system's translated content is already a highly condensed summary, this field is derived from the first paragraph (or a configured character limit) of the translated `content` body during publish compilation.
+**Summary Short Rule**:
+- `summary_short` is read directly from `translation_output.summary_short` for the item's language. It must not be derived from any larger body field; the previous `extract_summary_short()` derivation and every body-derived summary fallback are removed.
 
 **Sorting Rule**:
 - The list must be sorted by `source_published_at DESC`, with a deterministic tiebreaker `slug ASC`.

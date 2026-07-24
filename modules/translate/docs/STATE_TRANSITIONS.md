@@ -1,7 +1,7 @@
 # Translate State Transitions
 
-**Document version:** v1.1  
-**Updated:** 2026-06-19  
+**Document version:** v1.2  
+**Updated:** 2026-07-24  
 **Status:** Locked Contract  
 
 ---
@@ -30,15 +30,15 @@ The table below defines how a translation record transitions from its **Old Stat
 
 | Old State | Trigger / Event | New State | Translation Output Updates | Side-Effects |
 | :--- | :--- | :--- | :--- | :--- |
-| **None / Pending** | LLM translation & validation success | **completed** | Insert/Update row (status='completed', retry_count=0, display_title, content, source_fingerprint, translated_at) | Ready for publish export. |
-| **None / Pending** | Transient Runner / Validation Failure | **failed** | Insert/Update row (status='failed', retry_count=retry_count+1, display_title=NULL, content=NULL) | Retried in next batch. Columns remain NULL. |
+| **None / Pending** | LLM translation & validation success | **completed** | Insert/Update row (status='completed', retry_count=0, display_title, summary_short, bullet_1, bullet_2, bullet_3, source_fingerprint, translated_at) | Ready for publish export. |
+| **None / Pending** | Transient Runner / Validation Failure | **failed** | Insert/Update row (status='failed', retry_count=retry_count+1, display_title=NULL, summary_short=NULL, bullet_1=NULL, bullet_2=NULL, bullet_3=NULL) | Retried in next batch. All five content columns remain NULL. |
 | **failed** (retry < retry_attempts - 1) | Transient Runner / Validation Failure | **failed** | Update row (status='failed', retry_count=retry_count+1) | Retried in next batch. |
 | **failed** (retry = retry_attempts - 1) | Transient Runner / Validation Failure | **failed** (logically locked) | Update row (status='failed', retry_count=retry_attempts) | Excluded from automatic queue. |
 | **completed** | Upstream mother-draft fingerprint change | **stale** | Update row (status='stale') | Triggers re-translation in next batch. |
 | **completed** | Config version shift (`model_name` / `prompt_version`) | **stale** | Update row (status='stale') | Triggers re-translation in next batch. **Exception**: Rows with `model_name = 'bypass'` are exempt and remain `completed`. |
 | **completed** | Forced Rerun Trigger | **pending** | Update row (status='pending', retry_count=0) | Ready for immediate translation. |
 | **completed** | Forced Rerun Failure | **completed** (Unchanged) | None. Rollback database transaction. | Keep old translated outputs unchanged; do not write `failed`. |
-| **stale** / **failed** / **failed (logically locked)** | LLM translation & validation success | **completed** | Update row (status='completed', retry_count=0, display_title, content, source_fingerprint, translated_at) | Ready for publish export. |
+| **stale** / **failed** / **failed (logically locked)** | LLM translation & validation success | **completed** | Update row (status='completed', retry_count=0, display_title, summary_short, bullet_1, bullet_2, bullet_3, source_fingerprint, translated_at) | Ready for publish export. |
 
 ---
 
@@ -56,4 +56,4 @@ The table below defines how a translation record transitions from its **Old Stat
 
 3. **Failed State Safety**:
    If an already `completed` translation is forced to re-run and fails (due to API error or runner-side validation mismatch), the system must **not** overwrite the successful translation with a `failed` or null entry, nor increment the retry count. The transaction must roll back, preserving the previous translation for publishing fallback until a successful rewrite/translation is committed.
-   For first-time runs that fail, `display_title` and `content` must remain `NULL` in the database to prevent exposing empty strings or dummy content to downstream modules.
+   For first-time runs that fail, all five content fields (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`) must remain `NULL` in the database to prevent exposing empty strings or dummy content to downstream modules.

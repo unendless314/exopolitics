@@ -1,0 +1,23 @@
+{
+  "source_item_id": 301,
+  "language_code": "zh",
+  "slug": "house-hearing-uap-transparency-bipartisan-push",
+  "display_title": "美國眾議院 UAP 聽證會推動跨黨派透明化法案",
+  "summary_short": "美國眾議院小組委員會就 UAP 透明度舉行聽證會，跨黨派議員同意擴大吹哨人保護範圍，並要求及時公開回收材料的分析結果，被視為 2023 年以來國會推動解密的最強力行動。",
+  "bullets": {
+    "key_claim": "跨黨派議員在聽證會後達成共識，支持擴大 UAP 吹哨人法律保護。",
+    "evidence_level": "多名具安全許可的證人出席作證，但會中未提出可公開驗證的實物證據。",
+    "objective_impact": "若法案通過，國防承包商須在期限內向國會提交回收材料分析報告。"
+  },
+  "canonical_url": "https://example.com/house-hearing-uap-transparency",
+  "source_published_at": "2026-07-20T14:30:00Z",
+  "approved_at": "2026-07-21T09:05:00Z",
+  "published_at": "2026-07-22T03:00:00Z",
+  "downstream_action": "publish_summary",
+  "disclosure_note": "This item is AI-assisted and human-curated.",
+  "author_metadata": {
+    "source_module": "edit",
+    "writer_type": "human",
+    "editor": "john_doe"
+  }
+}

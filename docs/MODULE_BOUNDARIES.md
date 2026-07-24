@@ -1,7 +1,7 @@
 # Module Boundaries
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-07-02
+**Updated:** 2026-07-24
 
 ---
 
@@ -135,7 +135,7 @@ Must not own:
 
 Owns:
 
-- translation of display titles and spliced content body markdown
+- translation of structured content fields (display title, short summary, and bullet slots)
 - content translation versioning and source fingerprint matching
 - language coverage status and quality states (pending, completed, failed, stale)
 - translation LLM orchestration, prompt template loading, and rate limiting
@@ -149,6 +149,7 @@ Must not own:
 - editorial curation judgment (whether to publish or rewrite)
 - assembly of finalized upstream editorial states into the canonical mother-draft handoff
 - static exporter layouts or static file folder writing (owned by `publish`)
+- post presentation UI labels for bullet content (owned by `site`)
 
 Important boundary:
 
@@ -184,6 +185,7 @@ Owns:
 - routes
 - public presentation
 - UI localization (i18n) and SEO concerns
+- post presentation labels: the localized UI label texts for structured bullet content, applied only at site build time
 
 May read:
 
@@ -282,4 +284,5 @@ Until then, avoid inventing heavyweight shared systems too early.
 - `translate` owns content translation and fingerprinted lifecycle
 - `publish` owns export shape and slug generation
 - `site` is a pure downstream consumer
+- post presentation labels are owned by `site` and applied at build time; canonical records and publish exports carry label-free structured content
 - `analysis` functions as a read-only sidecar observer that does not affect canonical state transitions

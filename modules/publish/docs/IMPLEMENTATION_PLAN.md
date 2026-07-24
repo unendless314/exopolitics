@@ -34,8 +34,8 @@ The active implementation should deliver a production-usable `publish` module th
 
 ### Phase 3: File Emission
 
-- write item JSON files under `data/publish_export/<language>/items/`
-- rebuild `index.json` (latest $N$ items) and affected `archives/archive_YYYY_MM.json` monthly archives
+- write item JSON files under `data/publish_export/<language>/items/` with the structured payload (`display_title`, `summary_short`, `bullets`), mapping upstream `bullet_1`, `bullet_2`, `bullet_3` to the semantic keys `key_claim`, `evidence_level`, `objective_impact` exactly once in this module and emitting `bullets: null` for `publish_link` items
+- rebuild `index.json` (latest $N$ items) and affected `archives/archive_YYYY_MM.json` monthly archives, reading `summary_short` directly from `translation_output` with no body-derived summary extraction
 - rebuild monthly archive index manifest `archives/index.json`
 - generate `stats.json` with archive observation metrics
 

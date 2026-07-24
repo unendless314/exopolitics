@@ -1,0 +1,23 @@
+{
+  "source_item_id": 301,
+  "language_code": "ja",
+  "slug": "house-hearing-uap-transparency-bipartisan-push",
+  "display_title": "米下院のUAP公聴会、超党派が透明化法案を推進",
+  "summary_short": "米下院の小委員会がUAPの透明性に関する公聴会を開催し、超党派の議員が内部告発者の保護拡大と回収物資の分析結果の迅速な開示を求めることで合意した。2023年以降で最も強力な議会主導の機密解除推進と見なされている。",
+  "bullets": {
+    "key_claim": "超党派の議員が公聴会後に合意し、UAP内部告発者の法的保護拡大を支持した。",
+    "evidence_level": "セキュリティクリアランスを持つ複数の証人が証言したが、公開検証可能な物的証拠は提示されなかった。",
+    "objective_impact": "法案が可決されれば、防衛請負企業は期限内に回収物資の分析報告を議会へ提出する義務を負う。"
+  },
+  "canonical_url": "https://example.com/house-hearing-uap-transparency",
+  "source_published_at": "2026-07-20T14:30:00Z",
+  "approved_at": "2026-07-21T09:05:00Z",
+  "published_at": "2026-07-22T03:00:00Z",
+  "downstream_action": "publish_summary",
+  "disclosure_note": "This item is AI-assisted and human-curated.",
+  "author_metadata": {
+    "source_module": "edit",
+    "writer_type": "human",
+    "editor": "john_doe"
+  }
+}

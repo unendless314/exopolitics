@@ -107,7 +107,11 @@ Before executing synchronization, the runner must validate the active configurat
 Before exporting an individual language artifact, the runner should validate at least:
 
 - `display_title` is non-empty
-- `content` is non-empty
+- the item payload passes `validate_item_payload()` before any item JSON is written:
+  - `summary_short` is a string that remains non-empty after trimming leading and trailing whitespace
+  - when `downstream_action = 'publish_summary'`, `bullets` is an object containing exactly the keys `key_claim`, `evidence_level`, and `objective_impact`, and each value is a string that remains non-empty after trimming leading and trailing whitespace
+  - when `downstream_action = 'publish_link'`, `bullets` is JSON `null`
+  - any other `downstream_action` value must not pass publish payload validation
 - `translation_status = 'completed'`
 - `translation_output.source_fingerprint = approved_content_record.content_fingerprint`
 - upstream `curate_status = 'approved'`
@@ -115,6 +119,8 @@ Before exporting an individual language artifact, the runner should validate at 
 - `author_metadata` is required and must be present as a well-formed JSON string that parses to a JSON object containing at least `source_module` and `writer_type`. Under the conditional schema rule, if `writer_type` is `'human'` or `'hybrid'`, it must also contain a non-empty `editor` field. If the value is `NULL` in the database, invalid JSON, not an object, missing required keys, or violates this conditional rule, the runner must abort compilation for this item and raise a validation error.
 
 If any of these fail, the artifact must not be exported.
+
+Upstream `curate` already enforces the 0-or-3 bullet invariant (all three bullets present for `publish_summary`, all three `NULL` for `publish_link`), but `publish` must re-validate it independently at the payload boundary and must not defer malformed payloads to the `site` build.
 
 ---
 
@@ -141,12 +147,12 @@ This command should reflect publish-layer projection state, not attempt to redef
 To support high volume data growth (e.g. 100k+ source items) while reducing the risk of memory exhaustion (OOM) and avoiding unbounded resource growth, the runner must adhere to the following execution constraints:
 
 ### 9.1 Lightweight Reconciliation
-- During the initial reconciliation, state check, and slug assignment phases, the runner **must not** query the large `content` (Markdown body) column from the database. The database queries for reconciliation must select only lightweight metadata fields (e.g., `source_item_id`, `parent_content_id`, `slug`, `language_code`, `publish_status`, `content_fingerprint`, `source_fingerprint`).
+- During the initial reconciliation, state check, and slug assignment phases, the runner **must not** fetch per-item payload fields (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`). The database queries for reconciliation must select only lightweight metadata fields (e.g., `source_item_id`, `parent_content_id`, `slug`, `language_code`, `publish_status`, `content_fingerprint`, `source_fingerprint`).
 
 ### 9.2 Chunked/Streaming File Emission
-- When writing item JSON files to disk (especially during a full `rebuild` command), the runner **must not** load the entire dataset of content bodies into memory at once.
+- When writing item JSON files to disk (especially during a full `rebuild` command), the runner **must not** load the entire dataset of item payloads into memory at once.
 - The runner must process records in chunks (e.g., using paginated SQL queries or SQLite cursors with `fetchmany(1000)`). The memory footprint during file emission must be bounded by the chunk size and aggregate writer buffers, and must not scale linearly with the total number of published items.
 
 ### 9.3 Lightweight Index Compilation
-- In this system, `summary_short` is a preview text extracted from the first paragraph (or a configured character limit) of the translated `content` body during compilation. Aggregate compilation for `index.json` and monthly `archive_YYYY_MM.json` files may query `content` only when needed to derive this preview text. When `content` is read for aggregate compilation, the runner must still process rows in bounded batches (e.g. chunked SQLite queries) rather than loading all content bodies at once. The condensed nature of the content reduces per-row cost, but does not remove the need for bounded processing at large scale.
+- `summary_short` is a short upstream field read directly from `translation_output.summary_short`; no summary is extracted or derived from a larger body field, and no body-derived fallback exists. Aggregate compilation for `index.json` and monthly `archive_YYYY_MM.json` files therefore reads only lightweight fields, and must still process rows in bounded batches (e.g. chunked SQLite queries) rather than loading the full result set at once.
 - The primary language index (`index.json`) must remain lightweight by containing only metadata and short summaries. To avoid browser performance degradation when the total dataset size grows extremely large, the system adopts a dual-track indexing strategy (Latest N items `index.json` + Monthly Archive `archive_YYYY_MM.json`). This replaces quantity-based index sharding or pagination. Memory footprint during aggregate index/archive compilation must be bounded by batch size and must not scale linearly with total records.

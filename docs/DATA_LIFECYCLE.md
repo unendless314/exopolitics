@@ -1,7 +1,7 @@
 # Data Lifecycle
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-06-05
+**Updated:** 2026-07-24
 
 ---
 
@@ -178,16 +178,16 @@ Translation consumes finalized mother-drafts (`approved_content_record`), checks
 
 ### 8.1 Input
 Translation reads:
-- `approved_content_record` (representing either direct curation approvals or finalized edited drafts)
+- `approved_content_record` (representing either direct curation approvals or finalized edited drafts), whose content is the five-field structured shape: `display_title`, `summary_short`, and optional `bullet_1`..`bullet_3`
 
 ### 8.2 Output
 Translation produces:
-- `translation_output` containing display titles, spliced markdown body content, and metadata (source fingerprint, translation status, model name, and prompt version) for each configured language code (e.g., `'zh'`, `'en'`, `'ja'`).
+- `translation_output` containing the same five-field structured content translated for each configured language code (e.g., `'zh'`, `'en'`, `'ja'`), plus metadata (source fingerprint, translation status, model name, and prompt version). The self-translation bypass copies the five fields directly without an LLM call.
 
 ### 8.3 Lifecycle and Invalidation
 - A translation record tracks the parent content via `parent_content_id` and is bound to the content state using `translation_output.source_fingerprint`.
 - Whenever the `translate` runner runs, it compares `translation_output.source_fingerprint` with `approved_content_record.content_fingerprint`.
-- If the fingerprint mismatches (indicating the upstream title or content has changed), the translation status transitions to `stale`, triggering a re-translation.
+- If the fingerprint mismatches (indicating any upstream structured content field has changed), the translation status transitions to `stale`, triggering a re-translation.
 - If the translation process encounters an error, the status transitions to `failed` to trigger retries.
 
 ---
@@ -202,6 +202,8 @@ Publish output should:
 - follow the configured Language Coverage Policy (e.g., Strict Match)
 - generate uniform SEO-friendly URL slugs using English translated titles
 - preserve provenance and disclosure data
+- export each item as structured content: `summary_short` plus a semantic `bullets` object (`key_claim`, `evidence_level`, `objective_impact`) for `publish_summary` items, or `bullets: null` for `publish_link` items; the bullet-to-semantic-key mapping is applied once in the publish layer
+- source index and archive summaries directly from `summary_short`, without reverse-deriving summaries from a body field
 - remain rebuildable if needed
 - synchronize exported assets by removing public outputs when items are withdrawn upstream
 

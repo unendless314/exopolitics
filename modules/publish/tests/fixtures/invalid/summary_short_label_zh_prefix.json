@@ -1,0 +1,23 @@
+{
+  "source_item_id": 6,
+  "language_code": "zh",
+  "slug": "summary-label-zh-prefix",
+  "display_title": "摘要標籤前綴測試",
+  "summary_short": "關鍵主張：這是一段以已知 zh 標籤變體開頭的摘要。",
+  "bullets": {
+    "key_claim": "第一條結構化重點內容。",
+    "evidence_level": "第二條結構化重點內容。",
+    "objective_impact": "第三條結構化重點內容。"
+  },
+  "canonical_url": "https://example.com/summary-label-zh-prefix",
+  "source_published_at": "2026-06-16T08:00:00Z",
+  "approved_at": "2026-06-16T12:00:00Z",
+  "published_at": "2026-06-24T10:00:00Z",
+  "downstream_action": "publish_summary",
+  "disclosure_note": "This item is AI-assisted and human-curated.",
+  "author_metadata": {
+    "source_module": "edit",
+    "writer_type": "human",
+    "editor": "john_doe"
+  }
+}

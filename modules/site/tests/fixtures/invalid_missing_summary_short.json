@@ -1,0 +1,22 @@
+{
+  "source_item_id": 901,
+  "language_code": "en",
+  "slug": "invalid-missing-summary-short",
+  "display_title": "Invalid Item Missing summary_short",
+  "bullets": {
+    "key_claim": "A claim.",
+    "evidence_level": "Some evidence.",
+    "objective_impact": "Some impact."
+  },
+  "canonical_url": "https://example.com/invalid-missing-summary-short",
+  "source_published_at": "2026-07-20T14:30:00Z",
+  "approved_at": "2026-07-21T09:05:00Z",
+  "published_at": "2026-07-22T03:00:00Z",
+  "downstream_action": "publish_summary",
+  "disclosure_note": "This item is AI-assisted and human-curated.",
+  "author_metadata": {
+    "source_module": "edit",
+    "writer_type": "human",
+    "editor": "john_doe"
+  }
+}

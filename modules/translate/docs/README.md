@@ -18,13 +18,13 @@ The translation pipeline occurs after editorial curation and editing:
                                      \-> [edit] ───────────────────/
 ```
 
-- **Upstream Input**: Reads the unified `approved_content_record` representing the approved mother-draft.
+- **Upstream Input**: Reads the unified `approved_content_record` representing the approved mother-draft as five structured plain-text fields (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`), materialized by the shared handoff assembler as a straight-through copy of upstream curation output with no UI presentation labels injected.
   *Note: `content_language_code` strictly designates the language of this finalized mother-draft (currently English), NOT the original source text language detected by `classify`.*
-- **Downstream Output**: Writes translated results to `translation_output`, which the `publish` module reads for static file export.
+- **Downstream Output**: Writes translated five-field results to `translation_output`, which the `publish` module reads for static file export. Presentation labels (e.g. `Key Claim`) are applied later by the `site` module at build time, never in this pipeline.
 
 ## Key Features
 
-- **Decoupled Architecture**: Spliced Markdown structure is translated as a whole, isolating formatting from upstream data schema variations.
+- **Structured Five-Field Content**: The mother-draft is stored and translated as five plain-text fields (title, summary, three bullets) in a single API call per target language, isolating content from presentation concerns. Self-translation bypass copies the five fields directly without an API call.
 - **Fingerprinting & Invalidation**: Tracks the canonical fingerprint of the upstream approved mother-draft to automatically invalidate translations if the draft is edited.
 - **State Machine management**: Manages states (`pending`, `completed`, `failed`, `stale`) for each target language.
 
@@ -34,6 +34,6 @@ The translation pipeline occurs after editorial curation and editing:
 - [PROMPT_CONTRACT.md](./PROMPT_CONTRACT.md): LLM inputs, structured output JSON schemas, prompts, and safety constraints.
 - [EXECUTION_POLICY.md](./EXECUTION_POLICY.md): Queue selection, retry parameters, concurrency throttling, and transaction boundaries.
 - [STATE_TRANSITIONS.md](./STATE_TRANSITIONS.md): Lifecycle states, trigger events, transition matrices, and invalidation rules.
-- [TRANSLATION_POLICY.md](./TRANSLATION_POLICY.md): Style guides, formatting preservation rules, and UAP terminology glossary.
+- [TRANSLATION_POLICY.md](./TRANSLATION_POLICY.md): Style guides, plain-text field rules, and UAP terminology glossary.
 - [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md): Development phases and epics for the translate module.
 

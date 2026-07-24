@@ -38,13 +38,14 @@ All data inputs are located under `data/publish_export/` in the workspace root. 
 
 ### 1.4 Detailed Item JSONs
 - **Path**: `data/publish_export/<language_code>/items/<slug>.json`
-- **Purpose**: Holds full content of individual posts.
+- **Purpose**: Holds the full structured content of individual posts.
 - **Fields**:
   - `source_item_id` (integer)
   - `language_code` (string)
   - `slug` (string)
   - `display_title` (string)
-  - `content` (string): Spliced Markdown body text.
+  - `summary_short` (string): Single-paragraph summary. Written as the first paragraph of the generated Markdown body and read directly as the SEO description source.
+  - `bullets` (object or null): Semantic content slots. For `downstream_action = "publish_summary"`, an object with exactly the three keys `key_claim`, `evidence_level`, and `objective_impact`, each a non-empty string. For `downstream_action = "publish_link"`, always JSON `null` — never omitted, never an empty object.
   - `canonical_url` (string)
   - `source_published_at` (string)
   - `approved_at` (string)
@@ -52,6 +53,7 @@ All data inputs are located under `data/publish_export/` in the workspace root. 
   - `downstream_action` (string)
   - `disclosure_note` (string): AI generation or curation note.
   - `author_metadata` (object): Deserialized metadata (contains `source_module`, `writer_type`, and optional `editor` fields).
+- **Note**: The item JSON no longer carries a pre-spliced `content` Markdown body, and it never contains presentation label text. The site adapter assembles the Markdown body from `summary_short` and `bullets`, applying locale-specific post labels at build time (see Section 2.2).
 
 ### 1.5 Global Stats
 - **Path**: `data/publish_export/stats.json`
@@ -68,18 +70,18 @@ During Phase 1 (Build-time JSON-to-Markdown adapter), properties from the detail
 | :--- | :--- | :--- |
 | `display_title` | `title` | Title of the post. |
 | `source_published_at` | `publishDate` | Converted to a JavaScript Date object. |
-| Derived (see rule below) | `description` | Formatted preview text for SEO meta description. |
+| `summary_short` | `description` | Validated single-paragraph summary, used directly as the SEO meta description. |
 | `canonical_url` | `canonicalUrl` | Link to the original source. |
 | `disclosure_note` | `disclosureNote` | AI authorship and curation disclosure statement. |
 | `author_metadata` | `authorMetadata` | Deserialized author/editor metadata object. |
 
 ### 2.1 SEO Description Mapping Rule
-To ensure optimal SEO placement and prevent empty or generic descriptions, the frontmatter `description` key is mapped using the following fallback cascade:
-1. **Primary**: If a matching entry exists in the language index catalog (`index.json` or archive JSON) for the corresponding slug, the adapter copies its `summary_short` string directly.
-2. **Secondary Fallback**: If `summary_short` is not available, the adapter parses the first paragraph of the post's `content` body, strips markdown formatting, and truncates the string to a maximum of 160 characters (retaining complete words where possible).
-3. **Tertiary Fallback**: If the content body is empty, it falls back to the `display_title` string.
+The item JSON guarantees a validated `summary_short`, so the frontmatter `description` key is taken directly from `item.summary_short`. The former fallback cascade is removed entirely: the adapter must not build a `summaryMap` from the language index catalog (`index.json`), the archive manifest, or archive item files, and the `summaryMap -> content first paragraph -> title` fallback chain no longer exists. This avoids duplicate I/O and a second, divergent summary semantic.
 
-The detailed body text in the JSON's `content` field is written as the Markdown file body below the frontmatter block.
+The Markdown file body below the frontmatter block is assembled from the structured fields: `summary_short` becomes the first paragraph, and when `bullets` is present the adapter appends a bullet list using the locale-specific post labels (see Section 2.2). There is no `content` field to fall back to.
+
+### 2.2 Post Label Ownership (Adapter-Only)
+The three UI label strings used for the bullet list (`key_claim`, `evidence_level`, `objective_impact`) exist only in `modules/site/src/config/post_labels.json`. This file is the single source of truth for post label text: the adapter (`modules/site/scripts/generate-posts.js`) reads it directly and writes the labels into the generated Markdown, and Astro pages must not duplicate the same label keys in `uiTranslations`. Because label text lives only in the site's locale data, changing label wording requires only a site rebuild — no re-translation and no changes to the publish export.
 
 ---
 

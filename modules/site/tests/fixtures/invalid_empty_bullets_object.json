@@ -1,0 +1,19 @@
+{
+  "source_item_id": 904,
+  "language_code": "en",
+  "slug": "invalid-empty-bullets-object",
+  "display_title": "Invalid Item With Empty Bullets Object",
+  "summary_short": "A valid summary paragraph.",
+  "bullets": {},
+  "canonical_url": "https://example.com/invalid-empty-bullets-object",
+  "source_published_at": "2026-07-20T14:30:00Z",
+  "approved_at": "2026-07-21T09:05:00Z",
+  "published_at": "2026-07-22T03:00:00Z",
+  "downstream_action": "publish_summary",
+  "disclosure_note": "This item is AI-assisted and human-curated.",
+  "author_metadata": {
+    "source_module": "edit",
+    "writer_type": "human",
+    "editor": "john_doe"
+  }
+}

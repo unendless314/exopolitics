@@ -1,6 +1,6 @@
 # 翻譯標籤洩漏重構計畫
 
-**狀態：** 待文件審查，尚未授權實作
+**狀態：** Phase 1（文件契約 + 測試設計）已完成並通過複審（2026-07-24），Phase 2 已獲准、尚未開始；交接摘要見 [`TRANSLATION_LABEL_LEAKAGE_HANDOFF.md`](./TRANSLATION_LABEL_LEAKAGE_HANDOFF.md)
 **建立日期：** 2026-07-24
 **關聯問題：** [`TRANSLATION_LABEL_LEAKAGE.md`](./TRANSLATION_LABEL_LEAKAGE.md)
 

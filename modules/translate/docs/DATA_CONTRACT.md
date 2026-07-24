@@ -1,7 +1,7 @@
 # Translate Data Contract
 
-**Document version:** v1.4  
-**Updated:** 2026-07-02  
+**Document version:** v1.5  
+**Updated:** 2026-07-24  
 **Status:** Locked Contract  
 
 > [!IMPORTANT]
@@ -26,13 +26,18 @@ Stores the finalized publication mother-draft ready for downstream modules. Exac
 | `parent_content_id` | `INTEGER` | `NOT NULL PRIMARY KEY AUTOINCREMENT` | Surrogate primary key. Referenced as FK by downstream tables. |
 | `source_item_id` | `INTEGER` | `NOT NULL UNIQUE` | FK to `source_item(source_item_id) ON DELETE CASCADE`. Ensures 1 mother-draft per item. |
 | `display_title` | `TEXT` | `NOT NULL` | Finalized de-sensationalized title (either direct curation or operator edited). |
-| `content_body` | `TEXT` | `NOT NULL` | Spliced Markdown body text representing the finalized mother-draft content. |
-| `content_fingerprint` | `TEXT` | `NOT NULL` | SHA-256 hash of normalized `display_title` and normalized `content_body` for change detection. This fingerprint is computed only by the upstream handoff assembler at write time and then treated as canonical by downstream consumers. |
+| `summary_short` | `TEXT` | `NOT NULL` | Single-paragraph summary of the mother-draft. Serves directly as the summary source for downstream index/archive/SEO consumption. |
+| `bullet_1` | `TEXT` | `NULL` | First structured bullet, carrying the upstream `curate` factual claim slot. |
+| `bullet_2` | `TEXT` | `NULL` | Second structured bullet, carrying the upstream `curate` evidence level slot. |
+| `bullet_3` | `TEXT` | `NULL` | Third structured bullet, carrying the upstream `curate` objective implication slot. |
+| `content_fingerprint` | `TEXT` | `NOT NULL` | SHA-256 hash of the fixed five-field serialization (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`) defined in Section 2.1.1, used for change detection. This fingerprint is computed only by the upstream handoff assembler at write time and then treated as canonical by downstream consumers. |
 | `content_language_code` | `TEXT` | `NOT NULL` | The language code of the finalized mother-draft (e.g. `'zh'`, `'en'`), computed and written only by the upstream handoff assembler at write time. |
 | `approved_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 business timestamp when curation approval or editing was finalized. This is the canonical editorial approval/publication time preserved for downstream consumers. |
 | `author_metadata` | `TEXT` | `NULL` | JSON string representing author metadata. For the MVP, this must contain `source_module` and `writer_type` (e.g., `'AI'`, `'human'`, `'hybrid'`). Conditional schema rule: when `writer_type` is `'human'` or `'hybrid'`, it must also contain a non-empty `editor` field designating human responsibility. When `writer_type` is `'AI'` or `'machine'`, the `editor` field is optional. In the current implementation (curated via pure API), `writer_type` defaults to `'AI'`. |
 | `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp for when this handoff row was first materialized in `approved_content_record`. |
 | `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp for when this handoff row was last refreshed in `approved_content_record`. |
+
+**Five-Field Content Shape**: `approved_content_record` and `translation_output` share the same logical content shape: `display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`. Content is stored as plain text only; UI presentation labels (e.g. `Key Claim`, `Evidence Level`, `Objective Impact`) are never stored, spliced, or injected anywhere in this pipeline — they are applied exclusively by the `site` module at build time. The three bullets follow an all-or-none invariant: items destined for `publish_summary` must have three non-empty bullets, while items destined for `publish_link` must have all three bullets as `NULL`. Partially populated bullet combinations are not acceptable, as they leave the data semantics incomplete.
 
 ### 1.2 Table Schema: `translation_output` (Translate Module)
 Stores translated outputs grouped by language code and parent draft identifier.
@@ -44,7 +49,10 @@ Stores translated outputs grouped by language code and parent draft identifier.
 | `source_item_id` | `INTEGER` | `NOT NULL` | FK to `source_item(source_item_id)`. Retained for join queries and auditing. |
 | `language_code` | `TEXT` | `NOT NULL` | The target language code (e.g., `'zh'`, `'en'`, `'ja'`). |
 | `display_title` | `TEXT` | `NULL` | The translated title. Nullable to support initial failure states before first translation success. |
-| `content` | `TEXT` | `NULL` | Spliced Markdown body text. Nullable to support initial failure states before first translation success. |
+| `summary_short` | `TEXT` | `NULL` | The translated single-paragraph summary. Nullable to support initial failure states before first translation success. |
+| `bullet_1` | `TEXT` | `NULL` | The translated first bullet (factual claim slot). Nullable to support initial failure states and `publish_link` items. |
+| `bullet_2` | `TEXT` | `NULL` | The translated second bullet (evidence level slot). Nullable to support initial failure states and `publish_link` items. |
+| `bullet_3` | `TEXT` | `NULL` | The translated third bullet (objective implication slot). Nullable to support initial failure states and `publish_link` items. |
 | `source_fingerprint` | `TEXT` | `NOT NULL` | The canonical fingerprint copied from the upstream `approved_content_record.content_fingerprint`. |
 | `translation_status` | `TEXT` | `NOT NULL` | Lifecycle state: `'pending'`, `'completed'`, `'failed'`, `'stale'`. |
 | `retry_count` | `INTEGER` | `NOT NULL DEFAULT 0` | Count of failed attempts. Logical lock applies when status='failed' AND retry_count >= retry_attempts (configured in config/model_settings.yaml, defaulting to 3). |
@@ -59,6 +67,7 @@ Stores translated outputs grouped by language code and parent draft identifier.
 The eventual module migration should preserve these logical requirements:
 
 - `translation_output` remains keyed by `parent_content_id` and `language_code`.
+- `approved_content_record` and `translation_output` share the same logical five-field content shape (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`). Only the legacy `content_body` / `content` columns are removed; all relational keys, status, retry, model, prompt version, and timestamp fields are retained.
 - `language_code` should not be treated as permanently limited to a fixed target language set at the contract level.
 - `source_fingerprint` stores a snapshot of the upstream canonical fingerprint copied from `approved_content_record.content_fingerprint`.
 - `translation_status` must support at least `pending`, `completed`, `failed`, and `stale`. The physical status column does not include a separate `'locked'` string; locked tasks are represented logically by `translation_status = 'failed'` AND `retry_count >= retry_attempts` (where `retry_attempts` is configured in `config/model_settings.yaml`).
@@ -75,7 +84,10 @@ CREATE TABLE IF NOT EXISTS approved_content_record (
     parent_content_id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_item_id INTEGER NOT NULL UNIQUE,
     display_title TEXT NOT NULL,
-    content_body TEXT NOT NULL,
+    summary_short TEXT NOT NULL,
+    bullet_1 TEXT,
+    bullet_2 TEXT,
+    bullet_3 TEXT,
     content_fingerprint TEXT NOT NULL,
     content_language_code TEXT NOT NULL,
     approved_at TEXT NOT NULL,
@@ -98,7 +110,10 @@ CREATE TABLE IF NOT EXISTS translation_output (
     source_item_id INTEGER NOT NULL,
     language_code TEXT NOT NULL,
     display_title TEXT,
-    content TEXT,
+    summary_short TEXT,
+    bullet_1 TEXT,
+    bullet_2 TEXT,
+    bullet_3 TEXT,
     source_fingerprint TEXT NOT NULL,
     translation_status TEXT NOT NULL CHECK (translation_status IN ('pending', 'completed', 'failed', 'stale')),
     retry_count INTEGER NOT NULL DEFAULT 0 CHECK (retry_count >= 0),
@@ -118,10 +133,13 @@ CREATE INDEX IF NOT EXISTS idx_translation_output_status
     ON translation_output(translation_status);
 ```
 
+This DDL is written for a freshly created canonical database; no in-place migration of legacy `content_body` / `content` data is performed or permitted. The legacy spliced body must never be split back into the five fields via regular expressions.
+
 ### 1.5 Handoff Materialization Rules
 
 - `approved_content_record` is a materialized shared handoff artifact, not a live view over upstream editorial tables.
-- The upstream assembler is solely responsible for constructing `display_title`, `content_body`, `content_fingerprint`, `content_language_code`, `approved_at`, `created_at`, and `updated_at` before downstream pull-based consumption.
+- The upstream assembler is solely responsible for constructing `display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`, `content_fingerprint`, `content_language_code`, `approved_at`, `created_at`, and `updated_at` before downstream pull-based consumption.
+- The assembler copies the five content fields straight through from the upstream `curation_output` without any splicing or concatenation. It must never inject UI presentation labels (such as `Key Claim`, `Evidence Level`, `Objective Impact`) or any locale-specific presentation strings into the stored content; those labels are owned exclusively by the `site` module at build time.
 - The assembler determines `content_language_code` for the mother-draft based on the source path and available fields (path-based resolution rules): first, use an explicit finalized language field provided by the upstream `curate` or `edit` output when available; second, under the current policy branch for `curate`-originated payloads, explicitly materialize the language code as `'en'`; third, if the item originates from other pathways and neither upstream source provides a language value, run a deterministic language detection fallback on the assembled mother-draft text.
 - Keep `classification_result.primary_language_code` conceptually separate as source-language metadata owned by `classify`, and do not use it as a default fallback for the mother-draft language, which was the direct cause of translation-bypass bugs.
 - If the language still cannot be resolved confidently after applying the priority order above, the assembler must not silently default to an arbitrary language code; it must surface the item for operator review or follow an explicitly documented upstream fallback policy.
@@ -144,8 +162,22 @@ The single source of truth for the mother-draft state version is `approved_conte
 ### 2.1.1 Fingerprint Computation Rules
 
 - The canonical fingerprint is computed when the upstream handoff row is inserted or updated, not during downstream translation reads.
-- The assembler must normalize line endings before hashing by converting all `\r\n` and bare `\r` sequences to `\n`.
-- The assembler should use one stable serialization rule for the fingerprint input, for example `display_title + "\n\n" + content_body`, and apply it consistently for both inserts and updates.
+- The fingerprint serialization rule is locked to the following single canonical algorithm, implemented by one shared helper used by both the assembler and tests:
+  1. The field order is fixed: `display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`.
+  2. Each field value is first normalized by converting all `\r\n` and bare `\r` sequences to `\n`.
+  3. `NULL` is serialized as JSON `null`; an empty string is serialized as JSON `""`. The two must never be conflated.
+  4. The following JSON object is serialized as UTF-8 with fixed key order and no extra whitespace, then hashed with SHA-256:
+
+     ```json
+     {
+       "display_title": "...",
+       "summary_short": "...",
+       "bullet_1": null,
+       "bullet_2": null,
+       "bullet_3": null
+     }
+     ```
+- UI labels, language/locale identifiers, or any `site` presentation strings must never participate in the fingerprint. As a result, changing label wording or Markdown styling never invalidates translations.
 - The `translate` runner must never recompute the source fingerprint from raw text for normal stale detection; it compares the stored upstream `content_fingerprint` against `translation_output.source_fingerprint`.
 - As a result, steady-state invalidation work scales with changed rows rather than requiring full-table hash recomputation on every run.
 

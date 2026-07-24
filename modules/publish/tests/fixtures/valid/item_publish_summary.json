@@ -1,0 +1,23 @@
+{
+  "source_item_id": 3,
+  "language_code": "zh",
+  "slug": "al-seckel-appears-in-epstein-related-files-and-correspondence",
+  "display_title": "Al Seckel 出現在 Epstein 相關檔案與通信中",
+  "summary_short": "這是一段繁體中文摘要,直接來自 translation_output.summary_short。",
+  "bullets": {
+    "key_claim": "第一條結構化重點內容。",
+    "evidence_level": "第二條結構化重點內容。",
+    "objective_impact": "第三條結構化重點內容。"
+  },
+  "canonical_url": "https://example.com/al-seckel-epstein-files",
+  "source_published_at": "2026-06-16T08:00:00Z",
+  "approved_at": "2026-06-16T12:00:00Z",
+  "published_at": "2026-06-24T10:00:00Z",
+  "downstream_action": "publish_summary",
+  "disclosure_note": "This item is AI-assisted and human-curated.",
+  "author_metadata": {
+    "source_module": "edit",
+    "writer_type": "human",
+    "editor": "john_doe"
+  }
+}

@@ -1,7 +1,7 @@
 # Multilingual Content Strategy
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-06-18  
+**Updated:** 2026-07-24  
 
 ---
 
@@ -21,8 +21,13 @@ Detailed SQLite schema structures and CLI specifications are owned locally by th
 ## 2. Core Architectural Principles
 
 ### 2.1 Content Multilingualism vs. UI i18n
-1. **Content Multilingualism**: Refers to translated article metadata (titles, Markdown bodies). This is a backend content concern, stored in canonical storage, and generated before public static export.
-2. **UI Internationalization (i18n)**: Refers to static interface labels (e.g., "Read More", "Home") and routing mechanisms. This is owned downstream by the `site` module and handled in frontend presentation.
+1. **Content Multilingualism**: Refers to translated article content: the structured fields of each post (display title, short summary, and up to three semantic bullet slots), not free-form Markdown bodies. This is a backend content concern, stored in canonical storage, and generated before public static export.
+2. **UI Internationalization (i18n)**: Refers to static interface labels (e.g., "Read More", "Home"), routing mechanisms, and post presentation labels (the localized label texts shown before each bullet). This is owned downstream by the `site` module and handled in frontend presentation.
+
+Boundary rules:
+
+- Bullet values are translated content; the label texts attached to them are UI i18n. The two must never be stored or translated as one string.
+- Post presentation labels exist only in site-owned locale label data and are applied during site build. They must not appear in canonical storage, LLM inputs or outputs, content fingerprints, or publish exports; changing a label requires only a site rebuild, never re-translation.
 
 ### 2.2 Pipeline Sequence
 Translation is performed downstream of curation and editing:
@@ -42,8 +47,9 @@ Translation is performed downstream of curation and editing:
 To ensure translation accuracy and prevent stale content:
 - **Single Source of Truth**: The canonical state version of a mother-draft is represented by `approved_content_record.content_fingerprint`.
 - **Cache Validation**: The `translate` module must store this fingerprint in its database outputs and compare it against the upstream fingerprint during runs.
-- **Invalidation**: Any change to `approved_content_record.content_fingerprint` or the runner configuration (model, prompt version) marks the corresponding translation as `stale`, triggering re-translation.
-- **Write-Time Fingerprinting**: The canonical fingerprint is produced by the upstream handoff materialization step when `approved_content_record` is inserted or refreshed. Downstream translation runners compare stored fingerprint strings and do not re-hash full source bodies during normal stale detection.
+- **Invalidation**: Any change to `approved_content_record.content_fingerprint` or the runner configuration (model, prompt version) marks the corresponding translation as `stale`, triggering re-translation. Self-translation bypass rows (`model_name = 'bypass'`, `prompt_version = 'bypass'`) are exempt from configuration-driven invalidation, but remain subject to fingerprint validation.
+- **Write-Time Fingerprinting**: The canonical fingerprint is produced by the upstream handoff materialization step when `approved_content_record` is inserted or refreshed, computed over the five structured content fields only. Downstream translation runners compare stored fingerprint strings and do not re-hash the structured source fields during normal stale detection.
+- **Label Exclusion**: UI presentation labels and other site rendering strings never participate in the fingerprint, so label copy or Markdown style changes do not mark translations stale.
 
 ---
 

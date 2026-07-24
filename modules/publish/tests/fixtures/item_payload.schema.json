@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://exopolitics.local/schemas/publish/item_payload.schema.json",
+  "title": "Publish Item Payload",
+  "description": "Cross-module contract for data/publish_export/<language_code>/items/<slug>.json. Mirrors modules/publish/docs/DATA_CONTRACT.md Section 6.1 and EXECUTION_POLICY.md Section 7.2 after the translation label leakage refactor: structured content fields (summary_short + semantic bullets) replace the monolithic content field, and presentation UI labels must not appear in exported values.",
+  "type": "object",
+  "required": [
+    "source_item_id",
+    "language_code",
+    "slug",
+    "display_title",
+    "summary_short",
+    "bullets",
+    "canonical_url",
+    "source_published_at",
+    "approved_at",
+    "published_at",
+    "downstream_action",
+    "disclosure_note",
+    "author_metadata"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "source_item_id": {
+      "type": "integer"
+    },
+    "language_code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "slug": {
+      "type": "string",
+      "minLength": 1
+    },
+    "display_title": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "summary_short": {
+      "description": "Passed through from translation_output.summary_short; must remain non-empty after trimming whitespace. Single summary source for item, index, and archive entries.",
+      "type": "string",
+      "pattern": "\\S",
+      "not": {
+        "pattern": "^[\\s*_-]*(Key Claim|Evidence Level|Objective Impact|主要な主張|主要主張|關鍵主張|核心主張|主張の要点|證據層級|證據等級|証拠の水準|証拠レベル|証拠水準|エビデンスレベル|客観的な影響|客観的影響|客觀影響|實際影響|目的上の影響)[\\s*_]*[:：]"
+      }
+    },
+    "bullets": {
+      "description": "Required on every item JSON and never omitted. Exactly two valid shapes: for downstream_action 'publish_summary' an object with exactly the keys key_claim, evidence_level, objective_impact (each a trim-non-empty string); for downstream_action 'publish_link' JSON null. Empty objects and partial key sets are never valid.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": ["key_claim", "evidence_level", "objective_impact"],
+          "additionalProperties": false,
+          "properties": {
+            "key_claim": {
+              "type": "string",
+              "pattern": "\\S",
+              "not": {
+                "pattern": "^[\\s*_-]*(Key Claim|Evidence Level|Objective Impact|主要な主張|主要主張|關鍵主張|核心主張|主張の要点|證據層級|證據等級|証拠の水準|証拠レベル|証拠水準|エビデンスレベル|客観的な影響|客観的影響|客觀影響|實際影響|目的上の影響)[\\s*_]*[:：]"
+              }
+            },
+            "evidence_level": {
+              "type": "string",
+              "pattern": "\\S",
+              "not": {
+                "pattern": "^[\\s*_-]*(Key Claim|Evidence Level|Objective Impact|主要な主張|主要主張|關鍵主張|核心主張|主張の要点|證據層級|證據等級|証拠の水準|証拠レベル|証拠水準|エビデンスレベル|客観的な影響|客観的影響|客觀影響|實際影響|目的上の影響)[\\s*_]*[:：]"
+              }
+            },
+            "objective_impact": {
+              "type": "string",
+              "pattern": "\\S",
+              "not": {
+                "pattern": "^[\\s*_-]*(Key Claim|Evidence Level|Objective Impact|主要な主張|主要主張|關鍵主張|核心主張|主張の要点|證據層級|證據等級|証拠の水準|証拠レベル|証拠水準|エビデンスレベル|客観的な影響|客観的影響|客觀影響|實際影響|目的上の影響)[\\s*_]*[:：]"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "canonical_url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_published_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "approved_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "published_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "downstream_action": {
+      "enum": ["publish_summary", "publish_link"]
+    },
+    "disclosure_note": {
+      "enum": [
+        "This item is AI-assisted and human-curated.",
+        "This item is AI-generated."
+      ]
+    },
+    "author_metadata": {
+      "description": "Always exported as a structured object (deserialized from the canonical TEXT column). Requires source_module and writer_type; human/hybrid writer types additionally require a non-empty editor field.",
+      "type": "object",
+      "required": ["source_module", "writer_type"],
+      "properties": {
+        "source_module": {
+          "type": "string",
+          "minLength": 1
+        },
+        "writer_type": {
+          "enum": ["human", "hybrid", "AI", "machine"]
+        },
+        "editor": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "writer_type": {
+                "enum": ["human", "hybrid"]
+              }
+            }
+          },
+          "then": {
+            "required": ["editor"],
+            "properties": {
+              "editor": {
+                "type": "string",
+                "pattern": "\\S"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "downstream_action": {
+            "const": "publish_summary"
+          }
+        },
+        "required": ["downstream_action"]
+      },
+      "then": {
+        "properties": {
+          "bullets": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "downstream_action": {
+            "const": "publish_link"
+          }
+        },
+        "required": ["downstream_action"]
+      },
+      "then": {
+        "properties": {
+          "bullets": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

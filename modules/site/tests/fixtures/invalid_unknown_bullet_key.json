@@ -1,0 +1,24 @@
+{
+  "source_item_id": 905,
+  "language_code": "en",
+  "slug": "invalid-unknown-bullet-key",
+  "display_title": "Invalid Item With Unknown Bullet Key",
+  "summary_short": "A valid summary paragraph.",
+  "bullets": {
+    "key_claim": "A claim.",
+    "evidence_level": "Some evidence.",
+    "objective_impact": "Some impact.",
+    "source_confidence": "High confidence."
+  },
+  "canonical_url": "https://example.com/invalid-unknown-bullet-key",
+  "source_published_at": "2026-07-20T14:30:00Z",
+  "approved_at": "2026-07-21T09:05:00Z",
+  "published_at": "2026-07-22T03:00:00Z",
+  "downstream_action": "publish_summary",
+  "disclosure_note": "This item is AI-assisted and human-curated.",
+  "author_metadata": {
+    "source_module": "edit",
+    "writer_type": "human",
+    "editor": "john_doe"
+  }
+}

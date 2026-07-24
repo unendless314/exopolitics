@@ -1,0 +1,22 @@
+{
+  "source_item_id": 4,
+  "language_code": "en",
+  "slug": "uap-hearing-announcement",
+  "display_title": "UAP hearing announcement",
+  "summary_short": "Short English summary passed through from translation_output.summary_short.",
+  "bullets": {
+    "key_claim": "First structured bullet.",
+    "evidence_level": "Second structured bullet.",
+    "objective_impact": "Third structured bullet."
+  },
+  "canonical_url": "https://example.com/uap-hearing-announcement",
+  "source_published_at": "2026-06-15T08:00:00Z",
+  "approved_at": "2026-06-15T12:00:00Z",
+  "published_at": "2026-06-24T10:00:00Z",
+  "downstream_action": "publish_link",
+  "disclosure_note": "This item is AI-generated.",
+  "author_metadata": {
+    "source_module": "curate",
+    "writer_type": "machine"
+  }
+}

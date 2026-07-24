@@ -1,7 +1,7 @@
 # Translate Execution Policy
 
-**Document version:** v1.1  
-**Updated:** 2026-06-19  
+**Document version:** v1.2  
+**Updated:** 2026-07-24  
 **Status:** Locked Contract  
 
 ---
@@ -41,7 +41,7 @@ This document defines execution controls, batching constraints, concurrent API l
   * For each successfully translated language target:
     1. Acquire an `asyncio.Lock` to serialize database write access in the event loop.
     2. Open a short write transaction block using `BEGIN IMMEDIATE`.
-    3. Upsert the row in `translation_output` with `translation_status = 'completed'`, updating fields like `translated_at`, `display_title`, `content`, `source_fingerprint`, and resetting `retry_count` to 0.
+    3. Upsert the row in `translation_output` with `translation_status = 'completed'`, updating fields like `translated_at`, `display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`, `source_fingerprint`, and resetting `retry_count` to 0.
     4. Commit and close the transaction immediately.
 
 ---
@@ -52,30 +52,41 @@ This document defines execution controls, batching constraints, concurrent API l
   * Network timeouts, rate limits (`429`), model overloaded (`503`), JSON parsing/schema validation, or runner-side validation failures must not crash the overall translation runner.
   * When an error occurs during a translation task:
     - The runner must catch the error.
-    - Write a `'failed'` status in `translation_output` for `(parent_content_id, language_code)`. Keep `display_title` and `content` as `NULL` if this is the first execution (do not write empty strings or fake content).
+    - Write a `'failed'` status in `translation_output` for `(parent_content_id, language_code)`. Keep all five content fields (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`) as `NULL` if this is the first execution (do not write empty strings or fake content).
     - Increment `retry_count` by 1.
     - If `retry_count >= retry_attempts` (where `retry_attempts` is configured in `config/model_settings.yaml`, e.g. 3), the translation task is logically locked (excluded from automatic retries) and requires operator intervention.
 * **Exponential Backoff**:
   * Implement exponential backoff (utilizing the backoff factor configured in `config/model_settings.yaml`, e.g. 2.0 -> 2s, 4s, 8s) between retries during API execution to respect provider rate limits.
 * **Operator Forced Re-run Error Handling**:
-  * If a manual/operator-forced re-run is triggered for an already `completed` translation, any execution or validation failure must **not** overwrite the existing successful translation or increment the retry counter. The runner must rollback the database transaction, leaving the existing translated title and markdown content unchanged in the database, and log the failure to stderr.
+  * If a manual/operator-forced re-run is triggered for an already `completed` translation, any execution or validation failure must **not** overwrite the existing successful translation or increment the retry counter. The runner must rollback the database transaction, leaving the existing translated five-field content unchanged in the database, and log the failure to stderr.
 
 ---
 
 ## 5. Runner-Side Content Validation Rules
 
-To guarantee markdown syntax preservation and translation quality, the runner must execute three levels of content validation after receiving the LLM structured JSON response:
+To guarantee structured field fidelity and translation quality, the runner must execute the following content validation after receiving the LLM structured JSON response:
 
-1. **Character Length Ratio Check**:
-   - Calculate the ratio: `len(translated_content) / len(content_body)`.
-   - If the ratio is strictly greater than `1.2`, the validation fails. (This prevents LLM hallucination or excessive rambling).
-2. **Japanese Title Length Check**:
-   - If the target `language_code` is `'ja'`, verify that `len(translated_title) <= 120`.
-   - If the length exceeds 120 double-byte characters, the validation fails.
-3. **Markdown Structural Check**:
-   - Validate code fence symmetry (even number of ```) and ensure markdown links `[text](url)` are intact.
-   - Verify that all major heading structures (`#`, `##`, etc.) present in the source `content_body` are preserved in the translated output.
-4. **Validation Mismatch Treatment**:
+1. **Title Length Check**:
+   - Title length limits are enforced per target language, including the Japanese limit of 120 double-byte characters (limits are canonically configured per-language in `config/model_settings.yaml`).
+   - If the translated title exceeds the configured limit for the target language, the validation fails.
+2. **Aggregate Content Length Ratio Check**:
+   - Aggregate all non-empty translated fields (`translated_summary` plus all non-null translated bullets) and the corresponding source fields (`summary_short` plus all non-null source bullets), then calculate: `len(aggregated translation) / len(aggregated source)`.
+   - If the ratio is strictly greater than the configured `content_ratio_limit` (e.g. `1.2` in `config/model_settings.yaml`), the validation fails. (This prevents LLM hallucination or excessive rambling.)
+   - The ratio must always be computed over the aggregate, never over a single short bullet, to avoid false rejections of valid translations.
+3. **Script Presence Check**:
+   - For target `language_code = 'zh'`, the aggregated translated content must contain at least one CJK Unified Ideograph (Chinese character).
+   - For target `language_code = 'ja'`, the aggregated translated content must contain at least one Hiragana or Katakana character.
+   - Proper nouns and acronyms are permitted to remain in English; this check only verifies the presence of the target script.
+4. **Nullability Shape Match**:
+   - The source/response nullability shapes must match exactly: for each bullet slot, a `NULL` source bullet requires a `NULL` translated bullet, and a non-empty source bullet requires a non-empty translated bullet.
+   - Partially populated bullet combinations in the response are rejected.
+5. **Migration-Period Label Guard (`zh` / `ja` only)**:
+   - For `translated_summary` and every non-null translated bullet: after stripping leading whitespace and any optional Markdown emphasis or list markers, if the value starts with a known UI presentation label followed by a colon, the validation fails.
+   - The guard list contains the three English labels (`Key Claim`, `Evidence Level`, `Objective Impact`) plus all observed zh/ja label variants documented in [TRANSLATION_LABEL_LEAKAGE.md](../../../known_issues/TRANSLATION_LABEL_LEAKAGE.md) Section 4.2:
+     - zh: `主要主張`, `關鍵主張`, `核心主張`, `證據層級`, `證據等級`, `客觀影響`, `實際影響`
+     - ja: `主要な主張`, `主要主張`, `主張の要点`, `証拠の水準`, `証拠レベル`, `証拠水準`, `エビデンスレベル`, `客観的な影響`, `客観的影響`, `目的上の影響`
+   - This guard only detects erroneous presentation-string backflow into content. It is not the primary correctness mechanism, and global string replacement on content is forbidden.
+6. **Validation Mismatch Treatment**:
    - Any validation failure is treated as a transient runner error.
    - It triggers the same state updates as an API error (status = `'failed'`, `retry_count` increments, rollback on forced re-runs).
 
@@ -90,7 +101,7 @@ To avoid redundant LLM API costs and prevent translation-induced content drift o
 2. **Bypass Criteria**:
    - If the target `language_code` is identical to `approved_content_record.content_language_code` (e.g. both are `'en'`), the runner must **bypass** the LLM API call entirely.
 3. **Database Materialization**:
-   - The runner directly copies the original `display_title` and `content_body` from `approved_content_record` into `translation_output` for that `language_code`.
+   - The runner directly copies the five content fields (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`) from `approved_content_record` into `translation_output` for that `language_code`.
    - The upsert fields must be written as:
      - `translation_status = 'completed'`
      - `model_name = 'bypass'`

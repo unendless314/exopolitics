@@ -20,10 +20,12 @@ The `analysis` module queries `data/canonical.db` to calculate metrics. It is st
 | `ingest_dedup_marker` | `source_item_id`, `dedup_key`, `dedup_rule` | Unique Contribution Rate |
 | `classification_result` | `source_item_id`, `classified_at`, `topic_class`, `content_density`, `classification_confidence`, `additional_signals` | Relevance Rate, Content Density Distribution, Classification Delay, Average Confidence |
 | `curation_decision` | `source_item_id`, `curated_at`, `decision_actor`, `downstream_action`, `curate_status` | Curation Approval Rate, Curation Rejection Mix, Curation Delay |
-| `approved_content_record` | `parent_content_id`, `source_item_id`, `approved_at`, `display_title`, `content_body`, `content_fingerprint`, `content_language_code` | Overall Yield, Translation Completion Rate, Workload Proxies, Current-version alignment |
-| `translation_output` | `translation_output_id`, `parent_content_id`, `source_item_id`, `language_code`, `translation_status`, `model_name`, `source_fingerprint`, `translated_at`, `updated_at`, `display_title`, `content` | Translation Success Rate, Translation Delay, Workload Proxies, Current-version alignment |
+| `approved_content_record` | `parent_content_id`, `source_item_id`, `approved_at`, `display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`, `content_fingerprint`, `content_language_code` | Overall Yield, Translation Completion Rate, Workload Proxies, Current-version alignment |
+| `translation_output` | `translation_output_id`, `parent_content_id`, `source_item_id`, `language_code`, `translation_status`, `model_name`, `source_fingerprint`, `translated_at`, `updated_at`, `display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3` | Translation Success Rate, Translation Delay, Workload Proxies, Current-version alignment |
 | `publish_record` | `publish_record_id`, `source_item_id`, `first_published_at`, `slug` | Publish Count, Pipeline Lead Time |
 | `publish_language_status` | `publish_record_id`, `language_code`, `publish_status`, `published_at`, `source_fingerprint` | Publish Delay, Language Coverage Rate, Current-version alignment |
+
+**Five-column content shape**: `approved_content_record` and `translation_output` share the same structured content shape (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`); the legacy `content_body` / `content` columns no longer exist. `display_title` and `summary_short` are non-NULL (except `translation_output` rows preserved after an initial failure); bullets are nullable — `publish_summary` records carry three non-empty bullets, while `publish_link` records carry all three bullets as `NULL`.
 
 ---
 

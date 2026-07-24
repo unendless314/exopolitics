@@ -70,6 +70,7 @@ In the initial MVP design, the system relied on a single unified path:
 This is the active production stabilization target. It introduces a hybrid ingestion strategy to address the OOM issues while keeping the canonical data source, URL contracts, and SEO schemas intact:
 - **Mechanism**: 
   - **Detail pages** continue to use generated Markdown + Content Collections for Astro layout compatibility, but `getStaticPaths()` must only return lightweight identifiers (such as `id`) in `props` instead of the entire `post` object. The post content is loaded dynamically inside the page component during rendering.
+  - **Generated Markdown Assembly**: The generated Markdown for detail pages is produced by `modules/site/scripts/generate-posts.js` from the structured item export (`summary_short` plus semantic `bullets`) combined with locale-specific post labels. The summary is written as the first paragraph; when bullets are present, they are rendered as a `* **Label**: ...` list. The export no longer contains a pre-spliced `content` body, so there is nothing to copy verbatim.
   - **Listing pages** (homepage/timeline, archives) read metadata-only JSON files directly from `publish_export` (e.g., `index.json`, archive monthly JSON files), entirely bypassing Content Collections to avoid loading full article bodies.
 - **Guardrails**:
   1. **Single Source of Truth**: The JSON files under `data/publish_export/` remain the sole canonical source.
@@ -105,6 +106,8 @@ modules/site/
 │   ├── content/
 │   │   └── posts/
 │   │       └── generated/       # Build-time markdown artifacts for Phase 1 and Phase 2 detail pages
+│   ├── config/
+│   │   └── post_labels.json     # Locale-specific post label strings; the adapter's single label source
 │   ├── pages/
 │   │   ├── [lang]/
 │   │   │   ├── index.astro     # Timeline feed page (Traditional Chinese, English, Japanese)
@@ -207,6 +210,17 @@ This separation preserves compatibility with the current `publish_export/zh/...`
 directory contract while still allowing correct `<html lang>`, `hreflang`, and
 `Intl.DateTimeFormat` behavior.
 
+`localeProfiles` also drives the supported-language set across the module: Astro
+routes (such as the archive route) import it directly instead of maintaining
+hardcoded `['en', 'ja', 'zh']` arrays. The plain-Node adapter script cannot
+import this TypeScript module, so it derives its language set from the locale
+keys of `src/config/post_labels.json` — the sole source of post label text — and
+a site test verifies that this key set is identical to `localeProfiles`.
+`astro.config.ts` (`i18n.locales`) and the existing union type cast in
+`stats.astro` are framework configuration and a type annotation respectively;
+they are not dynamically generated from `localeProfiles`, and only require a
+synchronized review when languages are added or removed in the future.
+
 ### 4.3 Interactive Language Selector (`src/components/LanguageSelector.astro`)
 Reads localized versions and shifts the URL route dynamically:
 
@@ -238,7 +252,7 @@ For each article (loaded from `data/publish_export/<lang>/items/<slug>.json` by 
 2. **AI Disclosure Note**: Display `disclosure_note` prominently based on the data populated by `publish`.
 3. **Reading Metrics**: Show the calculated reading time alongside the publishing timestamp (`source_published_at`).
 4. **Time & Date Layout**: Format timestamps with high-precision absolute time indicators (e.g., `"Jun 24, 2026, 18:42"` in local timezone) using `<time datetime="...">` tags.
-5. **Data Integrity Validation**: The site build process must perform structural validation on all ingested JSON files. If a file is malformed, missing required fields (e.g., `display_title`, `slug`), or contains incomplete translations, the build must fail immediately and clearly rather than outputting guessed UI states.
+5. **Data Integrity Validation**: The site build process must perform structural validation on all ingested JSON files. If a file is malformed, missing required fields (e.g., `display_title`, `slug`), or contains incomplete translations, the build must fail immediately and clearly rather than outputting guessed UI states. Specifically, the adapter must verify that each item's `summary_short` is a non-empty string and that `bullets` is either `null` or an object with exactly the three known keys (`key_claim`, `evidence_level`, `objective_impact`) whose values are all non-empty strings; missing fields or incomplete bullet sets are a hard build failure, never a partially rendered article.
 
 ---
 

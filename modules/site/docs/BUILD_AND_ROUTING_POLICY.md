@@ -63,6 +63,17 @@ To prevent build-time artifacts from cluttering the codebase, the following rule
 - **Execution Rule**: Prior to starting the local development server (`npm run dev`) or compiling the production bundle (`astro build`), the directory `src/content/posts/generated/` must be fully deleted and recreated from scratch.
 - **No Manual Edit**: Developers must never edit any files inside `src/content/posts/generated/`. They are treated strictly as transient artifacts derived from `data/publish_export/`.
 
+### 3.3 Markdown Assembly and Adapter Validation
+- **Generation Source**: Generated Markdown files are produced by `modules/site/scripts/generate-posts.js` from the structured item export (`summary_short` plus semantic `bullets`) combined with locale-specific post labels. They are never copied from a pre-spliced `content` field, which no longer exists in the item JSON.
+- **Body Shape**: `summary_short` is written as the first paragraph. When `bullets` is present, the adapter renders it as a list using the locale labels (e.g. `* **Key Claim**: ...`). When `bullets` is `null` (link-only posts), the body contains only the summary paragraph.
+- **Label Source**: The three post label strings are read exclusively from `src/config/post_labels.json`, the single source of truth for post label text. Astro pages must not duplicate these label keys in `uiTranslations`.
+- **Validation (Hard Failure)**: Before writing any Markdown file, the adapter must validate that `summary_short` is a non-empty string and that `bullets` is either `null` or an object with exactly the three known keys (`key_claim`, `evidence_level`, `objective_impact`) whose values are all non-empty strings. The adapter must also validate that the requested locale matches `item.language_code`. Missing fields, incomplete bullet sets, or a locale mismatch must abort the build with a clear error rather than emit a partial or mislabeled article.
+
+### 3.4 Centralized Locale List
+- **Single Locale Source**: The set of supported languages is driven by the locale profiles in `src/utils/i18n.ts` (`localeProfiles`). Astro routes import this list directly instead of maintaining their own hardcoded `['en', 'ja', 'zh']` arrays; Phase 4 removes these arrays from the archive route and from the hardcoded `getStaticPaths` locale lists in `[lang]/index.astro` and `[lang]/stats.astro`.
+- **Adapter Language Set**: The plain-Node adapter cannot import the TypeScript module, so it derives its language set from the locale keys of `src/config/post_labels.json`. The locale key set of that JSON must be identical to `localeProfiles`, and this parity is enforced by a site test.
+- **Framework Config Exemption**: `astro.config.ts` (`i18n.locales`) and the existing union type cast in `stats.astro` are not dynamically generated from the locale profiles at this time. They only require a synchronized review when languages are added or removed in the future.
+
 ---
 
 ## 4. Timestamp Precision and Display Policy

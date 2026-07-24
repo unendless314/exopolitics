@@ -1,7 +1,7 @@
 # Translation Policy and Terminology Glossary
 
-**Document version:** v1.2  
-**Updated:** 2026-07-02  
+**Document version:** v1.3  
+**Updated:** 2026-07-24  
 **Status:** Locked Contract  
 
 ---
@@ -20,9 +20,10 @@ All translations must strictly follow these rules:
    - The tone must remain detached, clinical, and objective.
    - Never translate sensationalized words literally if they sound overly emotional in the target language. Use neutral equivalents.
    - Do not add exclamation marks or rhetorical questions.
-2. **Markdown Structure Preservation**:
-   - Headers (`#`, `##`, `###`), list markers (`*`, `-`, `1.`), bolding (`**`), and blockquotes (`>`) must map exactly 1-to-1 to the source document structure.
-   - Markdown line breaks and paragraphs must not be merged or split unless necessary for target language grammar.
+2. **Plain-Text Field Integrity**:
+   - Each of the five content fields (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`) is translated as a standalone plain-text value; no Markdown structural 1-to-1 mapping to the source is required or performed.
+   - The model must not add Markdown formatting, list markers, or UI presentation labels (e.g. `Key Claim:`) to any field value. Presentation labels are applied exclusively by the `site` module at build time.
+   - Script presence validation applies to the aggregated translated content as defined in Section 5.2.
 3. **No Added Commentary or Translator Notes**:
    - The model must never output notes like "*(Translator note: ...)*" or wrap the response in conversational preamble.
    - If the source text contains ambiguous terms, they must be translated neutrally without adding clarifying assumptions.
@@ -56,7 +57,7 @@ To maintain consistency in UAP (Unidentified Anomalous Phenomena) and government
    - Japanese & Traditional Chinese: Maximum 120 characters (due to CJK double-byte character density).
    - *Note: These limits are canonically configured per-language in [model_settings.yaml](../config/model_settings.yaml).*
 2. **Content Length**:
-   - The translated body must remain proportional to the mother-draft. Significant expansion (more than 1.2x of raw character length equivalents, configured as `content_ratio_limit` in [model_settings.yaml](../config/model_settings.yaml)) is treated as validation failure.
+   - The aggregate of the translated summary and all non-empty translated bullets must remain proportional to the aggregate of the corresponding source fields. Significant expansion (more than 1.2x of raw character length equivalents, configured as `content_ratio_limit` in [model_settings.yaml](../config/model_settings.yaml)) is treated as validation failure. The ratio is always computed over the aggregate, never over a single short bullet.
 
 *Note: Any violation of these title length or content length constraints is verified runner-side during validation and will transition the task status to `'failed'` (incrementing `retry_count`) as defined in [EXECUTION_POLICY.md](./EXECUTION_POLICY.md#5-runner-side-content-validation-rules).*
 
@@ -65,12 +66,12 @@ To maintain consistency in UAP (Unidentified Anomalous Phenomena) and government
 ## 5. Self-Translation Bypass and Script Validation
 
 ### 5.1 Bypass Criteria
-Self-translation bypass is allowed only when `approved_content_record.content_language_code` is identical to the translation target `language_code` (e.g. `'en'` translating to `'en'`). In this case, title and body are copied directly without invoking LLM translation.
+Self-translation bypass is allowed only when `approved_content_record.content_language_code` is identical to the translation target `language_code` (e.g. `'en'` translating to `'en'`). In this case, the five content fields are copied directly without invoking LLM translation.
 
 ### 5.2 Localized Script Validation Rules
-To prevent copy-paste failures where the LLM repeats the English mother-draft body instead of translating, the following script presence constraints are enforced:
-- **Traditional Chinese (zh)**: The translated body must contain meaningful CJK Unified Ideographs (Chinese characters).
-- **Japanese (ja)**: The translated body must contain Japanese Hiragana or Katakana characters (crucial for valid Japanese grammatical particles and loan words).
+To prevent copy-paste failures where the LLM repeats the English mother-draft text instead of translating, the following script presence constraints are enforced on the aggregated translated content (the translated summary plus all non-empty translated bullets):
+- **Traditional Chinese (zh)**: The aggregated translated content must contain at least one CJK Unified Ideograph (Chinese character).
+- **Japanese (ja)**: The aggregated translated content must contain at least one Japanese Hiragana or Katakana character (crucial for valid Japanese grammatical particles and loan words).
 
 ### 5.3 Mixed-Script Proper Noun Tolerance
 Technical abbreviations (AARO, UAP, NHI), organization names, and proper nouns are permitted to remain in English to preserve traceability. Script validation checks should not enforce strict target language character density; they only verify the presence of the target script in the grammatical structures.

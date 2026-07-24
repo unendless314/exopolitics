@@ -1,7 +1,7 @@
 # Canonical Entity Contract
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-07-02
+**Updated:** 2026-07-24
 
 ---
 
@@ -218,8 +218,8 @@ Minimum semantic contents:
 
 - stable link to the source item record (`source_item_id`)
 - display title (finalized title, either directly approved from curation or edited by human operators)
-- content body (finalized Markdown body, spliced from curation outputs or edited by human operators)
-- content fingerprint (`content_fingerprint`) representing the SHA-256 hash of the title and body
+- structured content fields (`summary_short`, `bullet_1`, `bullet_2`, `bullet_3`) forming the finalized body: a single-paragraph summary plus the three curate bullet slots (claim, evidence, objective implication). Bullets are all-or-nothing: either all three are present or all three are `NULL`; partial bullet sets are not valid. No spliced Markdown body is stored, and no UI presentation labels are embedded in these fields.
+- content fingerprint (`content_fingerprint`) representing the SHA-256 hash of the canonical five-field content serialization (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3` in fixed order); the exact serialization rule is locked by the translate module data contract and must never include UI presentation labels
 - content language code (`content_language_code`, indicating the language of the finalized mother-draft payload ready for translation, populated at handoff. Under the current system policy, this is set to `'en'` for curated items. This is strictly decoupled from `classify.primary_language_code`, which represents the original raw source text language).
 - approved timestamp
 - author/editor metadata (identifying the responsible user or system configuration version; stored as a serialized JSON string. For the MVP, it must contain at least `source_module` and `writer_type`. Under the conditional schema rule: when `writer_type` is `'human'` or `'hybrid'`, the metadata must also contain a non-empty `editor` field designating human responsibility. When `writer_type` is `'AI'` or `'machine'`, the `editor` field is optional.)
@@ -228,6 +228,10 @@ Ownership:
 
 - produced from finalized `curate` approvals or finalized `edit` outputs through the shared handoff capability
 - readable by `translate`
+
+Important rule:
+
+- post presentation labels (the localized UI label texts for the three bullet slots, such as "Key Claim") are owned exclusively by `site` and applied at site build time; they must never be stored in canonical records, sent through LLM payloads, or included in `content_fingerprint`
 
 ### 4.10 Translation Output
 
@@ -239,7 +243,7 @@ Minimum semantic contents:
 - stable link to the source item record (`source_item_id`) for grouping
 - language identifier (`language_code`)
 - target language display title (`display_title`)
-- target language content (spliced Markdown body text)
+- target language structured content (`summary_short` plus optional `bullet_1`, `bullet_2`, `bullet_3`), using the same logical five-field content shape and all-or-nothing bullet rule as the approved content record
 - source fingerprint (`source_fingerprint`) used for change detection and cache validation
 - quality/progress state (`translation_status`)
 - LLM runtime configuration (`model_name`, `prompt_version`)
@@ -275,7 +279,7 @@ The top-level canonical model recognizes four non-interchangeable content repres
 
 1. raw retained evidence
 2. sanitized working text
-3. translation representation (spliced multi-lingual database structure)
+3. translation representation (structured multilingual five-field content)
 4. publish representation (static multilingual JSON directories, indexes, and feeds)
 
 Boundary rules:
@@ -311,6 +315,8 @@ Boundary rules:
 - `ingest` is responsible for creating the sanitized working representation before classification
 - downstream modules must not reinterpret ambiguous feed summary fields as canonical working text
 - translation outputs must separate language-specific representations from curation and edit schemas
+- `approved_content_record` and `translation_output` share the same five-field structured content shape (display title, summary, and three bullet slots); canonical storage holds no spliced Markdown body
+- post presentation labels are owned exclusively by `site` and applied at build time; they are not canonical data and must not appear in canonical records, LLM inputs or outputs, fingerprints, or publish exports
 - `approved_content_record` is the single canonical entity representing the publishable mother-draft; it is assembled from finalized curation or edit outcomes, and downstream modules read from it by pull
 - translation outputs must point to the unified `approved_content_record` instead of the raw `source_item_id` to prevent update drift
 - `approved_content_record.content_fingerprint` is the canonical fingerprint representing the mother-draft state; `translate` stores and compares against this to determine staleness

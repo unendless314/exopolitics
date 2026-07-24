@@ -265,15 +265,15 @@ All metrics in this catalog (except rolling snapshots) are filtered by the lookb
 #### 3.1.3 Translation Character Volume Proxies (Dual Metrics) `[MVP]`
 *   **Purpose**: Estimate active API translation workload and total queue workload.
 *   **Window Basis**: `source_item_cohort`
-*   **Formula (Recorded Workload)**: Sum of `length(approved_content_record.display_title) + length(approved_content_record.content_body)` where `source_item.fetched_at` is within the lookback window and the item has a row in `translation_output` with `model_name != 'bypass'` (excludes self-translation bypass).
-*   **Formula (Intended Workload Upper Bound)**: Sum of `length(approved_content_record.display_title) + length(approved_content_record.content_body)` multiplied by target language count minus one (excluding bypass).
+*   **Formula (Recorded Workload)**: Sum of `length(approved_content_record.display_title) + length(approved_content_record.summary_short) + coalesce(length(approved_content_record.bullet_1), 0) + coalesce(length(approved_content_record.bullet_2), 0) + coalesce(length(approved_content_record.bullet_3), 0)` where `source_item.fetched_at` is within the lookback window and the item has a row in `translation_output` with `model_name != 'bypass'` (excludes self-translation bypass).
+*   **Formula (Intended Workload Upper Bound)**: Sum of `length(approved_content_record.display_title) + length(approved_content_record.summary_short) + coalesce(length(approved_content_record.bullet_1), 0) + coalesce(length(approved_content_record.bullet_2), 0) + coalesce(length(approved_content_record.bullet_3), 0)` multiplied by target language count minus one (excluding bypass).
 *   **Data Source**: `approved_content_record`, `source_item`, `translation_output`
 *   **Direct Dimensions**: `source_item_id`, `content_language_code`
 *   **Derived Dimensions**: 
     *   `source_id` (via joining `source_item` on `source_item_id`)
     *   `language_code`
 *   **Update Frequency**: Executed per CLI run.
-*   **Notes**: Filtering out `'bypass'` in the recorded workload ensures we only track LLM API-incurred costs.
+*   **Notes**: Filtering out `'bypass'` in the recorded workload ensures we only track LLM API-incurred costs. Bullets are nullable by design (`publish_summary` records carry three non-empty bullets; `publish_link` records carry all three bullets as `NULL`), so bullet lengths are wrapped in `coalesce(..., 0)`.
 
 ### 3.2 Classification Filtering Overhead `[Phase 2 / Catalog]`
 *   **Purpose**: Evaluate source efficiency (ratio of inputs needed for one output).
@@ -447,7 +447,7 @@ To diagnose end-to-end bottlenecks, the pipeline is segmented into stage-specifi
 ### 4.3.4 Translation Character Share by Language `[Phase 2]`
 *   **Purpose**: Compare processing load between locales and time windows.
 *   **Window Basis**: `event_time`
-*   **Formula**: Sum of `(length(translation_output.display_title) + length(translation_output.content))` where `translation_output.updated_at` is within the lookback window and `translation_status = 'completed'`, grouped by `translation_output.language_code`.
+*   **Formula**: Sum of `(length(translation_output.display_title) + length(translation_output.summary_short) + coalesce(length(translation_output.bullet_1), 0) + coalesce(length(translation_output.bullet_2), 0) + coalesce(length(translation_output.bullet_3), 0))` where `translation_output.updated_at` is within the lookback window and `translation_status = 'completed'`, grouped by `translation_output.language_code`.
 *   **Data Source**: `translation_output`
 *   **Direct Dimensions**: `source_item_id`, `language_code`
 *   **Derived Dimensions**: `source_id` (via joining `source_item` on `source_item_id`)

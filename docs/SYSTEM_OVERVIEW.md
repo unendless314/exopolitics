@@ -1,7 +1,7 @@
 # System Overview
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-06-05
+**Updated:** 2026-07-24
 
 ---
 
@@ -99,13 +99,14 @@ The rewritten system recognizes at least four important content representations:
 
 ### 5.3 Translation Representation
 
-- spliced and translated content (display titles and markdown body) for each language code
+- structured translated content (display title, short summary, and up to three bullet fields) for each language code
 - kept in canonical storage, mapping to the upstream approved content fingerprint
 
 ### 5.4 Publish Representation
 
 - approved outputs prepared for public consumption in static file form (multilingual folders, index, feeds)
 - derived from canonical records using a unified frozen slug lookup
+- carries structured content with semantic bullet keys; localized post presentation labels are applied by `site` at build time, not stored in the export
 - optimized for site rendering rather than operational workflow
 
 ---
@@ -159,7 +160,7 @@ The rewrite recognizes one shared capability without promoting it to a formal mo
 
 Owns:
 
-- translation of display titles and spliced content body markdown
+- translation of structured content fields (display title, short summary, and bullet slots)
 - content translation versioning and source fingerprint matching
 - language coverage status and quality states (pending, completed, failed, stale)
 - translation LLM orchestration, prompt template loading, and rate limiting
