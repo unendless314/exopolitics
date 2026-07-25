@@ -691,6 +691,10 @@ index_policy:
         
         # Keep track of original item JSON to verify it was restored
         orig_item_json = zh_file.read_text(encoding="utf-8")
+
+        # Snapshot the entire export tree; a complete rollback must restore it exactly,
+        # regardless of which files happened to be promoted before the failure
+        tree_before = {p.relative_to(self.export_dir): p.read_bytes() for p in self.export_dir.rglob("*.json")}
         
         # Capture database state before update
         conn = get_connection(self.db_path)
@@ -712,12 +716,15 @@ index_policy:
         self.seed_data(26, "Item TwentySix", "2026-06-25T10:00:00Z")
         
         orig_replace = os.replace
-        replace_calls = []
-        
+        staging_dir = self.export_dir / ".staging"
+        zh_index_dest = self.export_dir / "zh" / "index.json"
+
         def side_effect(src, dst):
-            replace_calls.append((src, dst))
-            # Fail on third file replace (simulating midway failure)
-            if len(replace_calls) > 2:
+            # Fail deterministically when promotion reaches zh/index.json: with the
+            # sorted promotion order, a newly created item-26 file has already been
+            # promoted by then, so both rollback paths are exercised. Rollback
+            # restores (src in .backup) must pass through or the reversion itself breaks.
+            if pathlib.Path(src).is_relative_to(staging_dir) and pathlib.Path(dst) == zh_index_dest:
                 raise OSError("Staging promotion disk full simulated error")
             return orig_replace(src, dst)
             
@@ -734,6 +741,10 @@ index_policy:
         
         zh_file_26 = self.export_dir / "zh" / "items" / "en-item-twentysix.json"
         self.assertFalse(zh_file_26.exists())
+
+        # The whole export tree must be byte-identical to the pre-failure snapshot
+        tree_after = {p.relative_to(self.export_dir): p.read_bytes() for p in self.export_dir.rglob("*.json")}
+        self.assertEqual(tree_before, tree_after)
         
         # 4. Verify DB was rolled back:
         # - Item 25 fingerprint and updated_at in DB should be restored to orig

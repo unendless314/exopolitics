@@ -744,8 +744,9 @@ async def orchestrate_run(
 
         promoted_actions = []
         try:
-            # Promote staging files
-            for rel_path in staging_files:
+            # Promote staging files (sorted for a deterministic promotion order,
+            # which keeps failure-injection tests and real-failure debugging sane)
+            for rel_path in sorted(staging_files):
                 src_path = staging_dir / rel_path
                 dest_path = export_dir / rel_path
                 
