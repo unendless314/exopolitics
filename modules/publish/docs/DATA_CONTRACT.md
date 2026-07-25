@@ -248,7 +248,7 @@ Contract requirements:
 | `bullet_2` | `evidence_level` |
 | `bullet_3` | `objective_impact` |
 
-- Exported content values must not contain presentation UI labels (e.g. "Key Claim", "Evidence Level", "Objective Impact"); those labels are applied by `site` at build time.
+- Exported content values must not carry a presentation UI label prefix; those labels are applied by `site` at build time. The forbidden prefixes are the three English labels ("Key Claim", "Evidence Level", "Objective Impact") plus every zh/ja variant observed in the field — zh: 主要主張, 關鍵主張, 核心主張, 證據層級, 證據等級, 客觀影響, 實際影響; ja: 主要な主張, 主張の要点, 証拠の水準, 証拠レベル, 証拠水準, エビデンスレベル, 客観的な影響, 客観的影響, 目的上の影響 (see known_issues/TRANSLATION_LABEL_LEAKAGE.md section 4.2; the item payload schema fixture encodes the same list).
 
 Contract example:
 

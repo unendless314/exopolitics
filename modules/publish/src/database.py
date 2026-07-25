@@ -121,7 +121,8 @@ class PublishRepository:
     def get_reconciliation_candidates(self) -> List[sqlite3.Row]:
         """
         Query mother-draft records, metadata, translations and curation status.
-        Does NOT query the t.content body to preserve memory under constraints.
+        Does NOT query the per-item payload fields (display_title, summary_short,
+        bullet_1..3) to preserve memory under constraints.
         """
         cursor = self.conn.cursor()
         query = """
@@ -255,7 +256,10 @@ class PublishRepository:
                 a.source_item_id,
                 t.language_code,
                 t.display_title,
-                t.content,
+                t.summary_short,
+                t.bullet_1,
+                t.bullet_2,
+                t.bullet_3,
                 s.canonical_url,
                 s.published_at AS source_published_at,
                 a.approved_at,

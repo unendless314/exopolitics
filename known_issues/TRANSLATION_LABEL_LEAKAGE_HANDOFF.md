@@ -1,6 +1,6 @@
 # 翻譯標籤洩漏重構：交接文件（2026-07-24）
 
-**狀態：** Phase 1 全部完成並通過複審，**Phase 2 已獲准但尚未開始**
+**狀態：** Phase 1、Phase 2、Phase 3 已完成並通過複審（Phase 3 於 2026-07-25 完成）；下一個執行項為 Phase 4（重塑 site adapter 與 i18n）
 **關聯文件：**
 - 核定計畫：[`TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md`](./TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md)
 - 處置清單與裁決紀錄：[`TRANSLATION_LABEL_LEAKAGE_DISPOSAL_LIST.md`](./TRANSLATION_LABEL_LEAKAGE_DISPOSAL_LIST.md)
@@ -46,28 +46,71 @@ Review 修正一輪：補上 `MULTILINGUAL_CONTENT_STRATEGY.md:50` 的 bypass �
 Set-Location modules\site; npx vitest run tests/i18n.test.ts tests/readingTime.test.ts # 13 passed
 ```
 
-## 2. 剩餘工作事項
+## 2. Phase 2 完成紀錄（2026-07-25，已通過複審）
 
-### Phase 2：重塑 handoff 與 translate（下一個執行項）
+依處置清單 §3.1 與計畫 Phase 2 完成 handoff 與 translate 重塑，全部測試轉綠。
 
-1. `modules/translate/src/migrations/v001_initial_translate_tables.sql` 改五欄 DDL（對齊 DATA_CONTRACT §1.4；全新資料庫適用，不做 in-place migration）。
-2. 實作 `approved_content_record.compute_content_fingerprint()`（黃金向量已釘：ASCII `0b0bbd33…c923`、非 ASCII `0893cb7b…070b3`；`ensure_ascii=False` 已核定）。
-3. assembler 改五欄直通，移除 `splice_content_body()`；保留 upstream freshness、author metadata、approval、language resolution 規則。
-4. queue、repository、bypass、failure preservation、stale detection 轉五欄；`validate_translation_response()` 換核定簽名（見處置清單 §2）。
-5. `config/model_settings.yaml`、`prompt_templates.yaml` 啟用 `translator_v2`（v1/v2 形狀不得共存）。
-6. 依處置清單 §3.1 改寫 `test_translate.py`（含兩處**刪除**：Markdown link 檢查、舊標籤通過斷言）。
-7. 完成條件：新空庫可完成 en bypass 與 zh/ja translation，DB 與 LLM payload 均無 UI labels；`test_five_field_contract.py` 應全綠。
+### 2.1 變更內容
 
-### Phase 3：重塑 publish export
+| 路徑 | 變更 |
+| --- | --- |
+| `modules/translate/src/migrations/v001_initial_translate_tables.sql` | 五欄 DDL，與 DATA_CONTRACT §1.4 逐字對齊（全新資料庫適用）。 |
+| `modules/translate/src/approved_content_record.py` | 移除 `splice_content_body()` 與舊 `compute_fingerprint()`；新增 `compute_content_fingerprint()`（黃金向量驗證通過）；assembler 改五欄直通，保留 delta 預篩、author metadata、approval、`content_language_code = 'en'` 規則。 |
+| `modules/translate/src/database.py` | `upsert_translation_output`、`get_pending_translation_tasks` 改五欄；stale 偵測邏輯不變。 |
+| `modules/translate/src/orchestrator.py` | `validate_translation_response()` 換核定五欄簽名（非 dict 維持 `ValueError`，未改 `TypeError`）；移除 Markdown 結構檢查（code fence／link／header）；新增聚合 ratio、聚合 script（不含 title）、zh/ja label-guard（19 個去重標籤、ASCII/全形冒號、剝除行首空白／清單符號／強調符）；request payload 改五欄槽位、NULL bullet 渲染為 `null`；structured-output schema 改 v2；bypass／成功／失敗寫入與 single-task mode 全改五欄。 |
+| `modules/translate/config/prompt_templates.yaml` | 移除 `translator_v1`，僅註冊 `translator_v2`（v1/v2 不共存），內文對齊 PROMPT_CONTRACT §4。 |
+| `modules/translate/config/model_settings.yaml` | `active_prompt_template: translator_v2`；`content_ratio_limit` 註解改聚合語意（值 5.0 不變）。 |
+| `modules/translate/tests/test_five_field_contract.py` | 建表 helper 依處置清單授權換回 `run_migrations()`（內嵌 DDL 已刪除），契約測試現直接鎖定正式 migration 檔。 |
+| `modules/translate/tests/test_translate.py` | 依處置清單 §3.1 全量改寫：五欄 INSERT/upsert/task/mock 回應；**刪除** Markdown link 兩測試與舊標籤通過斷言（`test_plain_text_labels_validation`）；保留 delta prescreen、CLI、stale/forced 區分、bypass 政策案例。 |
 
-1. `fetch_canonical_item_payload()` 改讀五欄；`validate_item_payload()` 改驗證已組裝的 export payload（Q5 核定，呼叫點需移動）。
-2. bullet_1..3 → key_claim/evidence_level/objective_impact 映射只在 publish 做一次；`publish_link` 輸出 `bullets: null`。
-3. index/archive 直讀 `summary_short`，刪除 `extract_summary_short()`。
-4. 依處置清單 §3.2 改寫 `test_publish.py` seed；`test_item_payload_contract.py` 應轉綠。
-5. publish 自有 migration（`v001_initial_publish_tables.sql`）**不動**；在乾淨工作區驗證 CLI migration 路徑可用。
-6. 順手補齊：`DATA_CONTRACT.md` §6.1 的 label 敘述可與 schema 的 18 標籤清單對齊（複審留的次要項）。
+### 2.2 驗證結果
 
-### Phase 4：重塑 site adapter 與 i18n
+- `modules/translate/tests`：**48 passed**（test_translate.py 9 + test_five_field_contract.py 39，契約測試全綠）。
+- publish：`test_publish.py` 13 passed 維持；Phase 3 契約測試如預期失敗（22 failed，Phase 3 處理）。
+- analysis：22+1 passed 維持；Phase 5 契約測試 2 個如預期失敗（Phase 5 處理）。
+- 冒煙演練（mock API、全新空庫 + 正式 migration）：assemble 2 筆 → 全 queue 6 任務（2 篇 × en/zh/ja）全成功；en 為 bypass 零 API call（實際 API call 僅 zh/ja 共 4 次）；`publish_link` 三 bullet 全 NULL、`publish_summary` 三 bullet 非空；DB 內容欄位與 LLM user prompt 均無三個英文 UI 標籤；single-task `--parent-content-id --force` 路徑亦驗證。
+- 指紋黃金向量：ASCII `0b0bbd33…c923`、非 ASCII `0893cb7b…070b3`，與測試釘定值一致。
+
+### 2.3 給複審者的提示
+
+- label-guard 實作為單一 regex（`orchestrator.py` 的 `_LABEL_GUARD_PATTERN`）：行首空白 → 可選清單符號（`*`／`-`／`+`）→ 可選強調符（`**`／`__`／`*`／`_`）→ 19 標籤（依長度降冪 alternation）→ 可選強調符 → ASCII `:` 或全形 `：`。僅適用 zh/ja（Q4 裁決）。
+- 聚合 ratio／聚合 script 的分母皆為「summary + 非空 bullets」，不含 title（Q3 裁決）；source 聚合為 0 時不做 ratio 檢查（沿用舊語意）。
+- prompt 中 NULL bullet 渲染為 JSON 字面值 `null`，配合 system instruction 的 null-in/null-out 指示。
+- `translator_v2` 的 `version` 欄位定為 `v2.0`（沿用 v1.0 命名慣例）；stale 偵測比對的就是此值，全新資料庫無舊列不受影響。
+- 非 dict response 維持 `ValueError`，未觸動複審遺留的次要判斷點。
+
+## 3. Phase 3 完成紀錄（2026-07-25，已通過複審）
+
+依處置清單 §3.2 與計畫 Phase 3 重塑 publish export，全部測試轉綠。
+
+### 3.1 變更內容
+
+| 路徑 | 變更 |
+| --- | --- |
+| `modules/publish/src/database.py` | `fetch_canonical_item_payload()` 改 SELECT 五欄（`summary_short, bullet_1..3` 取代 `t.content`）；`get_reconciliation_candidates` docstring 措辭同步。publish 自有 migration 未動。 |
+| `modules/publish/src/orchestrator.py` | 刪除 `extract_summary_short()`；新增 `UI_LABELS`（19 標籤，與 schema fixture 同清單）、`has_ui_label_prefix()`、`BULLET_KEY_MAP`、`assemble_item_payload()`（bullet_1..3 → key_claim/evidence_level/objective_impact 映射只在此做一次、解析 author_metadata、`publish_link` 輸出 `bullets: None`）；`validate_item_payload()` 改驗證已組裝的 export payload（summary_short 非空+label guard、downstream_action 白名單、bullets 形狀 0-or-3、author_metadata 規則沿用舊訊息）；`get_disclosure_note()` 改吃 parsed dict；Phase A 於 DB 變動前先 assemble+validate；Phase B assemble（帶真 `published_at`）+validate 後直接寫出 13 鍵 item JSON；index/archive 兩條 SQL 改直讀 `t.summary_short`。 |
+| `modules/publish/tests/test_publish.py` | 依處置清單 §3.2 改寫：刪 `extract_summary_short` import；mock 上游 DDL 改五欄；`seed_data` 的 acr 硬編碼 publish_summary → 三 bullet 非空、translation completed → 五欄、非 completed → 內容欄 NULL；content 措辭變數改名 `orig_item_json`。 |
+| `modules/publish/docs/DATA_CONTRACT.md` | §6.1 label 措辭補齊為 19 標籤完整清單（EN 3 + zh 7 + ja 9），與 schema fixture 對齊（複審留的次要項，結案）。 |
+
+### 3.2 驗證結果
+
+- `modules/publish/tests`：**27 passed + 45 subtests passed**（test_publish.py 13 維持 + test_item_payload_contract.py 全綠；Phase 2 時的 22 個預期失敗全部轉綠）。
+- translate：**48 passed** 維持不變。
+- analysis：23 passed + 2 個 Phase 5 預期失敗，維持不變。
+- 乾淨工作區驗證：暫存目錄空庫跑 `publish migrate` 成功，建出 `publish_record`／`publish_language_status`／`schema_migrations`。
+- CLI 冒煙（五欄 mock DB，zh/en/ja completed + publish_summary）：`run` 與 `rebuild` 各發布 3 件成功；item JSON 恰好 13 鍵、無 `content` 鍵；`bullets` 三語意鍵映射正確；item 與 index 的 `summary_short` 逐字來自 `translation_output.summary_short`；輸出全文無 UI 標籤前綴。
+
+### 3.3 給複審者的提示
+
+- `validate_item_payload()` 的輸入語意已從 canonical row 改為組裝完成的 export payload（Q5 核定）：`author_metadata` 是 dict、`bullets` 是語意鍵物件或 None；錯誤訊息保留既有字串（含 hybrid editor 那條）以免打破既有斷言。
+- label-guard regex 與 schema fixture 的 `not` pattern 相同：`^[\s*_-]*(LABELS)[\s*_]*[:：]`，19 標籤清單三處（orchestrator、schema fixture、契約測試）一致。
+- `assemble_item_payload()` 在 Phase A 以 `published_at=None` 驗證（時間戳不屬於四條驗證規則），Phase B 以真實 `published_at` 重組後寫檔；兩階段都過同一 validator。
+- `get_disclosure_note()` 簽名由 JSON 字串改為 parsed dict（內部函式，無外部引用）；metadata 非 dict 時回預設 AI-generated 文案，由 validator 補刀拒絕。
+- site 仍讀舊 `content` 鍵，在 Phase 4  adapter 落地前，`data/publish_export/` 的新格式輸出與 site build 不相容——正式重建前請勿直接對外發布（Phase 5 全量驗收處理）。
+
+## 4. 剩餘工作事項
+
+### Phase 4：重塑 site adapter 與 i18n（下一個執行項）
 
 1. 新增 `modules/site/src/config/post_labels.json`（en/zh/ja 三組定案標籤）與 `modules/site/scripts/lib/post_adapter.js`（四函式，簽名見處置清單 §2，含 Q7 的 `language_code === locale` 校驗）。
 2. `generate-posts.js` 依處置清單 §3.3 改造（刪 summaryMap、content fallback、硬編碼語言）。
@@ -88,10 +131,11 @@ Set-Location modules\site; npx vitest run tests/i18n.test.ts tests/readingTime.t
 - 禁止寫任何把舊 `content_body` 用 regex 拆回五欄的 migration。
 - 新輸出全數驗收前不切換服務；舊快照驗收期保留。
 
-## 3. 給接手者的提示
+## 5. 給接手者的提示
 
 - 處置清單 §2 有全部測試釘住的目標 API 簽名（已核定，實作勿偏離；若要改命名需同步改測試）。
 - 處置清單 §4 是 Review 裁決紀錄（Q1-Q12），實作前先讀。
-- 兩個複審遺留的次要判斷點：非 dict response 目前斷言 `ValueError`（Phase 2 若改 `TypeError` 需調一個測試）；publish DATA_CONTRACT §6.1 標籤措辭 Phase 3 補齊。
+- 複審遺留的次要判斷點：非 dict response 已於 Phase 2 維持 `ValueError`（結案）；publish DATA_CONTRACT §6.1 標籤措辭已於 Phase 3 補齊為 19 標籤清單（結案）。
 - 每個程式變更必須在同一變更集同步更新所屬 module 文件（計畫 §9 要求）。
 - 測試執行注意：本環境 pytest 對 `unittest.subTest` 失敗只記 SUBFAILED、父測試可能仍計 passed，寫參數化案例時避免依賴 subTest 計數。
+- publish 與 analysis 測試套件須分開執行（同一 pytest invocation 會因 tests package 同名衝突而收集失敗）。

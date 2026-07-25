@@ -47,64 +47,97 @@ def generate_slug(title: str, existing_slugs: Set[str]) -> str:
         counter += 1
     return slug
 
-def extract_summary_short(content: str, limit: int = 300) -> str:
-    """
-    Derive a short preview summary from the first paragraph of markdown content.
-    """
-    if not content:
-        return ""
-    # Split content into paragraphs
-    paragraphs = [p.strip() for p in content.split("\n\n") if p.strip()]
-    
-    # Find the first paragraph that is not a heading
-    first_p = ""
-    for p in paragraphs:
-        if not p.startswith("#"):
-            first_p = p
-            break
-    if not first_p:
-        first_p = paragraphs[0] if paragraphs else ""
-        
-    # Strip basic markdown link formatting and collapse spaces
-    text = first_p
-    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
-    text = re.sub(r'\*\*|__|\*|_', '', text)
-    text = re.sub(r'<[^>]+>', '', text)
-    text = re.sub(r'\s+', ' ', text).strip()
-    
-    if len(text) > limit:
-        text = text[:limit].rstrip() + "..."
-    return text
+# Presentation labels that must never leak into exported content values:
+# the three English labels plus every zh/ja variant observed in
+# known_issues/TRANSLATION_LABEL_LEAKAGE.md section 4.2.
+UI_LABELS = (
+    "Key Claim",
+    "Evidence Level",
+    "Objective Impact",
+    # zh variants (section 4.2)
+    "主要主張",
+    "關鍵主張",
+    "核心主張",
+    "證據層級",
+    "證據等級",
+    "客觀影響",
+    "實際影響",
+    # ja variants (section 4.2)
+    "主要な主張",
+    "主張の要点",
+    "証拠の水準",
+    "証拠レベル",
+    "証拠水準",
+    "エビデンスレベル",
+    "客観的な影響",
+    "客観的影響",
+    "目的上の影響",
+)
+
+_UI_LABEL_PREFIX_RE = re.compile(
+    r"^[\s*_-]*(" + "|".join(UI_LABELS) + r")[\s*_]*[:：]"
+)
+
+# Semantic bullets key mapping, established exactly once here in publish.
+# No other module assigns these keys.
+BULLET_KEY_MAP = (
+    ("bullet_1", "key_claim"),
+    ("bullet_2", "evidence_level"),
+    ("bullet_3", "objective_impact"),
+)
+
+def has_ui_label_prefix(value: str) -> bool:
+    """True when a content value starts with one of the presentation UI labels."""
+    return bool(_UI_LABEL_PREFIX_RE.match(value))
 
 def validate_item_payload(payload: Dict[str, Any]) -> None:
     """
-    Validates that a language artifact conforms to the publish data contract.
-    Aborts execution by raising ValidationError if any rule is violated.
+    Validates that an assembled export item payload conforms to the publish
+    data contract. Aborts execution by raising ValidationError if any rule
+    is violated.
     """
     display_title = payload.get("display_title")
-    content = payload.get("content")
     language_code = payload.get("language_code")
     slug = payload.get("slug")
-    author_metadata_str = payload.get("author_metadata")
+    summary_short = payload.get("summary_short")
+    downstream_action = payload.get("downstream_action")
+    author_metadata = payload.get("author_metadata")
 
     if not display_title or not display_title.strip():
         raise ValidationError("display_title must be non-empty")
-    if not content or not content.strip():
-        raise ValidationError("content must be non-empty")
     if not language_code or not language_code.strip():
         raise ValidationError("language_code must be present")
     if not slug or not slug.strip():
         raise ValidationError("slug must be present")
 
-    # Author metadata validation
-    if author_metadata_str is None:
-        raise ValidationError("author_metadata is required and cannot be NULL")
+    if not isinstance(summary_short, str) or not summary_short.strip():
+        raise ValidationError("summary_short must be a string that remains non-empty after trimming")
+    if has_ui_label_prefix(summary_short):
+        raise ValidationError("summary_short must not start with a presentation UI label prefix")
 
-    try:
-        author_metadata = json.loads(author_metadata_str)
-    except Exception as e:
-        raise ValidationError(f"author_metadata is invalid JSON: {str(e)}")
+    if downstream_action not in ("publish_summary", "publish_link"):
+        raise ValidationError(f"invalid downstream_action: '{downstream_action}'")
 
+    if "bullets" not in payload:
+        raise ValidationError("bullets is required and must never be omitted")
+    bullets = payload["bullets"]
+    if downstream_action == "publish_link":
+        if bullets is not None:
+            raise ValidationError("bullets must be null when downstream_action is 'publish_link'")
+    else:
+        if not isinstance(bullets, dict):
+            raise ValidationError("bullets must be an object when downstream_action is 'publish_summary'")
+        expected_bullet_keys = {"key_claim", "evidence_level", "objective_impact"}
+        if set(bullets.keys()) != expected_bullet_keys:
+            raise ValidationError("bullets must contain exactly the keys 'key_claim', 'evidence_level', and 'objective_impact'")
+        for key in sorted(expected_bullet_keys):
+            value = bullets[key]
+            if not isinstance(value, str) or not value.strip():
+                raise ValidationError(f"bullets.{key} must be a string that remains non-empty after trimming")
+            if has_ui_label_prefix(value):
+                raise ValidationError(f"bullets.{key} must not start with a presentation UI label prefix")
+
+    # Author metadata validation (already parsed from JSON at assembly time)
     if not isinstance(author_metadata, dict):
         raise ValidationError("author_metadata must parse to a JSON object")
 
@@ -121,17 +154,53 @@ def validate_item_payload(payload: Dict[str, Any]) -> None:
     elif writer_type not in ("AI", "machine"):
         raise ValidationError(f"invalid writer_type: '{writer_type}'")
 
-def get_disclosure_note(author_metadata_str: str) -> str:
+def get_disclosure_note(author_metadata: Dict[str, Any]) -> str:
     """
-    Get the disclosure note based on writer_type.
-    Assumes author_metadata_str is already validated.
+    Get the disclosure note based on writer_type from parsed author_metadata.
+    Malformed metadata falls back to the AI-generated note; validate_item_payload
+    rejects such payloads separately.
     """
-    author_metadata = json.loads(author_metadata_str)
-    writer_type = author_metadata.get("writer_type")
+    writer_type = author_metadata.get("writer_type") if isinstance(author_metadata, dict) else None
     if writer_type in ("human", "hybrid"):
         return "This item is AI-assisted and human-curated."
     else:
         return "This item is AI-generated."
+
+def assemble_item_payload(payload_row: Dict[str, Any], slug: str, published_at: Optional[str]) -> Dict[str, Any]:
+    """
+    Assemble the export item payload from a canonical upstream row.
+    Parses author_metadata and establishes the semantic bullets key mapping
+    exactly once, here in publish; no other module assigns these keys.
+    """
+    author_metadata_str = payload_row.get("author_metadata")
+    if author_metadata_str is None:
+        raise ValidationError("author_metadata is required and cannot be NULL")
+    try:
+        author_metadata = json.loads(author_metadata_str)
+    except Exception as e:
+        raise ValidationError(f"author_metadata is invalid JSON: {str(e)}")
+
+    downstream_action = payload_row.get("downstream_action")
+    if downstream_action == "publish_summary":
+        bullets = {key: payload_row.get(column) for column, key in BULLET_KEY_MAP}
+    else:
+        bullets = None
+
+    return {
+        "source_item_id": payload_row["source_item_id"],
+        "language_code": payload_row["language_code"],
+        "slug": slug,
+        "display_title": payload_row["display_title"],
+        "summary_short": payload_row["summary_short"],
+        "bullets": bullets,
+        "canonical_url": payload_row["canonical_url"],
+        "source_published_at": payload_row["source_published_at"],
+        "approved_at": payload_row["approved_at"],
+        "published_at": published_at,
+        "downstream_action": downstream_action,
+        "disclosure_note": get_disclosure_note(author_metadata),
+        "author_metadata": author_metadata
+    }
 def rollback_db_state(conn: sqlite3.Connection, db_compensations: List[Dict[str, Any]]) -> None:
     repo = PublishRepository(conn)
     # We rollback in reverse order of modifications
@@ -323,14 +392,13 @@ async def orchestrate_run(
             else:
                 slug = pub_rec["slug"]
 
-            # 2. Validate canonical payload before mutating database
+            # 2. Assemble and validate the export payload before mutating database
             payload_row = repo.fetch_canonical_item_payload(item_id, lang)
             if not payload_row:
                 raise ValidationError(f"Canonical data missing for item {item_id} lang {lang}")
-            
-            payload = dict(payload_row)
-            payload["slug"] = slug  # Populate slug for validation
-            validate_item_payload(payload)
+
+            item_payload = assemble_item_payload(dict(payload_row), slug, published_at=None)
+            validate_item_payload(item_payload)
 
             # Record prior state for database compensation if something fails later
             db_compensations.append({
@@ -436,27 +504,8 @@ async def orchestrate_run(
             if not payload_row:
                 raise ValidationError(f"Canonical data missing for published item {item_id} lang {lang}")
 
-            payload = dict(payload_row)
-            payload["slug"] = slug  # Populate slug for validation
-            validate_item_payload(payload)
-
-            author_metadata = json.loads(payload["author_metadata"])
-            disclosure_note = get_disclosure_note(payload["author_metadata"])
-
-            item_json = {
-                "source_item_id": payload["source_item_id"],
-                "language_code": payload["language_code"],
-                "slug": slug,
-                "display_title": payload["display_title"],
-                "content": payload["content"],
-                "canonical_url": payload["canonical_url"],
-                "source_published_at": payload["source_published_at"],
-                "approved_at": payload["approved_at"],
-                "published_at": published_at,
-                "downstream_action": payload["downstream_action"],
-                "disclosure_note": disclosure_note,
-                "author_metadata": author_metadata
-            }
+            item_json = assemble_item_payload(dict(payload_row), slug, published_at)
+            validate_item_payload(item_json)
 
             item_file_dir = staging_dir / lang / "items"
             item_file_dir.mkdir(parents=True, exist_ok=True)
@@ -505,7 +554,7 @@ async def orchestrate_run(
                     SELECT
                         pr.slug,
                         t.display_title,
-                        t.content,
+                        t.summary_short,
                         s.canonical_url,
                         s.published_at AS source_published_at,
                         a.approved_at,
@@ -525,11 +574,10 @@ async def orchestrate_run(
                     break
                 
                 for row in rows:
-                    summary_short = extract_summary_short(row["content"])
                     index_items.append({
                         "slug": row["slug"],
                         "display_title": row["display_title"],
-                        "summary_short": summary_short,
+                        "summary_short": row["summary_short"],
                         "canonical_url": row["canonical_url"],
                         "source_published_at": row["source_published_at"],
                         "approved_at": row["approved_at"],
@@ -557,7 +605,7 @@ async def orchestrate_run(
                         SELECT
                             pr.slug,
                             t.display_title,
-                            t.content,
+                            t.summary_short,
                             s.canonical_url,
                             s.published_at AS source_published_at,
                             a.approved_at,
@@ -577,11 +625,10 @@ async def orchestrate_run(
                         break
                     
                     for row in rows:
-                        summary_short = extract_summary_short(row["content"])
                         archive_items.append({
                             "slug": row["slug"],
                             "display_title": row["display_title"],
-                            "summary_short": summary_short,
+                            "summary_short": row["summary_short"],
                             "canonical_url": row["canonical_url"],
                             "source_published_at": row["source_published_at"],
                             "approved_at": row["approved_at"],

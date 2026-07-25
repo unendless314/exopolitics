@@ -1,6 +1,6 @@
 # Active provider and prompt selection for the translate module.
 active_provider: mini-proxy
-active_prompt_template: translator_v1
+active_prompt_template: translator_v2
 
 # Request behavior shared across providers.
 request_defaults:
@@ -35,7 +35,7 @@ execution_policy:
 # Validation Parameters
 validation:
   default_max_title_length: 500   # Fallback if not specified in target_languages
-  content_ratio_limit: 5.0        # Max ratio of len(translated_content) / len(content_body)
+  content_ratio_limit: 5.0        # Max ratio of aggregated translated length (summary + non-null bullets) / aggregated source length
 
 # Provider registry.
 providers:

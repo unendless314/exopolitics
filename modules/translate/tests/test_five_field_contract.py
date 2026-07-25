@@ -11,12 +11,8 @@ Source contracts (all locked 2026-07-24):
 - modules/translate/docs/EXECUTION_POLICY.md section 5 (validation),
   section 6 (bypass), section 4 (failure safety)
 
-These tests pin the TARGET contract. The runtime is still on the legacy
-spliced `content_body` / `content` shape, so most of these tests are
-EXPECTED TO FAIL (or error) until Phase 2 implements the target APIs.
-That is the purpose of Phase 1: the failure reason must be the missing
-target API, never a bug in the test code itself. Do not weaken these
-tests to make them pass; implement the runtime instead.
+These tests pin the TARGET contract, implemented in Phase 2. Do not weaken
+these tests to make them pass; fix the runtime instead.
 
 Test-defined target APIs (docs lock behavior but not names; see module
 docstring of the report / REFACTOR_PLAN Phase 2):
@@ -33,11 +29,9 @@ docstring of the report / REFACTOR_PLAN Phase 2):
   modules/translate/src/database.py TranslationRepository.upsert_translation_output
   keep their names and switch to five-field payloads.
 
-Note on schema: the legacy migration file still creates `content_body` /
-`content` columns, so this file creates the target five-field tables
-inline (DDL copied from DATA_CONTRACT.md section 1.4) instead of calling
-run_migrations(). Phase 2 may switch this helper to run_migrations() once
-the v001 DDL is updated.
+Note on schema: the v001 migration now creates the target five-field tables
+(DATA_CONTRACT.md section 1.4), so this file builds the schema through
+run_migrations() and only creates the minimal upstream curate tables inline.
 """
 
 import asyncio
@@ -53,10 +47,12 @@ from unittest.mock import MagicMock, patch
 import httpx
 
 from modules.translate.src.config import TranslateConfig
-from modules.translate.src.database import get_connection, TranslationRepository
+from modules.translate.src.database import get_connection, run_migrations, TranslationRepository
 from modules.translate.src import approved_content_record as handoff_module
 from modules.translate.src.approved_content_record import assemble_approved_content_records
 from modules.translate.src.orchestrator import translate_task, validate_translation_response
+
+DEFAULT_TRANSLATE_MIGRATIONS = pathlib.Path(__file__).resolve().parent.parent / "src" / "migrations"
 
 
 # ---------------------------------------------------------------------------
@@ -162,55 +158,14 @@ def five_field_response(
 
 
 # ---------------------------------------------------------------------------
-# Five-field schema helpers (DDL copied from DATA_CONTRACT.md section 1.4)
+# Five-field schema helper (upstream tables inline; translate tables via the
+# real v001 migration, which now carries the DATA_CONTRACT.md section 1.4 DDL)
 # ---------------------------------------------------------------------------
 
-FIVE_FIELD_DDL = """
-CREATE TABLE approved_content_record (
-    parent_content_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source_item_id INTEGER NOT NULL UNIQUE,
-    display_title TEXT NOT NULL,
-    summary_short TEXT NOT NULL,
-    bullet_1 TEXT,
-    bullet_2 TEXT,
-    bullet_3 TEXT,
-    content_fingerprint TEXT NOT NULL,
-    content_language_code TEXT NOT NULL,
-    approved_at TEXT NOT NULL,
-    author_metadata TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
-);
-
-CREATE TABLE translation_output (
-    translation_output_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    parent_content_id INTEGER NOT NULL,
-    source_item_id INTEGER NOT NULL,
-    language_code TEXT NOT NULL,
-    display_title TEXT,
-    summary_short TEXT,
-    bullet_1 TEXT,
-    bullet_2 TEXT,
-    bullet_3 TEXT,
-    source_fingerprint TEXT NOT NULL,
-    translation_status TEXT NOT NULL CHECK (translation_status IN ('pending', 'completed', 'failed', 'stale')),
-    retry_count INTEGER NOT NULL DEFAULT 0 CHECK (retry_count >= 0),
-    model_name TEXT NOT NULL,
-    prompt_version TEXT NOT NULL,
-    translated_at TEXT,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (parent_content_id) REFERENCES approved_content_record (parent_content_id) ON DELETE CASCADE,
-    FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id),
-    UNIQUE (parent_content_id, language_code)
-);
-"""
-
-
 def create_five_field_tables(db_path: pathlib.Path) -> None:
-    """Creates the minimal upstream curate tables plus the target five-field
-    approved_content_record / translation_output tables (inline DDL, see
-    module docstring)."""
+    """Creates the minimal upstream curate tables inline, then applies the
+    real v001 translate migration (five-field approved_content_record /
+    translation_output)."""
     conn = get_connection(db_path)
     try:
         cursor = conn.cursor()
@@ -252,10 +207,10 @@ def create_five_field_tables(db_path: pathlib.Path) -> None:
                 FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
             );
         """)
-        cursor.executescript(FIVE_FIELD_DDL)
         conn.commit()
     finally:
         conn.close()
+    run_migrations(db_path, DEFAULT_TRANSLATE_MIGRATIONS)
 
 
 # ---------------------------------------------------------------------------

@@ -19,7 +19,6 @@ from modules.publish.src.orchestrator import (
     ValidationError,
     slugify,
     generate_slug,
-    extract_summary_short,
 )
 
 DEFAULT_PUBLISH_MIGRATIONS = pathlib.Path(__file__).resolve().parent.parent / "src" / "migrations"
@@ -48,7 +47,10 @@ def create_mock_upstream_tables(db_path: pathlib.Path) -> None:
                 parent_content_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 source_item_id INTEGER NOT NULL UNIQUE,
                 display_title TEXT NOT NULL,
-                content_body TEXT NOT NULL,
+                summary_short TEXT NOT NULL,
+                bullet_1 TEXT,
+                bullet_2 TEXT,
+                bullet_3 TEXT,
                 content_fingerprint TEXT NOT NULL,
                 content_language_code TEXT NOT NULL,
                 approved_at TEXT NOT NULL,
@@ -65,7 +67,10 @@ def create_mock_upstream_tables(db_path: pathlib.Path) -> None:
                 source_item_id INTEGER NOT NULL,
                 language_code TEXT NOT NULL,
                 display_title TEXT,
-                content TEXT,
+                summary_short TEXT,
+                bullet_1 TEXT,
+                bullet_2 TEXT,
+                bullet_3 TEXT,
                 source_fingerprint TEXT NOT NULL,
                 translation_status TEXT NOT NULL,
                 retry_count INTEGER NOT NULL DEFAULT 0,
@@ -144,10 +149,10 @@ class TestPublishModule(unittest.TestCase):
                 VALUES (?, 1, ?, ?, ?, '2026-06-20T10:00:00Z', ?, 'guid', 'ingested')
             """, (item_id, title, f"https://example.com/{item_id}", published_at, f"key_{item_id}"))
             
-            # 2. approved_content_record
+            # 2. approved_content_record (curation hardcodes publish_summary -> all three bullets non-null)
             cursor.execute("""
-                INSERT OR REPLACE INTO approved_content_record (parent_content_id, source_item_id, display_title, content_body, content_fingerprint, content_language_code, approved_at, author_metadata, created_at, updated_at)
-                VALUES (?, ?, ?, 'Original Body', ?, 'zh', '2026-06-20T12:00:00Z', ?, '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
+                INSERT OR REPLACE INTO approved_content_record (parent_content_id, source_item_id, display_title, summary_short, bullet_1, bullet_2, bullet_3, content_fingerprint, content_language_code, approved_at, author_metadata, created_at, updated_at)
+                VALUES (?, ?, ?, 'Original summary', 'Original key claim', 'Original evidence level', 'Original objective impact', ?, 'zh', '2026-06-20T12:00:00Z', ?, '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
             """, (item_id * 10, item_id, title, content_fingerprint, author_metadata))
 
             # 3. curation_decision
@@ -156,17 +161,25 @@ class TestPublishModule(unittest.TestCase):
                 VALUES (?, ?, 'publish_summary', 'Approved', 'operator', 'curator', 'v1', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
             """, (item_id, curate_status))
 
-            # 4. translation_output (ZH)
+            # 4. translation_output (ZH); non-completed rows carry NULL content fields
+            if translation_status_zh == "completed":
+                zh_fields = (f"ZH summary for {title}", f"ZH key claim for {title}", f"ZH evidence level for {title}", f"ZH objective impact for {title}")
+            else:
+                zh_fields = (None, None, None, None)
             cursor.execute("""
-                INSERT OR REPLACE INTO translation_output (translation_output_id, parent_content_id, source_item_id, language_code, display_title, content, source_fingerprint, translation_status, model_name, prompt_version, translated_at, updated_at)
-                VALUES (?, ?, ?, 'zh', ?, ?, ?, ?, 'translator', 'v1', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
-            """, (item_id * 100, item_id * 10, item_id, title, f"ZH content for {title}\n\nThis is paragraph two.", trans_fingerprint_zh, translation_status_zh))
+                INSERT OR REPLACE INTO translation_output (translation_output_id, parent_content_id, source_item_id, language_code, display_title, summary_short, bullet_1, bullet_2, bullet_3, source_fingerprint, translation_status, model_name, prompt_version, translated_at, updated_at)
+                VALUES (?, ?, ?, 'zh', ?, ?, ?, ?, ?, ?, ?, 'translator', 'v1', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
+            """, (item_id * 100, item_id * 10, item_id, title, *zh_fields, trans_fingerprint_zh, translation_status_zh))
 
-            # 5. translation_output (EN)
+            # 5. translation_output (EN); non-completed rows carry NULL content fields
+            if translation_status_en == "completed":
+                en_fields = (f"EN summary for {title}", f"EN key claim for {title}", f"EN evidence level for {title}", f"EN objective impact for {title}")
+            else:
+                en_fields = (None, None, None, None)
             cursor.execute("""
-                INSERT OR REPLACE INTO translation_output (translation_output_id, parent_content_id, source_item_id, language_code, display_title, content, source_fingerprint, translation_status, model_name, prompt_version, translated_at, updated_at)
-                VALUES (?, ?, ?, 'en', ?, ?, ?, ?, 'translator', 'v1', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
-            """, (item_id * 100 + 1, item_id * 10, item_id, f"EN {title}", f"EN content for {title}\n\nThis is paragraph two.", trans_fingerprint_en, translation_status_en))
+                INSERT OR REPLACE INTO translation_output (translation_output_id, parent_content_id, source_item_id, language_code, display_title, summary_short, bullet_1, bullet_2, bullet_3, source_fingerprint, translation_status, model_name, prompt_version, translated_at, updated_at)
+                VALUES (?, ?, ?, 'en', ?, ?, ?, ?, ?, ?, ?, 'translator', 'v1', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
+            """, (item_id * 100 + 1, item_id * 10, item_id, f"EN {title}", *en_fields, trans_fingerprint_en, translation_status_en))
 
             conn.commit()
         finally:
@@ -676,8 +689,8 @@ index_policy:
         zh_file = self.export_dir / "zh" / "items" / "en-item-twentyfive.json"
         self.assertTrue(zh_file.exists())
         
-        # Keep track of original content to verify it was restored
-        orig_content = zh_file.read_text(encoding="utf-8")
+        # Keep track of original item JSON to verify it was restored
+        orig_item_json = zh_file.read_text(encoding="utf-8")
         
         # Capture database state before update
         conn = get_connection(self.db_path)
@@ -714,10 +727,10 @@ index_policy:
             self.assertIn("Staging promotion disk full simulated error", str(ctx.exception))
             
         # 3. Verify final export dir is restored:
-        # - Item 25 should still have its original content (not the updated one)
+        # - Item 25 should still have its original item JSON (not the updated one)
         # - Item 26 file should NOT exist
         self.assertTrue(zh_file.exists())
-        self.assertEqual(zh_file.read_text(encoding="utf-8"), orig_content)
+        self.assertEqual(zh_file.read_text(encoding="utf-8"), orig_item_json)
         
         zh_file_26 = self.export_dir / "zh" / "items" / "en-item-twentysix.json"
         self.assertFalse(zh_file_26.exists())

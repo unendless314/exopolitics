@@ -1,9 +1,6 @@
 import asyncio
-import hashlib
 import json
-import os
 import pathlib
-import sqlite3
 import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
@@ -18,10 +15,9 @@ from modules.translate.src.database import (
 )
 from modules.translate.src.approved_content_record import (
     assemble_approved_content_records,
-    compute_fingerprint
+    compute_content_fingerprint
 )
 from modules.translate.src.orchestrator import (
-    orchestrate_run,
     validate_translation_response,
     translate_task,
 )
@@ -91,6 +87,17 @@ def create_mock_upstream_tables(db_path: pathlib.Path) -> None:
         conn.close()
 
 
+def five_field_response(title: str, summary: str, b1=None, b2=None, b3=None) -> dict:
+    """Builds a translator_v2 five-key mock LLM response payload."""
+    return {
+        "translated_title": title,
+        "translated_summary": summary,
+        "translated_bullet_1": b1,
+        "translated_bullet_2": b2,
+        "translated_bullet_3": b3,
+    }
+
+
 class TestTranslateModule(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -110,9 +117,14 @@ class TestTranslateModule(unittest.TestCase):
         self.config.active_provider.supports_structured_output = False
 
         self.config.active_template = MagicMock()
-        self.config.active_template.version = "translator_v1"
+        self.config.active_template.version = "translator_v2"
         self.config.active_template.system_instruction = "System Instruction"
-        self.config.active_template.user_prompt_template = "Target Lang: {target_language}\nTitle: {display_title}\nBody: {content_body}"
+        self.config.active_template.user_prompt_template = (
+            "Target Lang: {target_language}\n"
+            "Title: {display_title}\n"
+            "Summary: {summary_short}\n"
+            "B1: {bullet_1}\nB2: {bullet_2}\nB3: {bullet_3}"
+        )
 
         self.config.execution_policy = MagicMock()
         self.config.execution_policy.batch_size = 20
@@ -167,7 +179,74 @@ class TestTranslateModule(unittest.TestCase):
         finally:
             conn.close()
 
-    def test_handoff_assembler_splicing_and_fingerprint(self) -> None:
+    def seed_approved_record(self, parent_content_id: int, source_item_id: int, title: str, summary: str,
+                             b1=None, b2=None, b3=None, fingerprint: str = "fp_test", language: str = "en") -> None:
+        conn = get_connection(self.db_path)
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO source_item (source_item_id, source_id, title, ingest_status)
+                VALUES (?, 1, ?, 'ingested')
+            """, (source_item_id, title))
+            cursor.execute("""
+                INSERT INTO approved_content_record (
+                    parent_content_id, source_item_id, display_title, summary_short,
+                    bullet_1, bullet_2, bullet_3, content_fingerprint,
+                    content_language_code, approved_at, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
+            """, (parent_content_id, source_item_id, title, summary, b1, b2, b3, fingerprint, language))
+            conn.commit()
+        finally:
+            conn.close()
+
+    def make_task(self, parent_content_id: int, source_item_id: int, title: str, summary: str,
+                  b1=None, b2=None, b3=None, fingerprint: str = "fp_test",
+                  source_language: str = "en", target_language: str = "en", status: str = "new") -> dict:
+        """Five-field translation task payload."""
+        task = {
+            "parent_content_id": parent_content_id,
+            "source_item_id": source_item_id,
+            "display_title": title,
+            "summary_short": summary,
+            "bullet_1": b1,
+            "bullet_2": b2,
+            "bullet_3": b3,
+            "content_fingerprint": fingerprint,
+            "content_language_code": source_language,
+            "language_code": target_language,
+        }
+        if status != "new":
+            task["status"] = status
+        return task
+
+    def seed_translation_output(self, parent_content_id: int, source_item_id: int, language_code: str,
+                                title=None, summary=None, b1=None, b2=None, b3=None,
+                                fingerprint: str = "fp_test", status: str = "completed",
+                                model_name: str = "gpt-5.4-mini", prompt_version: str = "translator_v2",
+                                translated_at: str = "2026-06-20T12:00:00Z") -> None:
+        conn = get_connection(self.db_path)
+        try:
+            repo = TranslationRepository(conn)
+            repo.upsert_translation_output({
+                "parent_content_id": parent_content_id,
+                "source_item_id": source_item_id,
+                "language_code": language_code,
+                "display_title": title,
+                "summary_short": summary,
+                "bullet_1": b1,
+                "bullet_2": b2,
+                "bullet_3": b3,
+                "source_fingerprint": fingerprint,
+                "translation_status": status,
+                "model_name": model_name,
+                "prompt_version": prompt_version,
+                "translated_at": translated_at,
+            })
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_handoff_assembler_passthrough_and_fingerprint(self) -> None:
         conn = get_connection(self.db_path)
         try:
             # Seed standard curation approval (with bullets)
@@ -175,9 +254,9 @@ class TestTranslateModule(unittest.TestCase):
                 item_id=10,
                 title="Mother-draft Title One",
                 summary="This is a brief summary content.",
-                b1="Key point one: claim content",
-                b2="Key point two: evidence level",
-                b3="Key point three: objective impact",
+                b1="Claim content.",
+                b2="Evidence content.",
+                b3="Impact content.",
                 primary_lang="zh",
                 updated_at="2026-06-20T12:00:00Z"
             )
@@ -204,14 +283,22 @@ class TestTranslateModule(unittest.TestCase):
             self.assertIsNotNone(r1)
             self.assertEqual(r1["display_title"], "Mother-draft Title One")
             self.assertEqual(r1["content_language_code"], "en")
-            expected_body_1 = (
-                "This is a brief summary content.\n\n"
-                "* Key Claim: Key point one: claim content\n"
-                "* Evidence Level: Key point two: evidence level\n"
-                "* Objective Impact: Key point three: objective impact"
+            # Straight-through copy: each stored field equals curation_output exactly,
+            # with no UI presentation labels injected anywhere.
+            self.assertEqual(r1["summary_short"], "This is a brief summary content.")
+            self.assertEqual(r1["bullet_1"], "Claim content.")
+            self.assertEqual(r1["bullet_2"], "Evidence content.")
+            self.assertEqual(r1["bullet_3"], "Impact content.")
+            self.assertEqual(
+                r1["content_fingerprint"],
+                compute_content_fingerprint(
+                    "Mother-draft Title One",
+                    "This is a brief summary content.",
+                    "Claim content.",
+                    "Evidence content.",
+                    "Impact content."
+                )
             )
-            self.assertEqual(r1["content_body"], expected_body_1)
-            self.assertEqual(r1["content_fingerprint"], compute_fingerprint("Mother-draft Title One", expected_body_1))
 
             cursor.execute("SELECT * FROM approved_content_record WHERE source_item_id = 20")
             r2 = cursor.fetchone()
@@ -219,7 +306,10 @@ class TestTranslateModule(unittest.TestCase):
             self.assertEqual(r2["display_title"], "Mother-draft Title Two")
             # All curate-originated mother-drafts materialize with content_language_code = 'en'
             self.assertEqual(r2["content_language_code"], "en")
-            self.assertEqual(r2["content_body"], "This is a link sharing article.")
+            self.assertEqual(r2["summary_short"], "This is a link sharing article.")
+            self.assertIsNone(r2["bullet_1"])
+            self.assertIsNone(r2["bullet_2"])
+            self.assertIsNone(r2["bullet_3"])
 
             # Test delta check (no changes, so skipped)
             stats2 = assemble_approved_content_records(conn)
@@ -251,64 +341,33 @@ class TestTranslateModule(unittest.TestCase):
             conn.close()
 
     def test_validation_rules(self) -> None:
-        source_body = "This is a body that is long enough to satisfy constraints."
-        
+        source_summary = "This is a body that is long enough to satisfy constraints."
+
         # Valid response
-        valid_data = {
-            "translated_title": "Translated Title",
-            "translated_content": "This is a body that is long enough to satisfy constraints."
-        }
+        valid_data = five_field_response(
+            "Translated Title",
+            "This is a body that is long enough to satisfy constraints."
+        )
         validate_translation_response(
-            valid_data, target_language_code="en", source_content_body=source_body,
+            valid_data, target_language_code="en", source_summary=source_summary,
+            source_bullet_1=None, source_bullet_2=None, source_bullet_3=None,
             max_title_len=500, content_ratio_limit=1.2
         ) # Should not raise
 
         # Invalid: Title exceeds limit
         with self.assertRaises(ValueError):
             validate_translation_response(
-                valid_data, target_language_code="ja", source_content_body=source_body,
+                valid_data, target_language_code="ja", source_summary=source_summary,
+                source_bullet_1=None, source_bullet_2=None, source_bullet_3=None,
                 max_title_len=5, content_ratio_limit=1.2 # title "Translated Title" length 16 > 5
             )
 
-        # Invalid: Content ratio exceeds limit
+        # Invalid: Aggregate content ratio exceeds limit
         with self.assertRaises(ValueError):
             validate_translation_response(
-                valid_data, target_language_code="en", source_content_body=source_body,
+                valid_data, target_language_code="en", source_summary=source_summary,
+                source_bullet_1=None, source_bullet_2=None, source_bullet_3=None,
                 max_title_len=500, content_ratio_limit=0.9
-            )
-
-        # Invalid: Code fence asymmetry
-        asymmetric_fence = {
-            "translated_title": "Title",
-            "translated_content": "Body with ``` code block but no end fence"
-        }
-        with self.assertRaises(ValueError):
-            validate_translation_response(
-                asymmetric_fence, target_language_code="en", source_content_body=source_body,
-                max_title_len=500, content_ratio_limit=1.2
-            )
-
-        # Invalid: Link syntax mismatch brackets
-        mismatched_brackets = {
-            "translated_title": "Title",
-            "translated_content": "Body with malformed link [text(url)"
-        }
-        with self.assertRaises(ValueError):
-            validate_translation_response(
-                mismatched_brackets, target_language_code="en", source_content_body=source_body,
-                max_title_len=500, content_ratio_limit=1.2
-            )
-
-        # Invalid: Header structure mismatch
-        source_headers = "# Header 1\n## Header 2"
-        mismatched_headers = {
-            "translated_title": "Title",
-            "translated_content": "# Header 1" # missing Header 2
-        }
-        with self.assertRaises(ValueError):
-            validate_translation_response(
-                mismatched_headers, target_language_code="en", source_content_body=source_headers,
-                max_title_len=500, content_ratio_limit=1.2
             )
 
     def test_cache_staleness_and_invalidation(self) -> None:
@@ -317,18 +376,11 @@ class TestTranslateModule(unittest.TestCase):
             repo = TranslationRepository(conn)
 
             # Insert approved content
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO source_item (source_item_id, source_id, title, ingest_status)
-                VALUES (100, 1, 'Original Title', 'ingested')
-            """)
-            cursor.execute("""
-                INSERT INTO approved_content_record (
-                    parent_content_id, source_item_id, display_title, content_body, content_fingerprint,
-                    content_language_code, approved_at, created_at, updated_at
-                ) VALUES (1, 100, 'Original Title', 'Original Body', 'fp_123', 'zh', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
-            """)
-            conn.commit()
+            self.seed_approved_record(
+                parent_content_id=1, source_item_id=100,
+                title="Original Title", summary="Original Summary",
+                fingerprint="fp_123", language="zh"
+            )
 
             # Insert matching translation_output
             repo.upsert_translation_output({
@@ -336,19 +388,19 @@ class TestTranslateModule(unittest.TestCase):
                 "source_item_id": 100,
                 "language_code": "en",
                 "display_title": "Translated English",
-                "content": "Translated English Body",
+                "summary_short": "Translated English Summary",
                 "source_fingerprint": "fp_123",
                 "translation_status": "completed",
                 "model_name": "gpt-5.4-mini",
-                "prompt_version": "translator_v1"
+                "prompt_version": "translator_v2"
             })
             
             # Check stale: no change running model and same fingerprint -> should not mark stale
-            staled = repo.detect_and_mark_stale("gpt-5.4-mini", "translator_v1")
+            staled = repo.detect_and_mark_stale("gpt-5.4-mini", "translator_v2")
             self.assertEqual(len(staled), 0)
 
             # 1. Config change invalidation -> should mark stale
-            staled_config = repo.detect_and_mark_stale("gpt-new-model", "translator_v1")
+            staled_config = repo.detect_and_mark_stale("gpt-new-model", "translator_v2")
             self.assertEqual(len(staled_config), 1)
             self.assertEqual(staled_config[0], (1, "en", "config_change"))
             
@@ -362,14 +414,15 @@ class TestTranslateModule(unittest.TestCase):
                 "source_item_id": 100,
                 "language_code": "en",
                 "display_title": "Translated English",
-                "content": "Translated English Body",
+                "summary_short": "Translated English Summary",
                 "source_fingerprint": "fp_123",
                 "translation_status": "completed",
                 "model_name": "gpt-5.4-mini",
-                "prompt_version": "translator_v1"
+                "prompt_version": "translator_v2"
             })
 
             # 2. Fingerprint change invalidation (upstream edited)
+            cursor = conn.cursor()
             cursor.execute("""
                 UPDATE approved_content_record
                 SET content_fingerprint = 'fp_changed'
@@ -377,7 +430,7 @@ class TestTranslateModule(unittest.TestCase):
             """)
             conn.commit()
 
-            staled_fp = repo.detect_and_mark_stale("gpt-5.4-mini", "translator_v1")
+            staled_fp = repo.detect_and_mark_stale("gpt-5.4-mini", "translator_v2")
             self.assertEqual(len(staled_fp), 1)
             self.assertEqual(staled_fp[0], (1, "en", "fingerprint_mismatch"))
             
@@ -390,7 +443,7 @@ class TestTranslateModule(unittest.TestCase):
                 "source_item_id": 100,
                 "language_code": "zh",
                 "display_title": "Original Title",
-                "content": "Original Body",
+                "summary_short": "Original Summary",
                 "source_fingerprint": "fp_changed", # matches record
                 "translation_status": "completed",
                 "model_name": "bypass",
@@ -419,29 +472,20 @@ class TestTranslateModule(unittest.TestCase):
         try:
             repo = TranslationRepository(conn)
             
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO source_item (source_item_id, source_id, title, ingest_status)
-                VALUES (100, 1, '中文標題', 'ingested')
-            """)
-            cursor.execute("""
-                INSERT INTO approved_content_record (
-                    parent_content_id, source_item_id, display_title, content_body, content_fingerprint,
-                    content_language_code, approved_at, created_at, updated_at
-                ) VALUES (1, 100, '中文標題', '中文內容是一篇非常重要的未確認異常現象報告，其中包含了許多關鍵細節。', 'fp_zh', 'zh', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
-            """)
-            conn.commit()
+            self.seed_approved_record(
+                parent_content_id=1, source_item_id=100,
+                title="中文標題",
+                summary="中文內容是一篇非常重要的未確認異常現象報告，其中包含了許多關鍵細節。",
+                fingerprint="fp_zh", language="zh"
+            )
 
-            # 1. Self-translation bypass (en and ja are targets, but target language 'zh' is bypassed)
-            task_bypass = {
-                "parent_content_id": 1,
-                "source_item_id": 100,
-                "display_title": "中文標題",
-                "content_body": "中文內容是一篇非常重要的未確認異常現象報告，其中包含了許多關鍵細節。",
-                "content_fingerprint": "fp_zh",
-                "content_language_code": "zh",
-                "language_code": "zh"
-            }
+            # 1. Self-translation bypass (target language 'zh' equals mother-draft language 'zh')
+            task_bypass = self.make_task(
+                parent_content_id=1, source_item_id=100,
+                title="中文標題",
+                summary="中文內容是一篇非常重要的未確認異常現象報告，其中包含了許多關鍵細節。",
+                fingerprint="fp_zh", source_language="zh", target_language="zh"
+            )
 
             db_lock = asyncio.Lock()
             client = httpx.AsyncClient()
@@ -459,7 +503,10 @@ class TestTranslateModule(unittest.TestCase):
             self.assertEqual(bypass_out["model_name"], "bypass")
             self.assertEqual(bypass_out["prompt_version"], "bypass")
             self.assertEqual(bypass_out["display_title"], "中文標題")
-            self.assertEqual(bypass_out["content"], "中文內容是一篇非常重要的未確認異常現象報告，其中包含了許多關鍵細節。")
+            self.assertEqual(bypass_out["summary_short"], "中文內容是一篇非常重要的未確認異常現象報告，其中包含了許多關鍵細節。")
+            self.assertIsNone(bypass_out["bullet_1"])
+            self.assertIsNone(bypass_out["bullet_2"])
+            self.assertIsNone(bypass_out["bullet_3"])
 
             # 2. Mock LLM translation success for 'en'
             mock_response = MagicMock(spec=httpx.Response)
@@ -467,24 +514,21 @@ class TestTranslateModule(unittest.TestCase):
             mock_response.json.return_value = {
                 "choices": [{
                     "message": {
-                        "content": json.dumps({
-                            "translated_title": "Translated Title",
-                            "translated_content": "Translated markdown content body"
-                        })
+                        "content": json.dumps(five_field_response(
+                            "Translated Title",
+                            "Translated summary content."
+                        ))
                     }
                 }]
             }
             mock_post.return_value = mock_response
 
-            task_en = {
-                "parent_content_id": 1,
-                "source_item_id": 100,
-                "display_title": "中文標題",
-                "content_body": "中文內容是一篇非常重要的未確認異常現象報告，其中包含了許多關鍵細節。",
-                "content_fingerprint": "fp_zh",
-                "content_language_code": "zh",
-                "language_code": "en"
-            }
+            task_en = self.make_task(
+                parent_content_id=1, source_item_id=100,
+                title="中文標題",
+                summary="中文內容是一篇非常重要的未確認異常現象報告，其中包含了許多關鍵細節。",
+                fingerprint="fp_zh", source_language="zh", target_language="en"
+            )
 
             success_en = asyncio.run(translate_task(
                 repo=repo, client=client, config=self.config, task=task_en,
@@ -497,34 +541,34 @@ class TestTranslateModule(unittest.TestCase):
             self.assertEqual(en_out["translation_status"], "completed")
             self.assertEqual(en_out["model_name"], "gpt-5.4-mini")
             self.assertEqual(en_out["display_title"], "Translated Title")
-            self.assertEqual(en_out["content"], "Translated markdown content body")
+            self.assertEqual(en_out["summary_short"], "Translated summary content.")
+            self.assertIsNone(en_out["bullet_1"])
+            self.assertIsNone(en_out["bullet_2"])
+            self.assertIsNone(en_out["bullet_3"])
 
-            # 3. Mock LLM translation validation failure (e.g. content ratio exceeds)
+            # 3. Mock LLM translation validation failure (aggregate ratio exceeds)
             mock_ratio_error_response = MagicMock(spec=httpx.Response)
             mock_ratio_error_response.status_code = 200
             mock_ratio_error_response.json.return_value = {
                 "choices": [{
                     "message": {
-                        "content": json.dumps({
-                            "translated_title": "Long translation",
-                            "translated_content": "Extremely long content rambling content " * 10 # fails ratio check
-                        })
+                        "content": json.dumps(five_field_response(
+                            "長い翻訳タイトル",
+                            "Extremely long content rambling content " * 10 # fails aggregate ratio check
+                        ))
                     }
                 }]
             }
             mock_post.return_value = mock_ratio_error_response
 
-            task_ja = {
-                "parent_content_id": 1,
-                "source_item_id": 100,
-                "display_title": "中文標題",
-                "content_body": "中文內容是一篇非常重要的未確認異常現象報告，其中包含了許多關鍵細節。",
-                "content_fingerprint": "fp_zh",
-                "content_language_code": "zh",
-                "language_code": "ja"
-            }
+            task_ja = self.make_task(
+                parent_content_id=1, source_item_id=100,
+                title="中文標題",
+                summary="中文內容是一篇非常重要的未確認異常現象報告，其中包含了許多關鍵細節。",
+                fingerprint="fp_zh", source_language="zh", target_language="ja"
+            )
 
-            # First run fails validation -> status='failed', retry_count=1, title/content remain NULL
+            # First run fails validation -> status='failed', retry_count=1, five fields remain NULL
             success_ja = asyncio.run(translate_task(
                 repo=repo, client=client, config=self.config, task=task_ja,
                 api_key="mock", db_lock=db_lock, commit=True
@@ -536,7 +580,10 @@ class TestTranslateModule(unittest.TestCase):
             self.assertEqual(ja_out["translation_status"], "failed")
             self.assertEqual(ja_out["retry_count"], 1)
             self.assertIsNone(ja_out["display_title"])
-            self.assertIsNone(ja_out["content"])
+            self.assertIsNone(ja_out["summary_short"])
+            self.assertIsNone(ja_out["bullet_1"])
+            self.assertIsNone(ja_out["bullet_2"])
+            self.assertIsNone(ja_out["bullet_3"])
 
             # 4. Operator Forced Rerun Failure rollback check
             # Seed a completed translation first
@@ -545,17 +592,26 @@ class TestTranslateModule(unittest.TestCase):
                 "source_item_id": 100,
                 "language_code": "ja",
                 "display_title": "Old Valid Title",
-                "content": "Old Valid Content",
+                "summary_short": "Old Valid Summary",
+                "bullet_1": "Old Valid Bullet 1",
+                "bullet_2": "Old Valid Bullet 2",
+                "bullet_3": "Old Valid Bullet 3",
                 "source_fingerprint": "fp_zh",
                 "translation_status": "completed",
                 "model_name": "gpt-5.4-mini",
-                "prompt_version": "translator_v1",
+                "prompt_version": "translator_v2",
                 "translated_at": "2026-06-20T12:00:00Z"
             })
             conn.commit()
 
             # Run again with same bad validation API response (should fail rerun)
-            task_ja_forced = dict(task_ja, status="completed")
+            task_ja_forced = self.make_task(
+                parent_content_id=1, source_item_id=100,
+                title="中文標題",
+                summary="中文內容是一篇非常重要的未確認異常現象報告，其中包含了許多關鍵細節。",
+                fingerprint="fp_zh", source_language="zh", target_language="ja",
+                status="completed"
+            )
             success_ja_rerun = asyncio.run(translate_task(
                 repo=repo, client=client, config=self.config, task=task_ja_forced,
                 api_key="mock", db_lock=db_lock, commit=True
@@ -566,35 +622,14 @@ class TestTranslateModule(unittest.TestCase):
             ja_out_after_fail = repo.get_translation_output(1, "ja")
             self.assertEqual(ja_out_after_fail["translation_status"], "completed")
             self.assertEqual(ja_out_after_fail["display_title"], "Old Valid Title")
-            self.assertEqual(ja_out_after_fail["content"], "Old Valid Content")
+            self.assertEqual(ja_out_after_fail["summary_short"], "Old Valid Summary")
+            self.assertEqual(ja_out_after_fail["bullet_1"], "Old Valid Bullet 1")
+            self.assertEqual(ja_out_after_fail["bullet_2"], "Old Valid Bullet 2")
+            self.assertEqual(ja_out_after_fail["bullet_3"], "Old Valid Bullet 3")
             self.assertEqual(ja_out_after_fail["retry_count"], 0)
 
         finally:
             conn.close()
-
-    def test_parentheses_outside_links_does_not_fail(self) -> None:
-        source_body = "This is a body of text."
-        valid_data = {
-            "translated_title": "Translated Title",
-            "translated_content": "This is a body of text containing acronyms (like AARO) and standard links [text](url)."
-        }
-        # This should NOT raise any ValueError now!
-        validate_translation_response(
-            valid_data, target_language_code="en", source_content_body=source_body,
-            max_title_len=500, content_ratio_limit=5.0
-        )
-
-    def test_parentheses_inside_url_does_not_fail(self) -> None:
-        source_body = "This is a body of text."
-        valid_data = {
-            "translated_title": "Translated Title",
-            "translated_content": "This is a body of text containing a link with parens: [text](https://example.com/foo(bar)) and standard links [text](url)."
-        }
-        # This should NOT raise any ValueError now!
-        validate_translation_response(
-            valid_data, target_language_code="en", source_content_body=source_body,
-            max_title_len=500, content_ratio_limit=10.0
-        )
 
     def test_delta_prescreen_with_upstream_timestamps(self) -> None:
         conn = get_connection(self.db_path)
@@ -649,18 +684,11 @@ class TestTranslateModule(unittest.TestCase):
         conn = get_connection(self.db_path)
         try:
             repo = TranslationRepository(conn)
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO source_item (source_item_id, source_id, title, ingest_status)
-                VALUES (300, 1, 'Source Title', 'ingested')
-            """)
-            cursor.execute("""
-                INSERT INTO approved_content_record (
-                    parent_content_id, source_item_id, display_title, content_body, content_fingerprint,
-                    content_language_code, approved_at, created_at, updated_at
-                ) VALUES (3, 300, 'Source Title', 'Source Body', 'fp_300', 'zh', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
-            """)
-            conn.commit()
+            self.seed_approved_record(
+                parent_content_id=3, source_item_id=300,
+                title="Source Title", summary="Source Summary",
+                fingerprint="fp_300", language="zh"
+            )
 
             # Seed a completed translation first
             repo.upsert_translation_output({
@@ -668,11 +696,11 @@ class TestTranslateModule(unittest.TestCase):
                 "source_item_id": 300,
                 "language_code": "en",
                 "display_title": "Old English Title",
-                "content": "Old English Content",
+                "summary_short": "Old English Summary",
                 "source_fingerprint": "fp_300",
                 "translation_status": "completed",
                 "model_name": "gpt-5.4-mini",
-                "prompt_version": "translator_v1"
+                "prompt_version": "translator_v2"
             })
             conn.commit()
 
@@ -685,16 +713,12 @@ class TestTranslateModule(unittest.TestCase):
             # First, we mark it as stale in the database:
             repo.update_translation_status(parent_content_id=3, language_code="en", status="stale")
             conn.commit()
-            task_stale = {
-                "parent_content_id": 3,
-                "source_item_id": 300,
-                "display_title": "Source Title",
-                "content_body": "Source Body",
-                "content_fingerprint": "fp_300",
-                "content_language_code": "zh",
-                "language_code": "en",
-                "status": "stale"  # Task status is stale, NOT completed
-            }
+            task_stale = self.make_task(
+                parent_content_id=3, source_item_id=300,
+                title="Source Title", summary="Source Summary",
+                fingerprint="fp_300", source_language="zh", target_language="en",
+                status="stale"  # Task status is stale, NOT completed
+            )
             success_stale = asyncio.run(translate_task(
                 repo=repo, client=client, config=self.config, task=task_stale,
                 api_key="mock", db_lock=db_lock, commit=True
@@ -712,25 +736,21 @@ class TestTranslateModule(unittest.TestCase):
                 "source_item_id": 300,
                 "language_code": "en",
                 "display_title": "Old English Title",
-                "content": "Old English Content",
+                "summary_short": "Old English Summary",
                 "source_fingerprint": "fp_300",
                 "translation_status": "completed",
                 "model_name": "gpt-5.4-mini",
-                "prompt_version": "translator_v1"
+                "prompt_version": "translator_v2"
             })
             conn.commit()
 
             # Case B: Explicit operator forced rerun failure (--force)
-            task_forced = {
-                "parent_content_id": 3,
-                "source_item_id": 300,
-                "display_title": "Source Title",
-                "content_body": "Source Body",
-                "content_fingerprint": "fp_300",
-                "content_language_code": "zh",
-                "language_code": "en",
-                "status": "completed"  # Task status is completed
-            }
+            task_forced = self.make_task(
+                parent_content_id=3, source_item_id=300,
+                title="Source Title", summary="Source Summary",
+                fingerprint="fp_300", source_language="zh", target_language="en",
+                status="completed"  # Task status is completed
+            )
             success_forced = asyncio.run(translate_task(
                 repo=repo, client=client, config=self.config, task=task_forced,
                 api_key="mock", db_lock=db_lock, commit=True
@@ -741,7 +761,7 @@ class TestTranslateModule(unittest.TestCase):
             out_forced = repo.get_translation_output(3, "en")
             self.assertEqual(out_forced["translation_status"], "completed")
             self.assertEqual(out_forced["display_title"], "Old English Title")
-            self.assertEqual(out_forced["content"], "Old English Content")
+            self.assertEqual(out_forced["summary_short"], "Old English Summary")
             self.assertEqual(out_forced["retry_count"], 0)
 
         finally:
@@ -785,123 +805,70 @@ class TestTranslateModule(unittest.TestCase):
         self.assertIn("Military personnel observed unidentified objects.", res_run_prev.output)
 
     def test_cjk_script_validation(self) -> None:
+        source_summary = "This is a body of text."
+
         # 1. Chinese (zh) script validation
-        source_body = "This is a body of text."
-        valid_zh = {
-            "translated_title": "中文標題",
-            "translated_content": "這是一段中文翻譯內容。"
-        }
-        # CJK characters present -> should pass
+        valid_zh = five_field_response("中文標題", "這是一段中文翻譯內容。")
+        # CJK characters present in aggregated content -> should pass
         validate_translation_response(
-            valid_zh, target_language_code="zh", source_content_body=source_body,
+            valid_zh, target_language_code="zh", source_summary=source_summary,
+            source_bullet_1=None, source_bullet_2=None, source_bullet_3=None,
             max_title_len=120, content_ratio_limit=1.2
         )
 
-        invalid_zh = {
-            "translated_title": "Translated Title",
-            "translated_content": "This is a body of text in English which copied the source content."
-        }
+        invalid_zh = five_field_response(
+            "Translated Title",
+            "This is a body of text in English which copied the source content."
+        )
         # No CJK characters -> should raise ValueError
         with self.assertRaises(ValueError) as ctx:
             validate_translation_response(
-                invalid_zh, target_language_code="zh", source_content_body=source_body,
+                invalid_zh, target_language_code="zh", source_summary=source_summary,
+                source_bullet_1=None, source_bullet_2=None, source_bullet_3=None,
                 max_title_len=120, content_ratio_limit=5.0
             )
         self.assertIn("lacks CJK Unified Ideographs", str(ctx.exception))
 
         # 2. Japanese (ja) script validation
-        valid_ja = {
-            "translated_title": "日本語タイトル",
-            "translated_content": "これは日本語の翻訳コンテンツです。"
-        }
+        valid_ja = five_field_response("日本語タイトル", "これは日本語の翻訳コンテンツです。")
         # Hiragana/Katakana present -> should pass
         validate_translation_response(
-            valid_ja, target_language_code="ja", source_content_body=source_body,
+            valid_ja, target_language_code="ja", source_summary=source_summary,
+            source_bullet_1=None, source_bullet_2=None, source_bullet_3=None,
             max_title_len=120, content_ratio_limit=2.0
         )
 
         # Mixed script proper noun tolerance: Japanese containing "AARO" and "UAP"
-        valid_ja_mixed = {
-            "translated_title": "日本語タイトル",
-            "translated_content": "AAROによるUAPに関する報告書。"
-        }
+        valid_ja_mixed = five_field_response("日本語タイトル", "AAROによるUAPに関する報告書。")
         validate_translation_response(
-            valid_ja_mixed, target_language_code="ja", source_content_body=source_body,
+            valid_ja_mixed, target_language_code="ja", source_summary=source_summary,
+            source_bullet_1=None, source_bullet_2=None, source_bullet_3=None,
             max_title_len=120, content_ratio_limit=2.0
         )
 
-        invalid_ja = {
-            "translated_title": "Translated Title",
-            "translated_content": "This is a body of text in English which copied the source content."
-        }
+        invalid_ja = five_field_response(
+            "Translated Title",
+            "This is a body of text in English which copied the source content."
+        )
         # No Hiragana/Katakana -> should raise ValueError
         with self.assertRaises(ValueError) as ctx:
             validate_translation_response(
-                invalid_ja, target_language_code="ja", source_content_body=source_body,
+                invalid_ja, target_language_code="ja", source_summary=source_summary,
+                source_bullet_1=None, source_bullet_2=None, source_bullet_3=None,
                 max_title_len=120, content_ratio_limit=5.0
             )
         self.assertIn("lacks Hiragana/Katakana characters", str(ctx.exception))
-
-    def test_plain_text_labels_validation(self) -> None:
-        # Source body has plain text bullet labels
-        source_body = (
-            "An archived court filing and related email excerpts describe a dispute.\n\n"
-            "* Key Claim: A court filing shows Epstein moved to block a subpoena.\n"
-            "* Evidence Level: Evidence cited includes a Florida motion to quash.\n"
-            "* Objective Impact: The filing is relevant to the legal record."
-        )
-
-        # Chinese translation using bold translated labels (which LLMs tend to generate)
-        valid_zh_bold = {
-            "translated_title": "存檔的法院文件",
-            "translated_content": (
-                "一份存檔的法院文件描述了爭議。\n\n"
-                "* **關鍵主張**：法院文件顯示 Epstein 試圖阻止傳票。\n"
-                "* **證據等級**：所引用的證據包括一份撤銷動議。\n"
-                "* **客觀影響**：該文件與訴訟的法律紀錄相關。"
-            )
-        }
-
-        # Validate Chinese bold translated labels -> should pass
-        validate_translation_response(
-            valid_zh_bold, target_language_code="zh", source_content_body=source_body,
-            max_title_len=120, content_ratio_limit=2.0
-        )
-
-        # Japanese translation using plain-text translated labels
-        valid_ja_plain = {
-            "translated_title": "裁判所提出書類",
-            "translated_content": (
-                "裁判所提出書類は争いを示している。\n\n"
-                "* 主要主張: 裁判所提出書類は Epstein が召喚状を阻止するよう申し立てたことを示している。\n"
-                "* 証拠水準: 引用された証拠には却下申立てが含まれる。\n"
-                "* 客観的影響: この提出書類は訴訟に関連している。"
-            )
-        }
-
-        # Validate Japanese plain-text translated labels -> should pass
-        validate_translation_response(
-            valid_ja_plain, target_language_code="ja", source_content_body=source_body,
-            max_title_len=120, content_ratio_limit=2.0
-        )
 
     @patch("httpx.AsyncClient.post")
     def test_bypass_policy_under_new_mother_draft_language(self, mock_post) -> None:
         conn = get_connection(self.db_path)
         try:
             repo = TranslationRepository(conn)
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO source_item (source_item_id, source_id, title, ingest_status)
-                VALUES (600, 1, 'English Title', 'ingested')
-            """)
-            cursor.execute("""
-                INSERT INTO approved_content_record (
-                    parent_content_id, source_item_id, display_title, content_body, content_fingerprint,
-                    content_language_code, approved_at, created_at, updated_at
-                ) VALUES (6, 600, 'English Title', 'English body content.', 'fp_en', 'en', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
-            """)
-            conn.commit()
+            self.seed_approved_record(
+                parent_content_id=6, source_item_id=600,
+                title="English Title", summary="English summary content.",
+                fingerprint="fp_en", language="en"
+            )
 
             # Mock LLM API response for translations that are not bypassed
             mock_response = MagicMock(spec=httpx.Response)
@@ -909,10 +876,10 @@ class TestTranslateModule(unittest.TestCase):
             mock_response.json.return_value = {
                 "choices": [{
                     "message": {
-                        "content": json.dumps({
-                            "translated_title": "中文標題",
-                            "translated_content": "這是一段中文翻譯內容。"
-                        })
+                        "content": json.dumps(five_field_response(
+                            "中文標題",
+                            "這是一段中文翻譯內容。"
+                        ))
                     }
                 }]
             }
@@ -922,15 +889,11 @@ class TestTranslateModule(unittest.TestCase):
             client = httpx.AsyncClient()
 
             # 1. Target language 'zh' should NOT bypass since target 'zh' != source 'en'
-            task_zh = {
-                "parent_content_id": 6,
-                "source_item_id": 600,
-                "display_title": "English Title",
-                "content_body": "English body content.",
-                "content_fingerprint": "fp_en",
-                "content_language_code": "en",
-                "language_code": "zh"
-            }
+            task_zh = self.make_task(
+                parent_content_id=6, source_item_id=600,
+                title="English Title", summary="English summary content.",
+                fingerprint="fp_en", source_language="en", target_language="zh"
+            )
             
             success_zh = asyncio.run(translate_task(
                 repo=repo, client=client, config=self.config, task=task_zh,
@@ -941,17 +904,14 @@ class TestTranslateModule(unittest.TestCase):
             zh_out = repo.get_translation_output(6, "zh")
             self.assertEqual(zh_out["model_name"], "gpt-5.4-mini")
             self.assertEqual(zh_out["display_title"], "中文標題")
+            self.assertEqual(zh_out["summary_short"], "這是一段中文翻譯內容。")
 
             # 2. Target language 'en' SHOULD bypass since target 'en' == source 'en'
-            task_en = {
-                "parent_content_id": 6,
-                "source_item_id": 600,
-                "display_title": "English Title",
-                "content_body": "English body content.",
-                "content_fingerprint": "fp_en",
-                "content_language_code": "en",
-                "language_code": "en"
-            }
+            task_en = self.make_task(
+                parent_content_id=6, source_item_id=600,
+                title="English Title", summary="English summary content.",
+                fingerprint="fp_en", source_language="en", target_language="en"
+            )
             success_en = asyncio.run(translate_task(
                 repo=repo, client=client, config=self.config, task=task_en,
                 api_key="mock", db_lock=db_lock, commit=True
@@ -961,7 +921,10 @@ class TestTranslateModule(unittest.TestCase):
             en_out = repo.get_translation_output(6, "en")
             self.assertEqual(en_out["model_name"], "bypass")
             self.assertEqual(en_out["display_title"], "English Title")
-            self.assertEqual(en_out["content"], "English body content.")
+            self.assertEqual(en_out["summary_short"], "English summary content.")
+            self.assertIsNone(en_out["bullet_1"])
+            self.assertIsNone(en_out["bullet_2"])
+            self.assertIsNone(en_out["bullet_3"])
 
         finally:
             conn.close()

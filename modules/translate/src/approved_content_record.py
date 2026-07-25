@@ -7,36 +7,45 @@ def get_utc_now_iso8601() -> str:
     import datetime
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-def compute_fingerprint(title: str, body: str) -> str:
-    """Normalize line endings and compute SHA-256 fingerprint."""
-    norm_title = title.replace("\r\n", "\n").replace("\r", "\n")
-    norm_body = body.replace("\r\n", "\n").replace("\r", "\n")
-    payload = norm_title + "\n\n" + norm_body
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+def _normalize_line_endings(value: Optional[str]) -> Optional[str]:
+    """Convert CRLF and bare CR to LF. NULL passes through unchanged."""
+    if value is None:
+        return None
+    return value.replace("\r\n", "\n").replace("\r", "\n")
 
 
+def compute_content_fingerprint(
+    display_title: str,
+    summary_short: str,
+    bullet_1: Optional[str] = None,
+    bullet_2: Optional[str] = None,
+    bullet_3: Optional[str] = None
+) -> str:
+    """
+    Single shared five-field fingerprint helper (DATA_CONTRACT.md section 2.1.1).
 
-def splice_content_body(summary_short: str, bullet_1: Optional[str], bullet_2: Optional[str], bullet_3: Optional[str]) -> str:
-    """Splice the summary and bullet points into a single markdown body with plain-text English labels."""
-    parts = [summary_short]
-    bullets_part = []
-    if bullet_1:
-        bullets_part.append(f"* Key Claim: {bullet_1}")
-    if bullet_2:
-        bullets_part.append(f"* Evidence Level: {bullet_2}")
-    if bullet_3:
-        bullets_part.append(f"* Objective Impact: {bullet_3}")
-        
-    if bullets_part:
-        parts.append("\n".join(bullets_part))
-        
-    return "\n\n".join(parts)
+    Fixed field order, per-field line-ending normalization, NULL serialized as
+    JSON null (never conflated with ""), fixed key order, no-whitespace JSON,
+    raw UTF-8 (ensure_ascii=False), SHA-256. UI labels, locale identifiers,
+    and site presentation strings never participate in the fingerprint.
+    """
+    payload = {
+        "display_title": _normalize_line_endings(display_title),
+        "summary_short": _normalize_line_endings(summary_short),
+        "bullet_1": _normalize_line_endings(bullet_1),
+        "bullet_2": _normalize_line_endings(bullet_2),
+        "bullet_3": _normalize_line_endings(bullet_3),
+    }
+    serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
 
 def assemble_approved_content_records(conn: sqlite3.Connection) -> Dict[str, Any]:
     """
     Delta-oriented shared handoff assembler.
-    Scans curation approvals, splices payloads, computes fingerprints,
-    and updates approved_content_record.
+    Scans curation approvals, copies the five structured content fields
+    straight through (never injecting UI presentation labels), computes
+    fingerprints, and updates approved_content_record.
     """
     cursor = conn.cursor()
     
@@ -93,14 +102,17 @@ def assemble_approved_content_records(conn: sqlite3.Connection) -> Dict[str, Any
             stats["skipped"] += 1
             continue
 
-        # Assemble the payload
+        # Straight-through copy of the five content fields
         display_title = cand["display_title"]
-        content_body = splice_content_body(
-            cand["summary_short"], cand["bullet_1"], cand["bullet_2"], cand["bullet_3"]
-        )
+        summary_short = cand["summary_short"]
+        bullet_1 = cand["bullet_1"]
+        bullet_2 = cand["bullet_2"]
+        bullet_3 = cand["bullet_3"]
 
         # Compute fingerprint
-        fingerprint = compute_fingerprint(display_title, content_body)
+        fingerprint = compute_content_fingerprint(
+            display_title, summary_short, bullet_1, bullet_2, bullet_3
+        )
 
         # Resolve content language code
         # Under current system policy, all curate-originated mother-drafts are materialized
@@ -122,19 +134,24 @@ def assemble_approved_content_records(conn: sqlite3.Connection) -> Dict[str, Any
             # Insert new record (store system time in updated_at to comply with contract)
             cursor.execute("""
                 INSERT INTO approved_content_record (
-                    source_item_id, display_title, content_body, content_fingerprint,
-                    content_language_code, approved_at, author_metadata, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    source_item_id, display_title, summary_short, bullet_1, bullet_2, bullet_3,
+                    content_fingerprint, content_language_code, approved_at, author_metadata,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                source_item_id, display_title, content_body, fingerprint,
-                content_language_code, cand["approved_at"], author_metadata, now, now
+                source_item_id, display_title, summary_short, bullet_1, bullet_2, bullet_3,
+                fingerprint, content_language_code, cand["approved_at"], author_metadata,
+                now, now
             ))
             stats["inserted"] += 1
         else:
             # Re-verify if any value changed
             is_changed = (
                 existing["display_title"] != display_title or
-                existing["content_body"] != content_body or
+                existing["summary_short"] != summary_short or
+                existing["bullet_1"] != bullet_1 or
+                existing["bullet_2"] != bullet_2 or
+                existing["bullet_3"] != bullet_3 or
                 existing["content_fingerprint"] != fingerprint or
                 existing["content_language_code"] != content_language_code or
                 existing["approved_at"] != cand["approved_at"]
@@ -143,13 +160,14 @@ def assemble_approved_content_records(conn: sqlite3.Connection) -> Dict[str, Any
             if is_changed:
                 cursor.execute("""
                     UPDATE approved_content_record
-                    SET display_title = ?, content_body = ?, content_fingerprint = ?,
-                        content_language_code = ?, approved_at = ?, author_metadata = ?,
-                        updated_at = ?
+                    SET display_title = ?, summary_short = ?, bullet_1 = ?, bullet_2 = ?, bullet_3 = ?,
+                        content_fingerprint = ?, content_language_code = ?, approved_at = ?,
+                        author_metadata = ?, updated_at = ?
                     WHERE source_item_id = ?
                 """, (
-                    display_title, content_body, fingerprint,
-                    content_language_code, cand["approved_at"], author_metadata, now, source_item_id
+                    display_title, summary_short, bullet_1, bullet_2, bullet_3,
+                    fingerprint, content_language_code, cand["approved_at"],
+                    author_metadata, now, source_item_id
                 ))
                 stats["updated"] += 1
             else:

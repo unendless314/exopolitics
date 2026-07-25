@@ -6,7 +6,7 @@ import random
 import sqlite3
 import sys
 import re
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional
 
 import httpx
 
@@ -63,132 +63,141 @@ class ProcessLock:
                 pass
 
 
+# Migration-period label guard list (EXECUTION_POLICY.md section 5 rule 5):
+# the three English UI labels plus every zh/ja variant observed leaking into
+# content (known_issues/TRANSLATION_LABEL_LEAKAGE.md section 4.2).
+KNOWN_UI_LABELS = (
+    "Key Claim",
+    "Evidence Level",
+    "Objective Impact",
+    "主要主張",
+    "關鍵主張",
+    "核心主張",
+    "證據層級",
+    "證據等級",
+    "客觀影響",
+    "實際影響",
+    "主要な主張",
+    "主張の要点",
+    "証拠の水準",
+    "証拠レベル",
+    "証拠水準",
+    "エビデンスレベル",
+    "客観的な影響",
+    "客観的影響",
+    "目的上の影響",
+)
+
+# Matches a value that, after leading whitespace and an optional list marker
+# and/or Markdown emphasis opener, starts with a known UI label followed by
+# an ASCII or fullwidth colon. Applied to zh/ja targets only.
+_LABEL_GUARD_PATTERN = re.compile(
+    r"^\s*(?:[*\-+]\s+)?(?:\*\*|__|\*|_)?\s*"
+    r"(?:" + "|".join(re.escape(label) for label in sorted(KNOWN_UI_LABELS, key=len, reverse=True)) + r")"
+    r"(?:\*\*|__|\*|_)?\s*[:：]"
+)
+
+
 def validate_translation_response(
     data: Dict[str, Any],
     target_language_code: str,
-    source_content_body: str,
+    source_summary: str,
+    source_bullet_1: Optional[str],
+    source_bullet_2: Optional[str],
+    source_bullet_3: Optional[str],
     max_title_len: int,
     content_ratio_limit: float
 ) -> None:
     """
-    Executes three levels of content validation:
-    1. Character length ratio limit check.
-    2. Target title length cap check.
-    3. Markdown structural integrity check (code fences, link parens/brackets, headers).
+    Executes runner-side content validation on a translator_v2 five-field response:
+    1. Required keys and non-empty-string type checks (nullability shape match).
+    2. Title length caps (configured limit, plus the Japanese 120 double-byte cap).
+    3. Aggregate content length ratio check over summary + non-null bullets.
+    4. Target script presence check over the aggregated translated content.
+    5. Migration-period label guard (zh/ja only).
     Raises ValueError on validation failure.
     """
     if not isinstance(data, dict):
         raise ValueError("Response data must be a dictionary")
-    if "translated_title" not in data or "translated_content" not in data:
-        raise ValueError("Response must contain 'translated_title' and 'translated_content'")
-    
+
+    required_keys = (
+        "translated_title",
+        "translated_summary",
+        "translated_bullet_1",
+        "translated_bullet_2",
+        "translated_bullet_3",
+    )
+    missing_keys = [key for key in required_keys if key not in data]
+    if missing_keys:
+        raise ValueError(f"Response is missing required keys: {', '.join(missing_keys)}")
+
     title = data["translated_title"]
-    content = data["translated_content"]
-    
-    if not isinstance(title, str) or not isinstance(content, str):
-        raise ValueError("translated_title and translated_content must be strings")
-        
-    # 1. Character Length Ratio Check
-    if len(source_content_body) > 0:
-        ratio = len(content) / len(source_content_body)
-        if ratio > content_ratio_limit:
-            raise ValueError(f"Translated content length ratio ({ratio:.2f}) exceeds limit of {content_ratio_limit}")
-            
+    summary = data["translated_summary"]
+    bullets = [data["translated_bullet_1"], data["translated_bullet_2"], data["translated_bullet_3"]]
+    source_bullets = [source_bullet_1, source_bullet_2, source_bullet_3]
+
+    # 1. Required string checks
+    if not isinstance(title, str) or not title.strip():
+        raise ValueError("translated_title must be a non-empty string after trimming")
+    if not isinstance(summary, str) or not summary.strip():
+        raise ValueError("translated_summary must be a non-empty string after trimming")
+
+    # 1b. Bullet type checks and source/response nullability shape match
+    for idx, (source_bullet, translated_bullet) in enumerate(zip(source_bullets, bullets), start=1):
+        if translated_bullet is not None and (not isinstance(translated_bullet, str) or not translated_bullet.strip()):
+            raise ValueError(f"translated_bullet_{idx} must be null or a non-empty string after trimming")
+        if source_bullet is None and translated_bullet is not None:
+            raise ValueError(f"translated_bullet_{idx} must be null because source bullet_{idx} is null")
+        if source_bullet is not None and translated_bullet is None:
+            raise ValueError(f"translated_bullet_{idx} must be a non-empty string because source bullet_{idx} is non-empty")
+
     # 2. Title Length Check
     if len(title) > max_title_len:
         raise ValueError(f"Translated title length ({len(title)}) exceeds limit of {max_title_len}")
-    
+
     # 2.1 Japanese specific title check
     if target_language_code == 'ja' and len(title) > 120:
         raise ValueError(f"Japanese title length ({len(title)}) exceeds double-byte cap of 120 characters")
-        
-    # 3. Markdown Structural Check
-    # Code fence symmetry
-    fence_count_source = source_content_body.count("```")
-    fence_count_translated = content.count("```")
-    if fence_count_translated % 2 != 0:
-        raise ValueError("Translated content has odd number of code fences")
-    if fence_count_translated != fence_count_source:
-        raise ValueError(f"Code fence count mismatch. Source: {fence_count_source}, Translated: {fence_count_translated}")
-        
-    # Link syntax preservation
-    # 1. Global bracket balance check (brackets are almost exclusively used for links/markdown structures)
-    if content.count("[") != content.count("]"):
-        raise ValueError("Mismatched square brackets in markdown links")
 
-    # 2. Detailed parenthetical balance check for link targets (using adjacent '](')
-    idx = 0
-    while True:
-        idx = content.find("](", idx)
-        if idx == -1:
-            break
-            
-        # Scan backward from idx - 1 to find '['
-        back_idx = idx - 1
-        found_open = False
-        while back_idx >= 0:
-            if content[back_idx] == '[':
-                found_open = True
-                break
-            elif content[back_idx] == ']':
-                # Hit another closing bracket before finding opening one
-                break
-            back_idx -= 1
-        if not found_open:
-            raise ValueError("Malformed markdown link: closing bracket without opening bracket or nested link structure")
-            
-        # Scan forward from idx + 2 to find matching ')'
-        forward_idx = idx + 2
-        paren_depth = 1  # We have seen '(' at the start of link target: ](
-        found_close = False
-        while forward_idx < len(content):
-            char = content[forward_idx]
-            if char == '(':
-                paren_depth += 1
-            elif char == ')':
-                paren_depth -= 1
-                if paren_depth == 0:
-                    found_close = True
-                    break
-            elif char in ('\n', '\r'):
-                # Markdown link URLs cannot span multiple lines
-                break
-            forward_idx += 1
-        if not found_close:
-            raise ValueError("Malformed markdown link: URL parenthesis not closed properly")
-            
-        idx += 2
-        
-    # Header preservation
-    def get_header_structure(text: str) -> List[int]:
-        levels = []
-        for line in text.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                match = re.match(r"^(#+)\s+", stripped)
-                if match:
-                    levels.append(len(match.group(1)))
-        return levels
-
-    source_headers = get_header_structure(source_content_body)
-    translated_headers = get_header_structure(content)
-    if source_headers != translated_headers:
-        raise ValueError(f"Header structure mismatch. Source: {source_headers}, Translated: {translated_headers}")
+    # 3. Aggregate Content Length Ratio Check
+    # Computed over summary + non-null bullets on both sides, never over a
+    # single short bullet, to avoid false rejections of valid translations.
+    source_aggregate_len = len(source_summary) + sum(len(b) for b in source_bullets if b is not None)
+    translated_aggregate_len = len(summary) + sum(len(b) for b in bullets if b is not None)
+    if source_aggregate_len > 0:
+        ratio = translated_aggregate_len / source_aggregate_len
+        if ratio > content_ratio_limit:
+            raise ValueError(f"Translated content length ratio ({ratio:.2f}) exceeds limit of {content_ratio_limit}")
 
     # 4. Target Script Presence Validation (Proper-noun-tolerant)
+    # Applies to the aggregated translated content (summary + non-null bullets,
+    # excluding the title).
+    aggregated_translated = summary + "".join(b for b in bullets if b is not None)
     if target_language_code == 'zh':
         # CJK Unified Ideographs (Chinese characters)
-        has_chinese = any('\u4e00' <= char <= '\u9fff' for char in content)
+        has_chinese = any('\u4e00' <= char <= '\u9fff' for char in aggregated_translated)
         if not has_chinese:
             raise ValueError("Chinese translation output lacks CJK Unified Ideographs (Chinese characters)")
     elif target_language_code == 'ja':
         # Hiragana and Katakana characters (essential grammatical elements of written Japanese)
         has_kana = any(
             ('\u3040' <= char <= '\u309f') or ('\u30a0' <= char <= '\u30ff')
-            for char in content
+            for char in aggregated_translated
         )
         if not has_kana:
             raise ValueError("Japanese translation output lacks Hiragana/Katakana characters")
+
+    # 5. Migration-Period Label Guard (zh/ja targets only)
+    # Detects erroneous presentation-string backflow into content. This is not
+    # the primary correctness mechanism; global string replacement on content
+    # is forbidden.
+    if target_language_code in ('zh', 'ja'):
+        for value in [summary] + [b for b in bullets if b is not None]:
+            if _LABEL_GUARD_PATTERN.search(value):
+                raise ValueError(
+                    "Translated field starts with a known UI presentation label prefix; "
+                    "presentation labels must not appear in content values"
+                )
 
 
 def _build_request_payload(config: TranslateConfig, item: sqlite3.Row, target_language_code: str) -> Dict[str, Any]:
@@ -200,11 +209,19 @@ def _build_request_payload(config: TranslateConfig, item: sqlite3.Row, target_la
     target_language_label = lang_config.label if lang_config else target_language_code
     target_language_str = f"{target_language_label} ({target_language_code})"
 
+    # NULL source bullets are rendered as the JSON literal `null` so the model
+    # knows the corresponding response value must be null.
+    def render_bullet(value: Optional[str]) -> str:
+        return value if value is not None else "null"
+
     system_instruction = config.active_template.system_instruction
     user_prompt = config.active_template.user_prompt_template.format(
         target_language=target_language_str,
         display_title=item["display_title"],
-        content_body=item["content_body"]
+        summary_short=item["summary_short"],
+        bullet_1=render_bullet(item["bullet_1"]),
+        bullet_2=render_bullet(item["bullet_2"]),
+        bullet_3=render_bullet(item["bullet_3"])
     )
 
     payload: Dict[str, Any] = {
@@ -231,11 +248,20 @@ def _build_request_payload(config: TranslateConfig, item: sqlite3.Row, target_la
                             "type": "string",
                             "maxLength": 500
                         },
-                        "translated_content": {
+                        "translated_summary": {
                             "type": "string"
+                        },
+                        "translated_bullet_1": {
+                            "type": ["string", "null"]
+                        },
+                        "translated_bullet_2": {
+                            "type": ["string", "null"]
+                        },
+                        "translated_bullet_3": {
+                            "type": ["string", "null"]
                         }
                     },
-                    "required": ["translated_title", "translated_content"],
+                    "required": ["translated_title", "translated_summary", "translated_bullet_1", "translated_bullet_2", "translated_bullet_3"],
                     "additionalProperties": False
                 },
             },
@@ -289,7 +315,7 @@ async def fetch_llm_translation(
 ) -> Dict[str, Any]:
     """
     Submits translation request to the active LLM provider with backoff retries.
-    Returns validated JSON response with translated title and content.
+    Returns validated JSON response with the five translated fields.
     """
     provider = config.active_provider
     policy = config.execution_policy
@@ -339,7 +365,10 @@ async def fetch_llm_translation(
             validate_translation_response(
                 parsed_json,
                 target_language_code=target_language_code,
-                source_content_body=item["content_body"],
+                source_summary=item["summary_short"],
+                source_bullet_1=item["bullet_1"],
+                source_bullet_2=item["bullet_2"],
+                source_bullet_3=item["bullet_3"],
                 max_title_len=max_title_len,
                 content_ratio_limit=content_ratio_limit
             )
@@ -384,7 +413,7 @@ async def translate_task(
         # 2. Check for self-translation bypass
         if target_language == source_language:
             # Self-Translation Bypass Policy
-            # Direct copy display_title and content_body
+            # Direct copy of the five content fields
             now = get_utc_now_iso8601()
             async with db_lock:
                 try:
@@ -397,7 +426,10 @@ async def translate_task(
                         "source_item_id": source_item_id,
                         "language_code": target_language,
                         "display_title": task["display_title"],
-                        "content": task["content_body"],
+                        "summary_short": task["summary_short"],
+                        "bullet_1": task["bullet_1"],
+                        "bullet_2": task["bullet_2"],
+                        "bullet_3": task["bullet_3"],
                         "source_fingerprint": task["content_fingerprint"],
                         "translation_status": "completed",
                         "retry_count": 0,
@@ -435,7 +467,10 @@ async def translate_task(
                     "source_item_id": source_item_id,
                     "language_code": target_language,
                     "display_title": parsed["translated_title"],
-                    "content": parsed["translated_content"],
+                    "summary_short": parsed["translated_summary"],
+                    "bullet_1": parsed["translated_bullet_1"],
+                    "bullet_2": parsed["translated_bullet_2"],
+                    "bullet_3": parsed["translated_bullet_3"],
                     "source_fingerprint": task["content_fingerprint"],
                     "translation_status": "completed",
                     "retry_count": 0,
@@ -463,7 +498,10 @@ async def translate_task(
             try:
                 # Retrieve existing values to preserve them if this was not the first run
                 old_title = existing["display_title"] if existing else None
-                old_content = existing["content"] if existing else None
+                old_summary = existing["summary_short"] if existing else None
+                old_bullet_1 = existing["bullet_1"] if existing else None
+                old_bullet_2 = existing["bullet_2"] if existing else None
+                old_bullet_3 = existing["bullet_3"] if existing else None
                 
                 async with db_lock:
                     try:
@@ -476,7 +514,10 @@ async def translate_task(
                             "source_item_id": source_item_id,
                             "language_code": target_language,
                             "display_title": old_title,
-                            "content": old_content,
+                            "summary_short": old_summary,
+                            "bullet_1": old_bullet_1,
+                            "bullet_2": old_bullet_2,
+                            "bullet_3": old_bullet_3,
                             "source_fingerprint": task["content_fingerprint"],
                             "translation_status": "failed",
                             "retry_count": existing_retry_count + 1,
@@ -562,7 +603,10 @@ async def orchestrate_run(
                         "parent_content_id": item["parent_content_id"],
                         "source_item_id": item["source_item_id"],
                         "display_title": item["display_title"],
-                        "content_body": item["content_body"],
+                        "summary_short": item["summary_short"],
+                        "bullet_1": item["bullet_1"],
+                        "bullet_2": item["bullet_2"],
+                        "bullet_3": item["bullet_3"],
                         "content_fingerprint": item["content_fingerprint"],
                         "content_language_code": item["content_language_code"],
                         "approved_at": item["approved_at"],
