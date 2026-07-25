@@ -10,9 +10,9 @@ request_defaults:
 
 # Execution controls owned by the classify module.
 execution_policy:
-  batch_size: 20
-  max_concurrent_requests: 3
-  rate_limit_per_minute: 60
+  batch_size: 200
+  max_concurrent_requests: 20
+  rate_limit_per_minute: 1200
   request_timeout_seconds: 45.0
   retry_attempts: 3
   backoff_factor: 2.0
