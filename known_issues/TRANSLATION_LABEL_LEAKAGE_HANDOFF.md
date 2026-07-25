@@ -106,7 +106,17 @@ Set-Location modules\site; npx vitest run tests/i18n.test.ts tests/readingTime.t
 - label-guard regex 與 schema fixture 的 `not` pattern 相同：`^[\s*_-]*(LABELS)[\s*_]*[:：]`，19 標籤清單三處（orchestrator、schema fixture、契約測試）一致。
 - `assemble_item_payload()` 在 Phase A 以 `published_at=None` 驗證（時間戳不屬於四條驗證規則），Phase B 以真實 `published_at` 重組後寫檔；兩階段都過同一 validator。
 - `get_disclosure_note()` 簽名由 JSON 字串改為 parsed dict（內部函式，無外部引用）；metadata 非 dict 時回預設 AI-generated 文案，由 validator 補刀拒絕。
-- site 仍讀舊 `content` 鍵，在 Phase 4  adapter 落地前，`data/publish_export/` 的新格式輸出與 site build 不相容——正式重建前請勿直接對外發布（Phase 5 全量驗收處理）。
+- site 仍讀舊 `content` 鍵，在 Phase 4 adapter 落地前無法消費新格式 export——site 對外發布須待 Phase 4／5 完成（現況見 §3.4）。
+
+### 3.4 實庫重建與 publish 實跑紀錄（2026-07-25）
+
+使用者於 Phase 3 複審通過後，提前執行了正式全庫重建（原排定於 Phase 5 演練）：
+
+- 舊 `canonical.db` 已移除（雲端伺服器可隨時重新下載舊版，等效滿足快照紅線）；以真實 pipeline（ingest → classify → curate → translate）建立全新五欄資料庫。`data/canonical_final.db` 未動。
+- 新庫實測：3,015 筆 approved_content_record、9,045 筆 translation_output；0-or-3 invariant 完全成立（`publish_link` 7,830 筆三 bullet 全 NULL、`publish_summary` 1,215 筆全非空、partial 為 0）；五欄內容掃 19 個 UI 標籤前綴零命中。
+- publish 實跑：`migrate` + `run` + `rebuild` 皆成功，各發布 9,045 件；`status` 顯示 Active 9,045／Withdrawn 0／Frozen Slugs 3,015／Blocked 0。
+- export 驗證（run 與 rebuild 後各驗一次）：item JSON 恰好 13 鍵、無 `content` 鍵；bullets 0-or-3 形狀正確；3,000 筆 index 條目逐一與 DB 比對 `summary_short` 逐字相符；全部輸出字串零 UI 標籤。
+- `data/publish_export/` 現為新格式真實資料，可直接供 Phase 4 的 site adapter 開發除錯。
 
 ## 4. 剩餘工作事項
 
@@ -121,8 +131,8 @@ Set-Location modules\site; npx vitest run tests/i18n.test.ts tests/readingTime.t
 
 1. `translate_queries.py:142` 的 `get_translation_char_volumes()` 換五欄公式（**只改這一條**；global/share 查詢依 Q10 裁決另案，待 REPORT_CONTRACTS 納入）。
 2. 依處置清單 §3.4 更新 `generate_mock_db.py`（含 `data/test_sandbox.db` 重建）與五個 test 檔的 seed；注意 `downstream_action` 與 bullets 形狀的 0-or-3 一致性。
-3. 隔離空庫完整跑 ingest → site pipeline 演練，再依核准範圍執行正式全量重建（計畫 §6）。
-4. 產出結構與品質稽核報告後，才能把原始問題移至 `known_issues/resolved/`。
+3. ~~隔離空庫完整跑 ingest → site pipeline 演練，再依核准範圍執行正式全量重建（計畫 §6）。~~ **正式重建已由使用者提前執行完畢（2026-07-25，見 §3.4）**；site 段的端到端驗證併入 Phase 4 完成後進行。
+4. 對新庫補跑結構與品質稽核報告（重建先於稽核，此項不得省略；如需新舊對照可從雲端取回舊庫），通過後才能把原始問題移至 `known_issues/resolved/`。
 
 ### 全庫重建紅線（計畫 §6，執行 Phase 5 前重讀）
 
