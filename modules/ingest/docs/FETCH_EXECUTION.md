@@ -87,6 +87,11 @@ Each source attempt should capture:
 - item anomaly counts when tracked
 - error class and detail when failed
 
+Allowed non-null error classes are `network_error`, `timeout_error`,
+`http_error_4xx`, `http_error_5xx`, `parse_error`, and `unexpected_error`.
+`error_class` records a coarse failure category; `http_status` records the
+precise HTTP-layer cause when available.
+
 Default direction:
 
 - successful fetch plus some low-context items is still a source-level success
@@ -106,6 +111,14 @@ Observability note:
 - one item-level failure must not corrupt unrelated items from the same source
 - source health must reflect repeated source-level failures, not merely low-context content
 - execution must preserve enough evidence for later debugging
+
+An invalid error-class value at either persistence boundary is a programming
+error. It must escape source-level failure isolation, fail the run, and leave
+other sources able to complete. The violating source must not gain a new
+failure attempt or increment its committed failure count. Non-contract
+persistence failures may be recorded as `unexpected_error`; when a failed
+fetch result exists, their detail should retain only its original error class
+and HTTP status, never the remote response excerpt.
 
 ---
 

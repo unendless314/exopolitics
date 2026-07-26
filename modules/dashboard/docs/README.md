@@ -56,7 +56,8 @@ python -m modules.analysis.src.cli analyze-classify --format json --days 7
 python -m modules.analysis.src.cli analyze-translation --format json --days 7
 python -m modules.analysis.src.cli analyze-curation --format json --days 7
 
-# 2. Install dependencies (a repo-level .venv is recommended)
+# 2. Install dependencies (the project standard is the system Python 3.12
+#    interpreter; no virtualenv is used)
 pip install -r modules/dashboard/requirements.txt
 
 # 3. Launch the dashboard from the module directory so the theme is applied

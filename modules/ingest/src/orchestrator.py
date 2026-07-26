@@ -19,6 +19,7 @@ from .database import (
     DedupMarkerRepository
 )
 from .fetcher import fetch_feed, FetchResult
+from .errors import ErrorClass, ErrorClassContractError
 from .parser import parse_feed_entries
 from .sanitizer import sanitize_item
 from .scheduler import (
@@ -229,7 +230,7 @@ async def orchestrate_source(
                             "consecutive_failures": next_failures,
                             "health_status": next_health,
                             "quarantine_until": next_quarantine,
-                            "last_error_class": "parse_error",
+                            "last_error_class": ErrorClass.PARSE.value,
                             "last_error_at": attempt_ended_at
                         }
                     )
@@ -240,7 +241,7 @@ async def orchestrate_source(
                         "ended_at": attempt_ended_at,
                         "retry_count": fetch_result.retry_count,
                         "http_status": fetch_result.status_code,
-                        "error_class": "parse_error",
+                        "error_class": ErrorClass.PARSE.value,
                         "error_detail": f"ParseError: {parse_err}",
                         "outcome": "failed",
                         "new_item_count": 0,
@@ -253,7 +254,7 @@ async def orchestrate_source(
                     source_id=source.id,
                     outcome="failed",
                     http_status=fetch_result.status_code,
-                    error_class="parse_error",
+                    error_class=ErrorClass.PARSE.value,
                     error_detail=str(parse_err)
                 )
 
@@ -499,9 +500,18 @@ async def orchestrate_source(
                 quarantined_now=(next_health == "quarantined")
             )
 
+    except ErrorClassContractError:
+        raise
     except Exception as exc:
         # Failure isolation: catch unexpected exceptions so they don't halt other sources
         logger.error(f"Isolation failure in source {source.id}: {exc}", exc_info=True)
+        isolation_error_detail = str(exc)
+        if "fetch_result" in locals() and fetch_result.error_class is not None:
+            isolation_error_detail = (
+                f"{isolation_error_detail} "
+                f"(fetch_error_class={fetch_result.error_class}, "
+                f"fetch_http_status={fetch_result.status_code})"
+            )
         try:
             with transaction(conn):
                 next_failures, next_health, next_quarantine = apply_fetch_failure(consecutive_failures, now_str)
@@ -516,7 +526,7 @@ async def orchestrate_source(
                         "consecutive_failures": next_failures,
                         "health_status": next_health,
                         "quarantine_until": next_quarantine,
-                        "last_error_class": "unexpected_error",
+                        "last_error_class": ErrorClass.UNEXPECTED.value,
                         "last_error_at": now_str
                     }
                 )
@@ -527,8 +537,8 @@ async def orchestrate_source(
                     "ended_at": now_str,
                     "retry_count": 0,
                     "http_status": None,
-                    "error_class": "unexpected_error",
-                    "error_detail": str(exc),
+                    "error_class": ErrorClass.UNEXPECTED.value,
+                    "error_detail": isolation_error_detail,
                     "outcome": "failed",
                     "new_item_count": 0,
                     "dedup_matched_count": 0,
@@ -542,8 +552,8 @@ async def orchestrate_source(
         return SourceExecutionResult(
             source_id=source.id,
             outcome="failed",
-            error_class="unexpected_error",
-            error_detail=str(exc)
+            error_class=ErrorClass.UNEXPECTED.value,
+            error_detail=isolation_error_detail
         )
     finally:
         conn.close()

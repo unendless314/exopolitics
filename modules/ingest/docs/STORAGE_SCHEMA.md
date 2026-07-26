@@ -453,6 +453,13 @@ Minimum bounded-value sets for first-migration checks:
 - `source_item_text.text_processing_status`: `completed`, `low_context`, `failed`
 - `source_item_text.text_processing_reason`: nullable, but when present should be limited to the reason-code set defined in `SANITIZATION_STRATEGY.md`
 
+Error-class contract:
+
+- non-null values newly written to `source_state.last_error_class` and `fetch_attempt.error_class` must be one of `network_error`, `timeout_error`, `http_error_4xx`, `http_error_5xx`, `parse_error`, or `unexpected_error`
+- `modules/ingest/src/errors.py` owns this six-value application contract and validates writes at both persistence boundaries
+- the v001 SQLite CHECK remains an eight-value compatibility superset: `validation_error` and `persistence_error` are retained in the existing schema but are not application-emittable values
+- `error_class` is a coarse category; `http_status` carries the precise HTTP-layer cause when available
+
 First-migration scope direction:
 
 - the first migration should create only the tables required for fetch, sanitization, persistence, source health tracking, run tracking, and dedup lookup

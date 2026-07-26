@@ -5,6 +5,8 @@ import re
 import sqlite3
 from typing import List, Dict, Any, Optional
 
+from .errors import validate_error_class
+
 def get_utc_now_iso8601() -> str:
     """Returns the current UTC time formatted exactly as YYYY-MM-DDTHH:MM:SSZ."""
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -124,7 +126,13 @@ class SourceStateRepository:
     def upsert(self, source_id: int, state_data: Dict[str, Any]) -> None:
         """Upserts the mutable state record for a source."""
         now = get_utc_now_iso8601()
-        
+        last_error_class = state_data.get("last_error_class")
+        validate_error_class(
+            last_error_class,
+            table="source_state",
+            column="last_error_class",
+        )
+
         fields = {
             "last_fetch_at": state_data.get("last_fetch_at"),
             "last_success_at": state_data.get("last_success_at"),
@@ -132,7 +140,7 @@ class SourceStateRepository:
             "etag": state_data.get("etag"),
             "last_modified": state_data.get("last_modified"),
             "consecutive_failures": state_data.get("consecutive_failures", 0),
-            "last_error_class": state_data.get("last_error_class"),
+            "last_error_class": last_error_class,
             "last_error_at": state_data.get("last_error_at"),
             "health_status": state_data.get("health_status", "healthy"),
             "quarantine_until": state_data.get("quarantine_until"),
@@ -208,6 +216,13 @@ class FetchAttemptRepository:
 
     def insert(self, attempt_data: Dict[str, Any]) -> int:
         """Inserts a fetch attempt record."""
+        error_class = attempt_data.get("error_class")
+        validate_error_class(
+            error_class,
+            table="fetch_attempt",
+            column="error_class",
+        )
+
         cursor = self.conn.cursor()
         cursor.execute("""
             INSERT INTO fetch_attempt (
@@ -228,7 +243,7 @@ class FetchAttemptRepository:
             "ended_at": attempt_data.get("ended_at"),
             "retry_count": attempt_data.get("retry_count", 0),
             "http_status": attempt_data.get("http_status"),
-            "error_class": attempt_data.get("error_class"),
+            "error_class": error_class,
             "error_detail": attempt_data.get("error_detail"),
             "outcome": attempt_data["outcome"],
             "new_item_count": attempt_data.get("new_item_count", 0),

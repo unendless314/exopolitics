@@ -760,14 +760,19 @@ sources:
     fetch_group: 4
     schedule_class: daily
     sanitization_profile: default_html_article
+    request_headers:
+      User-Agent: "pc:exopolitics.ingest:v1.0.0 (by /u/exopolitics_bot)"
   - id: 77
     title: '/r/space: news, articles and discussion'
-    xml_url: https://www.reddit.com/r/space/.rss?format=xml
+    xml_url: https://www.reddit.com/r/space/.rss
+    html_url: https://www.reddit.com/r/space/
     category_id: 3
     enabled: true
     fetch_group: 5
     schedule_class: daily
     sanitization_profile: default_html_article
+    request_headers:
+      User-Agent: "pc:exopolitics.ingest:v1.0.0 (by /u/exopolitics_bot)"
   - id: 78
     title: Reuters Science & Space (via Google News)
     xml_url: https://news.google.com/rss/search?q=site:reuters.com+%28science+OR+space+OR+technology%29&hl=en-US&gl=US&ceid=US:en
