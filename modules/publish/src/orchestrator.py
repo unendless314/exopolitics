@@ -49,7 +49,7 @@ def generate_slug(title: str, existing_slugs: Set[str]) -> str:
 
 # Presentation labels that must never leak into exported content values:
 # the three English labels plus every zh/ja variant observed in
-# known_issues/TRANSLATION_LABEL_LEAKAGE.md section 4.2.
+# known_issues/resolved/TRANSLATION_LABEL_LEAKAGE.md section 4.2.
 UI_LABELS = (
     "Key Claim",
     "Evidence Level",

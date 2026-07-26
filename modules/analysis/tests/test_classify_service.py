@@ -146,6 +146,50 @@ def test_markdown_report_formatting():
     assert "66.67%" in report
     assert "25.00%" in report
 
+def test_markdown_escapes_pipe_in_source_title():
+    # A source title containing "|" must be escaped, otherwise the raw pipe
+    # splits the Markdown table row into extra cells and shifts every metric
+    # under the wrong header (observed with the real "Space | The Guardian"
+    # source title).
+    sources_meta = {
+        1: SourceMeta(id=1, title="Space | The Guardian", xml_url="http://alpha", category_id=1, enabled=True, fetch_group=1, schedule_class="daily")
+    }
+
+    service = ClassifyService(None, sources_meta=sources_meta)
+
+    data = {
+        "report_type": "classify",
+        "schema_version": "2.0.0",
+        "generated_at": "2026-07-15T12:00:00Z",
+        "lookback_days": 7,
+        "window_start": "2026-07-08T00:00:00Z",
+        "window_end": "2026-07-15T00:00:00Z",
+        "metrics": {
+            "total_classified": 1,
+            "classification_character_volume_proxy": 100,
+            "relevance_rate": 1.0,
+            "average_confidence": 0.9,
+            "overall_topic_class_breakdown": {"core": 1.0, "adjacent": 0.0, "irrelevant": 0.0, "unknown": 0.0}
+        },
+        "breakdowns": [
+            {
+                "source_id": 1,
+                "classify_volume": 1,
+                "classification_character_volume_proxy": 100,
+                "relevance_rate": 1.0,
+                "average_confidence": 0.9,
+                "content_density_distribution": {"low": 0.0, "medium": 0.0, "high": 1.0},
+                "topic_class_breakdown": {"core": 1.0, "adjacent": 0.0, "irrelevant": 0.0, "unknown": 0.0}
+            }
+        ]
+    }
+
+    report = service.format_markdown_report(data)
+    row = next(line for line in report.splitlines() if line.startswith("| 1 |"))
+    assert "Space \\| The Guardian" in row
+    # 7 columns -> 8 structural pipes (exclude the escaped "\|" inside the title)
+    assert row.replace("\\|", "").count("|") == 8
+
 def test_check_positive_days():
     import argparse
     from modules.analysis.src.cli import check_positive_days

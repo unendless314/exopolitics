@@ -135,11 +135,19 @@ def get_translation_latencies(conn: sqlite3.Connection, start: str, end: str) ->
 def get_translation_char_volumes(conn: sqlite3.Connection, start: str, end: str) -> List[sqlite3.Row]:
     """
     Retrieves translation character volumes grouped by language_code (cohort basis).
+    Workload proxy: five-field length sum over the approved content record
+    (display_title + summary_short + non-null bullets), per METRICS_CATALOG.md.
     """
     sql = """
         SELECT
             tor.language_code,
-            SUM(LENGTH(acr.display_title) + LENGTH(acr.content_body)) AS char_volume
+            SUM(
+                LENGTH(acr.display_title)
+                + LENGTH(acr.summary_short)
+                + COALESCE(LENGTH(acr.bullet_1), 0)
+                + COALESCE(LENGTH(acr.bullet_2), 0)
+                + COALESCE(LENGTH(acr.bullet_3), 0)
+            ) AS char_volume
         FROM translation_output tor
         JOIN approved_content_record acr ON tor.parent_content_id = acr.parent_content_id
         JOIN source_item si ON acr.source_item_id = si.source_item_id

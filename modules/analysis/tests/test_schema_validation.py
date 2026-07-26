@@ -71,28 +71,32 @@ def temp_db():
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (301, "core", 0.95, "high", "test-model", "v1.0", "2026-07-10T10:10:00Z", now))
 
-    # curation_decision
+    # curation_decision (publish_link: approved record below carries no bullets)
     conn.execute("""
         INSERT INTO curation_decision (
             source_item_id, curate_status, downstream_action, decision_reason, decision_actor, model_name, prompt_version, curated_at, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (301, "approved", None, "looks good", "operator", "test-model", "v1.0", "2026-07-10T10:30:00Z", now, now))
+    """, (301, "approved", "publish_link", "looks good", "operator", "test-model", "v1.0", "2026-07-10T10:30:00Z", now, now))
 
-    # approved_content_record
+    # approved_content_record (five-field, bullets NULL for publish_link)
     conn.execute("""
         INSERT INTO approved_content_record (
-            parent_content_id, source_item_id, display_title, content_body, content_fingerprint, content_language_code, approved_at, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (501, 301, "Approved Display Title", "Body content", "fp-301", "en", "2026-07-10T10:30:00Z", now, now))
+            parent_content_id, source_item_id, display_title, summary_short,
+            bullet_1, bullet_2, bullet_3,
+            content_fingerprint, content_language_code, approved_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (501, 301, "Approved Display Title", "Body content", None, None, None, "fp-301", "en", "2026-07-10T10:30:00Z", now, now))
 
-    # translation_output
+    # translation_output (five-field, bullets NULL mirroring the parent)
     conn.executemany("""
         INSERT INTO translation_output (
-            parent_content_id, source_item_id, language_code, display_title, content, source_fingerprint, translation_status, model_name, prompt_version, translated_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            parent_content_id, source_item_id, language_code, display_title, summary_short,
+            bullet_1, bullet_2, bullet_3,
+            source_fingerprint, translation_status, model_name, prompt_version, translated_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, [
-        (501, 301, "zh", "中文標題", "中文內容", "fp-301", "completed", "test-translator", "v1.0", "2026-07-10T11:00:00Z", now),
-        (501, 301, "ja", "日文標題", "日文內容", "fp-301", "completed", "test-translator", "v1.0", "2026-07-10T11:00:00Z", now)
+        (501, 301, "zh", "中文標題", "中文內容", None, None, None, "fp-301", "completed", "test-translator", "v1.0", "2026-07-10T11:00:00Z", now),
+        (501, 301, "ja", "日文標題", "日文內容", None, None, None, "fp-301", "completed", "test-translator", "v1.0", "2026-07-10T11:00:00Z", now)
     ])
 
     # publish_record

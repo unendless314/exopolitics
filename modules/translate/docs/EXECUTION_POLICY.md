@@ -82,7 +82,7 @@ To guarantee structured field fidelity and translation quality, the runner must 
    - Partially populated bullet combinations in the response are rejected.
 5. **Migration-Period Label Guard (`zh` / `ja` only)**:
    - For `translated_summary` and every non-null translated bullet: after stripping leading whitespace and any optional Markdown emphasis or list markers, if the value starts with a known UI presentation label followed by a colon, the validation fails.
-   - The guard list contains the three English labels (`Key Claim`, `Evidence Level`, `Objective Impact`) plus all observed zh/ja label variants documented in [TRANSLATION_LABEL_LEAKAGE.md](../../../known_issues/TRANSLATION_LABEL_LEAKAGE.md) Section 4.2:
+   - The guard list contains the three English labels (`Key Claim`, `Evidence Level`, `Objective Impact`) plus all observed zh/ja label variants documented in [TRANSLATION_LABEL_LEAKAGE.md](../../../known_issues/resolved/TRANSLATION_LABEL_LEAKAGE.md) Section 4.2:
      - zh: `主要主張`, `關鍵主張`, `核心主張`, `證據層級`, `證據等級`, `客觀影響`, `實際影響`
      - ja: `主要な主張`, `主要主張`, `主張の要点`, `証拠の水準`, `証拠レベル`, `証拠水準`, `エビデンスレベル`, `客観的な影響`, `客観的影響`, `目的上の影響`
    - This guard only detects erroneous presentation-string backflow into content. It is not the primary correctness mechanism, and global string replacement on content is forbidden.

@@ -1,109 +1,109 @@
 {
   "report_type": "funnel",
   "schema_version": "3.0.0",
-  "generated_at": "2026-07-23T18:24:51Z",
+  "generated_at": "2026-07-26T10:08:43Z",
   "lookback_days": 7,
   "maturation_offset_hours": 2,
   "raw_window": {
-    "start": "2026-07-16T18:24:51Z",
-    "end": "2026-07-23T18:24:51Z"
+    "start": "2026-07-19T10:08:43Z",
+    "end": "2026-07-26T10:08:43Z"
   },
   "matured_window": {
-    "start": "2026-07-16T16:24:51Z",
-    "end": "2026-07-23T16:24:51Z"
+    "start": "2026-07-19T08:08:43Z",
+    "end": "2026-07-26T08:08:43Z"
   },
   "raw_metrics": {
-    "total_ingested": 1231,
-    "low_context_observation_count": 330,
-    "total_classified": 901,
-    "relevant_classified": 316,
-    "total_curated": 316,
-    "curation_approved": 262,
-    "total_translated": 262,
-    "total_published": 262,
+    "total_ingested": 5103,
+    "low_context_observation_count": 1339,
+    "total_classified": 5102,
+    "relevant_classified": 3633,
+    "total_curated": 3633,
+    "curation_approved": 3015,
+    "total_translated": 3015,
+    "total_published": 3015,
     "classification_readiness_breakdown": {
-      "low_context_observation_count": 330,
-      "total_classified": 901,
-      "pending_classification": 329,
-      "failed_text_processing": 0,
+      "low_context_observation_count": 1339,
+      "total_classified": 5102,
+      "pending_classification": 0,
+      "failed_text_processing": 1,
       "missing_text_processing": 0
     }
   },
   "matured_metrics": {
-    "total_ingested": 1488,
-    "low_context_observation_count": 370,
-    "total_classified": 1118,
-    "relevant_classified": 365,
-    "total_curated": 365,
-    "curation_approved": 309,
-    "total_translated": 309,
-    "total_published": 309,
-    "classification_rate": 0.7513440860215054,
-    "curation_rate": 0.32647584973166366,
-    "curation_approval_rate": 0.8465753424657534,
+    "total_ingested": 5103,
+    "low_context_observation_count": 1339,
+    "total_classified": 5102,
+    "relevant_classified": 3633,
+    "total_curated": 3633,
+    "curation_approved": 3015,
+    "total_translated": 3015,
+    "total_published": 3015,
+    "classification_rate": 0.9998040368410739,
+    "curation_rate": 0.7120736965895728,
+    "curation_approval_rate": 0.8298926507018992,
     "translation_rate": 1.0,
     "publish_rate": 1.0,
     "classification_readiness_breakdown": {
-      "low_context_observation_count": 370,
-      "total_classified": 1118,
-      "pending_classification": 369,
-      "failed_text_processing": 0,
+      "low_context_observation_count": 1339,
+      "total_classified": 5102,
+      "pending_classification": 0,
+      "failed_text_processing": 1,
       "missing_text_processing": 0
     }
   },
   "raw_latency_metrics": {
     "pipeline_lead_time_seconds": {
-      "average": 404.2290076335878,
-      "median": 324.0,
-      "p90": 445.9
+      "average": 4863.111442786069,
+      "median": 4862.0,
+      "p90": 4877.0
     },
     "stage_latency_breakdown_seconds": {
       "feed_freshness_delay": {
-        "average": 1712557.6116978067,
-        "median": 49595.0,
-        "p90": 2143884.0
+        "average": 37661616.338624336,
+        "median": 13009642.0,
+        "p90": 105945061.80000004
       },
       "fetch_execution_latency": {
-        "average": 4.820851688693098,
-        "median": 1.0,
-        "p90": 13.0
+        "average": 20.928571428571427,
+        "median": 21.0,
+        "p90": 27.299999999999997
       },
       "classification_delay": {
-        "average": 114.36293007769146,
-        "median": 68.0,
-        "p90": 138.0
+        "average": 369.4888279106233,
+        "median": 363.0,
+        "p90": 557.0
       },
       "curation_delay": {
-        "average": 77.92088607594937,
-        "median": 75.0,
-        "p90": 153.5
+        "average": 1016.6206991467108,
+        "median": 1044.0,
+        "p90": 1114.0
       },
       "translation_delay": {
-        "average": 92.19847328244275,
-        "median": 71.0,
-        "p90": 146.7
+        "average": 1750.7223880597014,
+        "median": 1687.0,
+        "p90": 2074.1000000000004
       },
       "publish_delay": {
-        "average": 94.46692111959288,
-        "median": 75.0,
-        "p90": 151.0
+        "average": 1790.22498618021,
+        "median": 1848.0,
+        "p90": 1981.0
       }
     }
   },
   "published_by_language": [
     {
       "language_code": "zh",
-      "published_count": 309,
+      "published_count": 3015,
       "coverage_rate": 1.0
     },
     {
       "language_code": "en",
-      "published_count": 309,
+      "published_count": 3015,
       "coverage_rate": 1.0
     },
     {
       "language_code": "ja",
-      "published_count": 309,
+      "published_count": 3015,
       "coverage_rate": 1.0
     }
   ],

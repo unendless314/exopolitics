@@ -1,6 +1,8 @@
 # Known Issue: Translation Label Leakage (翻譯標籤英文殘留問題)
 
-> **狀態更新 (2026-07-24)**：處置方案已定案 —— 採用「方案 A 變體（site 端貼標籤，下稱方案 S）」，搭配全庫重建。調查驗證數據、代碼級定位、定案設計與重構範圍清單見本文第 4～7 節。第 1～3 節保留為原始分析。本文件將於實作完成並驗收後移至 `known_issues/resolved/`。
+> **狀態更新 (2026-07-26)**：**已解決並通過驗收。** 重構計畫 Phase 1–5 全部完成：契約文件、translate 五欄重塑、publish export 重塑、site adapter 與 i18n、analysis 同步與全量驗收，各階段均通過複審。正式全庫重建於 2026-07-25 執行完畢，結構與品質稽核全部通過（稽核報告：`reports/analysis/TRANSLATION_LABEL_LEAKAGE_AUDIT_2026-07-26.md`）。執行紀錄見 `known_issues/` 下的 REFACTOR_PLAN、HANDOFF、DISPOSAL_LIST 三份文件。
+>
+> ~~**狀態更新 (2026-07-24)**：處置方案已定案 —— 採用「方案 A 變體（site 端貼標籤，下稱方案 S）」，搭配全庫重建。調查驗證數據、代碼級定位、定案設計與重構範圍清單見本文第 4～7 節。第 1～3 節保留為原始分析。本文件將於實作完成並驗收後移至 `known_issues/resolved/`。~~（已於 2026-07-26 驗收後移入）
 
 ## 1. 問題描述 (Issue Description)
 在系統將母稿翻譯為目標語言（繁體中文 `zh`、日文 `ja`）時，文章內結構化 Bullet 點的英文標籤（`Key Claim`、`Evidence Level`、`Objective Impact`）有極高機率（約 92%）被 LLM 照抄保留為英文，未能正確翻譯。

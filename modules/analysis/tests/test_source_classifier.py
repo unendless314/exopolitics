@@ -152,19 +152,21 @@ def test_source_service_with_mock_data(empty_db_conn):
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (201, "core", 0.95, "high", "test-model", "v1.0", "2026-07-10T10:05:00Z", now))
 
-    # Seed curation decision
+    # Seed curation decision (publish_link: the approved record below carries no bullets)
     conn.execute("""
         INSERT INTO curation_decision (
             source_item_id, curate_status, downstream_action, decision_reason, decision_actor, model_name, prompt_version, curated_at, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (201, "approved", None, "looks good", "operator", "test-model", "v1.0", "2026-07-10T10:10:00Z", now, now))
+    """, (201, "approved", "publish_link", "looks good", "operator", "test-model", "v1.0", "2026-07-10T10:10:00Z", now, now))
 
-    # Seed approved content
+    # Seed approved content (five-field, bullets NULL for publish_link)
     conn.execute("""
         INSERT INTO approved_content_record (
-            source_item_id, display_title, content_body, content_fingerprint, content_language_code, approved_at, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (201, "Approved display", "Body content", "fp-201", "en", "2026-07-10T10:10:00Z", now, now))
+            source_item_id, display_title, summary_short,
+            bullet_1, bullet_2, bullet_3,
+            content_fingerprint, content_language_code, approved_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (201, "Approved display", "Body content", None, None, None, "fp-201", "en", "2026-07-10T10:10:00Z", now, now))
 
     conn.commit()
 
@@ -227,3 +229,48 @@ def test_source_service_with_mock_data(empty_db_conn):
     # Renamed quality-observation KPI; the report must not describe it as a bypass
     assert "Low-Context Observation Rate" in report_md
     assert "Bypass" not in report_md
+
+def test_markdown_escapes_pipe_in_source_title():
+    # A source title containing "|" must be escaped, otherwise the raw pipe
+    # splits the Markdown table row into extra cells and shifts every metric
+    # under the wrong header (observed with the real "Space | The Guardian"
+    # source title).
+    sources_meta = {
+        1: SourceMeta(id=1, title="Space | The Guardian", xml_url="http://url-1", category_id=1, enabled=True, fetch_group=1, schedule_class="daily")
+    }
+
+    service = SourceService(None, sources_meta=sources_meta)
+
+    data = {
+        "report_type": "sources",
+        "schema_version": "2.0.0",
+        "generated_at": "2026-07-15T12:00:00Z",
+        "lookback_days": 7,
+        "window_start": "2026-07-08T00:00:00Z",
+        "window_end": "2026-07-15T00:00:00Z",
+        "metrics": {
+            "overall_fetch_success_rate": 1.0,
+            "total_ingested_items": 1,
+            "low_context_observation_rate": 0.0,
+        },
+        "breakdowns": [
+            {
+                "source_id": 1,
+                "fetch_success_rate": 1.0,
+                "ingest_volume": 1,
+                "classification_character_volume_proxy": 100,
+                "curation_character_volume_proxy": 100,
+                "relevance_rate": 1.0,
+                "topic_class_breakdown": {"core": 1.0, "adjacent": 0.0, "irrelevant": 0.0, "unknown": 0.0},
+                "curation_approval_rate": 1.0,
+                "overall_yield": 1.0,
+                "decision_model": {"quadrant": "golden_source", "analysis_flags": ["AUTHORITY"]},
+            }
+        ],
+    }
+
+    report_md = service.format_markdown_report(data)
+    row = next(line for line in report_md.splitlines() if line.startswith("| 1 |"))
+    assert "Space \\| The Guardian" in row
+    # 11 columns -> 12 structural pipes (exclude the escaped "\|" inside the title)
+    assert row.replace("\\|", "").count("|") == 12

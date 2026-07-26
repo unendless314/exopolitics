@@ -1,54 +1,54 @@
 # Pipeline Funnel Conversion & Bottleneck Report
 
-**Generated At**: 2026-07-23T18:24:51Z
+**Generated At**: 2026-07-26T10:08:43Z
 **Lookback Period**: 7 days
 **Maturation Delay Offset**: 2 hours
 
 ## 1. Raw Window Cohort Performance
-**Raw Window**: 2026-07-16T18:24:51Z to 2026-07-23T18:24:51Z
+**Raw Window**: 2026-07-19T10:08:43Z to 2026-07-26T10:08:43Z
 
 ### Throughput Metrics
-- **Total Ingested**: 1231
-- **Low-Context Observation Count**: 330
-- **Total Classified**: 901
-- **Relevant Classified**: 316
-- **Total Curated**: 316
-- **Curation Approved**: 262
-- **Total Translated**: 262
-- **Total Published**: 262
+- **Total Ingested**: 5103
+- **Low-Context Observation Count**: 1339
+- **Total Classified**: 5102
+- **Relevant Classified**: 3633
+- **Total Curated**: 3633
+- **Curation Approved**: 3015
+- **Total Translated**: 3015
+- **Total Published**: 3015
 
 ### Ingestion Cohort Readiness Breakdown
-- **Eligible & Classified**: 901
-- **Low-Context Observation Count**: 330
-- **Pending Classification**: 329
-- **Failed Text Processing**: 0
+- **Eligible & Classified**: 5102
+- **Low-Context Observation Count**: 1339
+- **Pending Classification**: 0
+- **Failed Text Processing**: 1
 - **Missing Text Processing**: 0
 
 ## 2. Matured Window Cohort Performance (Conversion Stable)
-**Matured Window**: 2026-07-16T16:24:51Z to 2026-07-23T16:24:51Z
+**Matured Window**: 2026-07-19T08:08:43Z to 2026-07-26T08:08:43Z
 
 ### Throughput Metrics
-- **Total Ingested**: 1488
-- **Low-Context Observation Count**: 370
-- **Total Classified**: 1118
-- **Relevant Classified**: 365
-- **Total Curated**: 365
-- **Curation Approved**: 309
-- **Total Translated**: 309
-- **Total Published**: 309
+- **Total Ingested**: 5103
+- **Low-Context Observation Count**: 1339
+- **Total Classified**: 5102
+- **Relevant Classified**: 3633
+- **Total Curated**: 3633
+- **Curation Approved**: 3015
+- **Total Translated**: 3015
+- **Total Published**: 3015
 
 ### Conversion Rates
-- **Classification Rate**: 75.13%
-- **Curation Rate**: 32.65%
-- **Curation Approval Rate**: 84.66%
+- **Classification Rate**: 99.98%
+- **Curation Rate**: 71.21%
+- **Curation Approval Rate**: 82.99%
 - **Translation Completion Rate**: 100.00%
 - **Publication Rate**: 100.00%
 
 ### Ingestion Cohort Readiness Breakdown
-- **Eligible & Classified**: 1118
-- **Low-Context Observation Count**: 370
-- **Pending Classification**: 369
-- **Failed Text Processing**: 0
+- **Eligible & Classified**: 5102
+- **Low-Context Observation Count**: 1339
+- **Pending Classification**: 0
+- **Failed Text Processing**: 1
 - **Missing Text Processing**: 0
 
 ## 3. Stage Latency Analysis (Seconds, Raw Window)
@@ -58,20 +58,20 @@
 
 | Delay Type / Pipeline Stage | Avg Latency | Median (p50) | 90th Percentile (p90) |
 | :--- | :--- | :--- | :--- |
-| E2E Pipeline Lead Time | 404.23s | 324.00s | 445.90s |
-| Feed Freshness Delay | 1712557.61s | 49595.00s | 2143884.00s |
-| Fetch Execution Latency | 4.82s | 1.00s | 13.00s |
-| Classification Delay | 114.36s | 68.00s | 138.00s |
-| Curation Delay | 77.92s | 75.00s | 153.50s |
-| Translation Delay | 92.20s | 71.00s | 146.70s |
-| Publish Delay | 94.47s | 75.00s | 151.00s |
+| E2E Pipeline Lead Time | 4863.11s | 4862.00s | 4877.00s |
+| Feed Freshness Delay | 37661616.34s | 13009642.00s | 105945061.80s |
+| Fetch Execution Latency | 20.93s | 21.00s | 27.30s |
+| Classification Delay | 369.49s | 363.00s | 557.00s |
+| Curation Delay | 1016.62s | 1044.00s | 1114.00s |
+| Translation Delay | 1750.72s | 1687.00s | 2074.10s |
+| Publish Delay | 1790.22s | 1848.00s | 1981.00s |
 
 ## 4. Published Content by Language (Matured Window)
 | Language Code | Published Count | Coverage Rate |
 | :--- | :--- | :--- |
-| zh | 309 | 100.00% |
-| en | 309 | 100.00% |
-| ja | 309 | 100.00% |
+| zh | 3015 | 100.00% |
+| en | 3015 | 100.00% |
+| ja | 3015 | 100.00% |
 
 ## 5. Data Quality Diagnostics
 No data quality anomalies detected.

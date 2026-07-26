@@ -179,13 +179,17 @@ DDL_STATEMENTS = [
         FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
     );
     """,
-    # Translate module tables
+    # Translate module tables (five-field content shape, mirroring
+    # modules/translate/docs/DATA_CONTRACT.md section 1.4)
     """
     CREATE TABLE IF NOT EXISTS approved_content_record (
         parent_content_id INTEGER PRIMARY KEY AUTOINCREMENT,
         source_item_id INTEGER NOT NULL UNIQUE,
         display_title TEXT NOT NULL,
-        content_body TEXT NOT NULL,
+        summary_short TEXT NOT NULL,
+        bullet_1 TEXT,
+        bullet_2 TEXT,
+        bullet_3 TEXT,
         content_fingerprint TEXT NOT NULL,
         content_language_code TEXT NOT NULL,
         approved_at TEXT NOT NULL,
@@ -202,10 +206,13 @@ DDL_STATEMENTS = [
         source_item_id INTEGER NOT NULL,
         language_code TEXT NOT NULL,
         display_title TEXT,
-        content TEXT,
+        summary_short TEXT,
+        bullet_1 TEXT,
+        bullet_2 TEXT,
+        bullet_3 TEXT,
         source_fingerprint TEXT NOT NULL,
-        translation_status TEXT NOT NULL,
-        retry_count INTEGER NOT NULL DEFAULT 0,
+        translation_status TEXT NOT NULL CHECK (translation_status IN ('pending', 'completed', 'failed', 'stale')),
+        retry_count INTEGER NOT NULL DEFAULT 0 CHECK (retry_count >= 0),
         model_name TEXT NOT NULL,
         prompt_version TEXT NOT NULL,
         translated_at TEXT,
@@ -424,69 +431,72 @@ def create_and_seed_db(db_path: pathlib.Path):
 
     # Seed approved content records (so we can test translation and publishing later)
     # IDs: 1, 2, 3, 5, 6, 7, 10, 11, 13, 14, 15
+    # Five-field shape; bullet nullability follows the 0-or-3 invariant:
+    # publish_summary rows carry three non-null bullets, publish_link rows carry none.
     approved_records = [
-        (1, 1, "UFO sighting over Texas", "Full body sighting over Texas", "fingerprint-1", "en", to_str(t_1d), to_str(t_1d), to_str(t_1d)),
-        (2, 2, "Official briefing on UAP", "Full body briefing details here", "fingerprint-2", "en", to_str(t_1d), to_str(t_1d), to_str(t_1d)),
-        (3, 3, "Fotocat updates July 2026", "Full body Fotocat updates blog", "fingerprint-3", "es", to_str(t_2d), to_str(t_2d), to_str(t_2d)),
-        (4, 5, "Academic study on unexplained lights", "Full body Scientific study on lights", "fingerprint-5", "en", to_str(t_3d), to_str(t_3d), to_str(t_3d)),
-        (5, 6, "Australia historical cases report", "Full body Australian archives", "fingerprint-6", "en", to_str(t_2d), to_str(t_2d), to_str(t_2d)),
-        (6, 7, "NewsNation interview: whistleblowers", "Full body Whistleblower craft", "fingerprint-7", "en", to_str(t_1d), to_str(t_1d), to_str(t_1d)),
-        
-        # old
-        (7, 10, "Old MUFON case study", "Full body old mufon details", "fingerprint-10", "en", to_str(t_10d), to_str(t_10d), to_str(t_10d)),
-        (8, 11, "Old Fotocat case study", "Full body old fotocat details", "fingerprint-11", "es", to_str(t_10d), to_str(t_10d), to_str(t_10d)),
-        
-        # within
-        (9, 13, "Another Fotocat entry", "Full body another fotocat entry", "fingerprint-13", "es", to_str(t_3d), to_str(t_3d), to_str(t_3d)),
-        (10, 14, "Deep analysis of radar records", "Full body radar signals", "fingerprint-14", "en", to_str(t_5d), to_str(t_5d), to_str(t_5d)),
-        (11, 15, "Summary of Roswell evidence", "Full body Roswell panel summary", "fingerprint-15", "en", to_str(t_3d), to_str(t_3d), to_str(t_3d))
+        # publish_summary (items 1, 5, 6, 7, 10, 14, 15): three non-null bullets
+        (1, 1, "UFO sighting over Texas", "Summary of the Texas sighting.", "Claim: multiple witnesses.", "Evidence: radar logs.", "Impact: local inquiries.", "fingerprint-1", "en", to_str(t_1d), to_str(t_1d), to_str(t_1d)),
+        (4, 5, "Academic study on unexplained lights", "Summary of the lights study.", "Claim: lights unexplained.", "Evidence: peer review.", "Impact: academic debate.", "fingerprint-5", "en", to_str(t_3d), to_str(t_3d), to_str(t_3d)),
+        (5, 6, "Australia historical cases report", "Summary of Australian archives.", "Claim: archive cases released.", "Evidence: FOIA documents.", "Impact: historical record.", "fingerprint-6", "en", to_str(t_2d), to_str(t_2d), to_str(t_2d)),
+        (6, 7, "NewsNation interview: whistleblowers", "Summary of whistleblower interview.", "Claim: craft recovered.", "Evidence: sworn testimony.", "Impact: congressional interest.", "fingerprint-7", "en", to_str(t_1d), to_str(t_1d), to_str(t_1d)),
+        (7, 10, "Old MUFON case study", "Summary of old MUFON case.", "Claim: classic case holds.", "Evidence: case files.", "Impact: research baseline.", "fingerprint-10", "en", to_str(t_10d), to_str(t_10d), to_str(t_10d)),
+        (10, 14, "Deep analysis of radar records", "Summary of radar analysis.", "Claim: anomalous returns.", "Evidence: physical model.", "Impact: further study.", "fingerprint-14", "en", to_str(t_5d), to_str(t_5d), to_str(t_5d)),
+        (11, 15, "Summary of Roswell evidence", "Summary of Roswell panel.", "Claim: panel reviewed evidence.", "Evidence: panel transcript.", "Impact: public awareness.", "fingerprint-15", "en", to_str(t_3d), to_str(t_3d), to_str(t_3d)),
+        # publish_link (items 2, 3, 11, 13): all three bullets NULL
+        (2, 2, "Official briefing on UAP", "Summary of the UAP briefing.", None, None, None, "fingerprint-2", "en", to_str(t_1d), to_str(t_1d), to_str(t_1d)),
+        (3, 3, "Fotocat updates July 2026", "Summary of Fotocat updates.", None, None, None, "fingerprint-3", "es", to_str(t_2d), to_str(t_2d), to_str(t_2d)),
+        (8, 11, "Old Fotocat case study", "Summary of old Fotocat case.", None, None, None, "fingerprint-11", "es", to_str(t_10d), to_str(t_10d), to_str(t_10d)),
+        (9, 13, "Another Fotocat entry", "Summary of another Fotocat entry.", None, None, None, "fingerprint-13", "es", to_str(t_3d), to_str(t_3d), to_str(t_3d))
     ]
-    
+
     conn.executemany("""
         INSERT INTO approved_content_record (
-            parent_content_id, source_item_id, display_title, content_body,
+            parent_content_id, source_item_id, display_title, summary_short,
+            bullet_1, bullet_2, bullet_3,
             content_fingerprint, content_language_code, approved_at, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, approved_records)
 
     # Seed translation outputs
+    # Translation bullet nullability mirrors the parent record (null-in/null-out).
     translations = [
-        # parent_content_id 1 (en): translate to ja, zh
-        (1, 1, "ja", "Texas UFO sighting (JA)", "JA translation body", "fingerprint-1", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=10)), to_str(t_1d + datetime.timedelta(minutes=10))),
-        (1, 1, "zh", "德州UFO目擊 (ZH)", "ZH translation body", "fingerprint-1", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=12)), to_str(t_1d + datetime.timedelta(minutes=12))),
-        
-        # parent_content_id 2 (en): translate to ja, zh (zh failed)
-        (2, 2, "ja", "UAP briefing (JA)", "JA body", "fingerprint-2", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=15)), to_str(t_1d + datetime.timedelta(minutes=15))),
-        (2, 2, "zh", None, None, "fingerprint-2", "failed", 3, "gemini-1.5-pro", "v1.0", None, to_str(t_1d + datetime.timedelta(minutes=20))),
+        # parent_content_id 1 (en, publish_summary): translate to ja, zh
+        (1, 1, "ja", "Texas UFO sighting (JA)", "JA summary of the Texas sighting.", "JA claim.", "JA evidence.", "JA impact.", "fingerprint-1", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=10)), to_str(t_1d + datetime.timedelta(minutes=10))),
+        (1, 1, "zh", "德州UFO目擊 (ZH)", "ZH summary of the Texas sighting.", "ZH claim.", "ZH evidence.", "ZH impact.", "fingerprint-1", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=12)), to_str(t_1d + datetime.timedelta(minutes=12))),
 
-        # parent_content_id 3 (es): translate to en, ja, zh
-        (3, 3, "en", "Fotocat updates (EN)", "EN body", "fingerprint-3", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=10)), to_str(t_2d + datetime.timedelta(minutes=10))),
-        (3, 3, "ja", "Fotocat updates (JA)", "JA body", "fingerprint-3", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=12)), to_str(t_2d + datetime.timedelta(minutes=12))),
-        (3, 3, "zh", "Fotocat更新 (ZH)", "ZH body", "fingerprint-3", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=15)), to_str(t_2d + datetime.timedelta(minutes=15))),
+        # parent_content_id 2 (en, publish_link): translate to ja, zh (zh failed)
+        (2, 2, "ja", "UAP briefing (JA)", "JA summary of the briefing.", None, None, None, "fingerprint-2", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=15)), to_str(t_1d + datetime.timedelta(minutes=15))),
+        (2, 2, "zh", None, None, None, None, None, "fingerprint-2", "failed", 3, "gemini-1.5-pro", "v1.0", None, to_str(t_1d + datetime.timedelta(minutes=20))),
 
-        # parent_content_id 4 (en): translate to ja, zh
-        (4, 5, "ja", "Study (JA)", "JA body", "fingerprint-5", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_3d + datetime.timedelta(minutes=10)), to_str(t_3d + datetime.timedelta(minutes=10))),
-        (4, 5, "zh", "研究 (ZH)", "ZH body", "fingerprint-5", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_3d + datetime.timedelta(minutes=15)), to_str(t_3d + datetime.timedelta(minutes=15))),
+        # parent_content_id 3 (es, publish_link): translate to en, ja, zh
+        (3, 3, "en", "Fotocat updates (EN)", "EN summary of Fotocat updates.", None, None, None, "fingerprint-3", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=10)), to_str(t_2d + datetime.timedelta(minutes=10))),
+        (3, 3, "ja", "Fotocat updates (JA)", "JA summary of Fotocat updates.", None, None, None, "fingerprint-3", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=12)), to_str(t_2d + datetime.timedelta(minutes=12))),
+        (3, 3, "zh", "Fotocat更新 (ZH)", "ZH summary of Fotocat updates.", None, None, None, "fingerprint-3", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=15)), to_str(t_2d + datetime.timedelta(minutes=15))),
 
-        # parent_content_id 5 (en): translate to ja, zh
-        (5, 6, "ja", "Australia report (JA)", "JA body", "fingerprint-6", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=12)), to_str(t_2d + datetime.timedelta(minutes=12))),
-        (5, 6, "zh", "澳洲報告 (ZH)", "ZH body", "fingerprint-6", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=18)), to_str(t_2d + datetime.timedelta(minutes=18))),
+        # parent_content_id 4 (en, publish_summary): translate to ja, zh
+        (4, 5, "ja", "Study (JA)", "JA summary of the study.", "JA claim.", "JA evidence.", "JA impact.", "fingerprint-5", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_3d + datetime.timedelta(minutes=10)), to_str(t_3d + datetime.timedelta(minutes=10))),
+        (4, 5, "zh", "研究 (ZH)", "ZH summary of the study.", "ZH claim.", "ZH evidence.", "ZH impact.", "fingerprint-5", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_3d + datetime.timedelta(minutes=15)), to_str(t_3d + datetime.timedelta(minutes=15))),
 
-        # parent_content_id 6 (en): translate to ja, zh
-        (6, 7, "ja", "NewsNation (JA)", "JA body", "fingerprint-7", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=10)), to_str(t_1d + datetime.timedelta(minutes=10))),
-        (6, 7, "zh", "NewsNation (ZH)", "ZH body", "fingerprint-7", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=14)), to_str(t_1d + datetime.timedelta(minutes=14))),
+        # parent_content_id 5 (en, publish_summary): translate to ja, zh
+        (5, 6, "ja", "Australia report (JA)", "JA summary of the report.", "JA claim.", "JA evidence.", "JA impact.", "fingerprint-6", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=12)), to_str(t_2d + datetime.timedelta(minutes=12))),
+        (5, 6, "zh", "澳洲報告 (ZH)", "ZH summary of the report.", "ZH claim.", "ZH evidence.", "ZH impact.", "fingerprint-6", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_2d + datetime.timedelta(minutes=18)), to_str(t_2d + datetime.timedelta(minutes=18))),
 
-        # old: parent_content_id 7 (en): translate to ja, zh
-        (7, 10, "ja", "Old MUFON ja", "body ja", "fingerprint-10", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_10d), to_str(t_10d)),
-        (7, 10, "zh", "Old MUFON zh", "body zh", "fingerprint-10", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_10d), to_str(t_10d))
+        # parent_content_id 6 (en, publish_summary): translate to ja, zh
+        (6, 7, "ja", "NewsNation (JA)", "JA summary of the interview.", "JA claim.", "JA evidence.", "JA impact.", "fingerprint-7", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=10)), to_str(t_1d + datetime.timedelta(minutes=10))),
+        (6, 7, "zh", "NewsNation (ZH)", "ZH summary of the interview.", "ZH claim.", "ZH evidence.", "ZH impact.", "fingerprint-7", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_1d + datetime.timedelta(minutes=14)), to_str(t_1d + datetime.timedelta(minutes=14))),
+
+        # old: parent_content_id 7 (en, publish_summary): translate to ja, zh
+        (7, 10, "ja", "Old MUFON ja", "JA summary of old MUFON case.", "JA claim.", "JA evidence.", "JA impact.", "fingerprint-10", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_10d), to_str(t_10d)),
+        (7, 10, "zh", "Old MUFON zh", "ZH summary of old MUFON case.", "ZH claim.", "ZH evidence.", "ZH impact.", "fingerprint-10", "completed", 0, "gemini-1.5-pro", "v1.0", to_str(t_10d), to_str(t_10d))
     ]
 
     conn.executemany("""
         INSERT INTO translation_output (
-            parent_content_id, source_item_id, language_code, display_title, content,
+            parent_content_id, source_item_id, language_code, display_title, summary_short,
+            bullet_1, bullet_2, bullet_3,
             source_fingerprint, translation_status, retry_count, model_name, prompt_version,
             translated_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, translations)
 
     # Seed publish records

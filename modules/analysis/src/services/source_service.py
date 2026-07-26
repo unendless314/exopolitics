@@ -225,9 +225,10 @@ class SourceService:
             flags = item["decision_model"]["analysis_flags"]
             flags_str = ", ".join(f"[{f}]" for f in flags) if flags else "None"
 
-            # Resolve source title
+            # Resolve source title (escape pipes: titles are free text and a
+            # raw "|" would split the Markdown table row into extra cells)
             if src_id in self.sources_meta:
-                title = self.sources_meta[src_id].title
+                title = self.sources_meta[src_id].title.replace("|", "\\|")
             else:
                 title = f"Unknown Source (ID: {src_id})"
 

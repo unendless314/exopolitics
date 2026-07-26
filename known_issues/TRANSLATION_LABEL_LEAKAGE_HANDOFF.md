@@ -1,10 +1,10 @@
 # 翻譯標籤洩漏重構：交接文件（2026-07-24）
 
-**狀態：** Phase 1、Phase 2、Phase 3 已完成並通過複審（Phase 3 於 2026-07-25 完成）；Phase 4（重塑 site adapter 與 i18n）已完成並通過複審（2026-07-26）；下一個執行項為 Phase 5（同步 analysis 與全量驗收）
+**狀態：** 全部 Phase（1–5）已完成並通過複審，全案結案（2026-07-26）。Phase 5（同步 analysis 與全量驗收）完成，結構與品質稽核全數通過（稽核報告：`reports/analysis/TRANSLATION_LABEL_LEAKAGE_AUDIT_2026-07-26.md`），原始問題已移至 `known_issues/resolved/`
 **關聯文件：**
 - 核定計畫：[`TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md`](./TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md)
 - 處置清單與裁決紀錄：[`TRANSLATION_LABEL_LEAKAGE_DISPOSAL_LIST.md`](./TRANSLATION_LABEL_LEAKAGE_DISPOSAL_LIST.md)
-- 原始問題：[`TRANSLATION_LABEL_LEAKAGE.md`](./TRANSLATION_LABEL_LEAKAGE.md)
+- 原始問題：[`TRANSLATION_LABEL_LEAKAGE.md`](./resolved/TRANSLATION_LABEL_LEAKAGE.md)（已解決，2026-07-26 移入 resolved/）
 
 ## 1. 今日完成的任務
 
@@ -148,21 +148,42 @@ Set-Location modules\site; npx vitest run tests/i18n.test.ts tests/readingTime.t
 - `BaseHead.astro`／`LanguageSelector.astro` 的 `["zh","en","ja"]` 為非 post 頁的 fallback 預設值，不在處置清單 §3.3 點名範圍，未動。
 - type-check 期間 glob-loader 對兩個 slug 報 duplicate id warning（同 id 同路徑自我覆寫；generated/en 為 3,015 檔、與 item 數一致），判定為既有現象，不影響建置結果。
 
-## 5. 剩餘工作事項
+## 5. Phase 5 完成紀錄（2026-07-26）：同步 analysis 與全量驗收
 
-### Phase 5：同步 analysis 與全量驗收（下一個執行項）
+依處置清單 §3.4 與計畫 Phase 5 完成 analysis 同步、新庫稽核與結案，全部測試轉綠。正式全庫重建已先於本 Phase 由使用者執行完畢（2026-07-25，見 §3.4），本 Phase 補齊稽核後結案。
 
-1. `translate_queries.py:142` 的 `get_translation_char_volumes()` 換五欄公式（**只改這一條**；global/share 查詢依 Q10 裁決另案，待 REPORT_CONTRACTS 納入）。
-2. 依處置清單 §3.4 更新 `generate_mock_db.py`（含 `data/test_sandbox.db` 重建）與五個 test 檔的 seed；注意 `downstream_action` 與 bullets 形狀的 0-or-3 一致性。
-3. ~~隔離空庫完整跑 ingest → site pipeline 演練，再依核准範圍執行正式全量重建（計畫 §6）。~~ **正式重建已由使用者提前執行完畢（2026-07-25，見 §3.4）**；site 段的端到端驗證併入 Phase 4 完成後進行。
-4. 對新庫補跑結構與品質稽核報告（重建先於稽核，此項不得省略；如需新舊對照可從雲端取回舊庫），通過後才能把原始問題移至 `known_issues/resolved/`。
+### 5.1 變更內容
 
-### 全庫重建紅線（計畫 §6，執行 Phase 5 前重讀）
+| 路徑 | 變更 |
+| --- | --- |
+| `modules/analysis/src/queries/translate_queries.py` | `get_translation_char_volumes()` 換五欄長度和公式（僅此一條；global/share 查詢依 Q10 裁決另案，待 REPORT_CONTRACTS 納入）。 |
+| `modules/analysis/tests/generate_mock_db.py` | acr／translation_output 換五欄 DDL（對齊 translate DATA_CONTRACT §1.4，含 CHECK 約束）；seed 換五欄，bullets 0-or-3 與 `downstream_action` 一致、翻譯 nullability 鏡像母稿；`data/test_sandbox.db` 已重建。 |
+| `modules/analysis/tests/test_translate_service.py`、`test_schema_validation.py`、`test_publish_service.py`、`test_source_classifier.py`、`test_funnel_calculator.py` | 五欄 INSERT seed；bullets 全 NULL 的 acr 列其 curation `downstream_action` 同步設為 `publish_link`（0-or-3 invariant）；translate_service 的 proxy 期望值 34 不變（title 22 + summary 12，斷言保留）。 |
+| `reports/analysis/TRANSLATION_LABEL_LEAKAGE_AUDIT_2026-07-26.md` | 新增：新庫結構與品質稽核報告（結案依據）。 |
+| `known_issues/TRANSLATION_LABEL_LEAKAGE.md` | 移至 `known_issues/resolved/`；九處路徑引用（計畫、本檔、translate/publish 文件與程式註解、兩契約測試註解）同步更新。 |
 
-- 先停所有排程工作；保存舊 DB/export 唯讀快照。
-- **`data/canonical_final.db` 是獨立歷史分析資料庫，絕對不得刪除、修改、搬移或納入重建。**
-- 禁止寫任何把舊 `content_body` 用 regex 拆回五欄的 migration。
-- 新輸出全數驗收前不切換服務；舊快照驗收期保留。
+### 5.2 驗證結果
+
+- analysis：**25 passed**（Phase 5 完成時點；複審新增 2 個跳脫測試後為 **27 passed**，見 §5.4）。
+- translate：48 passed 維持；publish：27 passed + 45 subtests passed 維持（analysis 變更無外溢）。
+- 稽核腳本直接復用 publish orchestrator 的 `UI_LABELS`（19 標籤）與 `has_ui_label_prefix()`，全量掃描結果：schema 五欄無舊欄位；acr 3,015／tor 9,045 的 0-or-3 invariant 全數成立；DB 與 export 內容欄位 19 標籤零命中；export 9,045 件恰 13 鍵、與 DB 逐字相符；index 3,000 筆逐字相符；指紋全為 64 字元 SHA-256 hex；bypass 僅 en、非 bypass 全為 `v2.0`。
+- 五個 analysis 端點對正式庫全數執行成功，JSON 與 Markdown 雙格式報告均已重產出（dashboard 消費 JSON）；workload proxy en=0（bypass 排除正確）、zh/ja 各 1,055,003（窗口 2026-07-19→2026-07-26，SQL 手算核對一致；初版此處誤引舊檔數字，見 §5.4 P1）。
+- 全庫重建紅線（計畫 §6）全程遵守：重建前停排程、舊庫由雲端備援等效快照、未寫任何 regex 拆分 migration、**`data/canonical_final.db` 全程未接觸**。
+
+### 5.3 結案
+
+稽核通過，`known_issues/TRANSLATION_LABEL_LEAKAGE.md` 已移入 `known_issues/resolved/`，本重構結案。
+
+### 5.4 複審修正（2026-07-26）
+
+Code Review 兩項發現均屬實並已修正：
+
+| 發現 | 判定與處置 |
+| --- | --- |
+| [P1] dashboard 消費的 `TRANSLATION_PERFORMANCE_REPORT.json` 仍為 2026-07-24 舊檔（zh/ja=133,772 為舊庫、舊公式） | 屬實，為 Phase 5 執行疏失：重產出時未指定 `--format json`（CLI 預設僅寫 Markdown），JSON 未被覆寫，稽核 §4 誤引舊檔數字。已雙格式重產出五份報告；新 JSON（generated_at 2026-07-26T10:08:44Z）經同一窗口 SQL 手算核對一致（zh/ja 各 1,055,003、en=0）。稽核報告 §4 已更正並加註修正紀錄。 |
+| [P3] Markdown 表格未跳脫來源標題中的 `|`（`Space \| The Guardian` 在 SOURCE_QUALITY／CLASSIFY_MONITOR 報告斷行、指標錯位） | 屬實，analysis 既有顯示層問題，與五欄契約無關（JSON 不受影響）。`source_service.py`、`classify_service.py` 標題解析處加 `\|` 跳脫，各新增一個斷言跳脫與結構 pipe 數的測試；報告重產出後該列正常。 |
+
+修正後 analysis 測試為 27 passed；translate 48、publish 27+45 subtests、site 36 與 type-check 維持不變。
 
 ## 6. 給接手者的提示
 

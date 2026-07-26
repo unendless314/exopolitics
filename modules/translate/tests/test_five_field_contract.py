@@ -58,7 +58,7 @@ DEFAULT_TRANSLATE_MIGRATIONS = pathlib.Path(__file__).resolve().parent.parent / 
 # ---------------------------------------------------------------------------
 # Known UI label lists (label guard)
 # English labels come from the legacy splice; zh/ja variants are the observed
-# leaked variants from known_issues/TRANSLATION_LABEL_LEAKAGE.md section 4.2,
+# leaked variants from known_issues/resolved/TRANSLATION_LABEL_LEAKAGE.md section 4.2,
 # mirrored in EXECUTION_POLICY.md section 5 rule 5.
 # ---------------------------------------------------------------------------
 
@@ -867,7 +867,7 @@ class TestTranslationQualityValidation(unittest.TestCase):
 
     def test_label_guard_rejects_all_known_label_prefixes(self) -> None:
         # Guard list = English labels + every observed zh/ja variant from
-        # TRANSLATION_LABEL_LEAKAGE.md 4.2, applied to zh and ja targets.
+        # known_issues/resolved/TRANSLATION_LABEL_LEAKAGE.md 4.2, applied to zh and ja targets.
         for lang in ("zh", "ja"):
             for label in ALL_KNOWN_LABELS:
                 data = five_field_response(summary=f"{label}: これはテスト內容です。")

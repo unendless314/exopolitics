@@ -65,7 +65,7 @@ class ProcessLock:
 
 # Migration-period label guard list (EXECUTION_POLICY.md section 5 rule 5):
 # the three English UI labels plus every zh/ja variant observed leaking into
-# content (known_issues/TRANSLATION_LABEL_LEAKAGE.md section 4.2).
+# content (known_issues/resolved/TRANSLATION_LABEL_LEAKAGE.md section 4.2).
 KNOWN_UI_LABELS = (
     "Key Claim",
     "Evidence Level",

@@ -170,9 +170,10 @@ class ClassifyService:
             density = item["content_density_distribution"]
             density_str = f"{density['low'] * 100:.1f}% / {density['medium'] * 100:.1f}% / {density['high'] * 100:.1f}%"
 
-            # Resolve source title
+            # Resolve source title (escape pipes: titles are free text and a
+            # raw "|" would split the Markdown table row into extra cells)
             if src_id in self.sources_meta:
-                title = self.sources_meta[src_id].title
+                title = self.sources_meta[src_id].title.replace("|", "\\|")
             else:
                 title = f"Unknown Source (ID: {src_id}) [INSUFFICIENT_DATA]"
 

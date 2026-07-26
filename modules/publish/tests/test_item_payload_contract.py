@@ -63,7 +63,7 @@ DEFAULT_PUBLISH_MIGRATIONS = pathlib.Path(__file__).resolve().parent.parent / "s
 
 # Presentation labels that must never leak into exported content values:
 # the three English labels plus every zh/ja variant observed in
-# known_issues/TRANSLATION_LABEL_LEAKAGE.md section 4.2.
+# known_issues/resolved/TRANSLATION_LABEL_LEAKAGE.md section 4.2.
 UI_LABELS = (
     "Key Claim",
     "Evidence Level",
