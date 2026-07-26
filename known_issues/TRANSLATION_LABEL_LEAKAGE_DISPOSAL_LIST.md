@@ -1,6 +1,6 @@
 # 翻譯標籤洩漏重構：舊欄位處置清單與測試設計紀錄
 
-**狀態：** Phase 1 測試設計已通過 Review 修正；§3.1（translate）已於 Phase 2 執行完畢並通過複審（2026-07-25），§3.2（publish）已於 Phase 3 執行完畢並通過複審（2026-07-25），§3.3／§3.4 分別待 Phase 4／5 執行
+**狀態：** Phase 1 測試設計已通過 Review 修正；§3.1（translate）已於 Phase 2 執行完畢並通過複審（2026-07-25），§3.2（publish）已於 Phase 3 執行完畢並通過複審（2026-07-25），§3.3（site）已於 Phase 4 執行完畢並通過複審（2026-07-26），§3.4 待 Phase 5 執行
 **建立日期：** 2026-07-24
 **關聯計畫：** [`TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md`](./TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md)（本檔為其 Phase 1 完成條件要求的處置清單）
 

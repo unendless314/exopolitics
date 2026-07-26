@@ -1,6 +1,6 @@
 # 翻譯標籤洩漏重構計畫
 
-**狀態：** Phase 1（文件契約 + 測試設計）已完成並通過複審（2026-07-24）；Phase 2（handoff 與 translate 重塑）已完成並通過複審（2026-07-25）；Phase 3（重塑 publish export）已完成並通過複審（2026-07-25）；交接摘要見 [`TRANSLATION_LABEL_LEAKAGE_HANDOFF.md`](./TRANSLATION_LABEL_LEAKAGE_HANDOFF.md)
+**狀態：** Phase 1（文件契約 + 測試設計）已完成並通過複審（2026-07-24）；Phase 2（handoff 與 translate 重塑）已完成並通過複審（2026-07-25）；Phase 3（重塑 publish export）已完成並通過複審（2026-07-25）；Phase 4（site adapter 與 i18n）已完成並通過複審（2026-07-26）；交接摘要見 [`TRANSLATION_LABEL_LEAKAGE_HANDOFF.md`](./TRANSLATION_LABEL_LEAKAGE_HANDOFF.md)
 **建立日期：** 2026-07-24
 **關聯問題：** [`TRANSLATION_LABEL_LEAKAGE.md`](./TRANSLATION_LABEL_LEAKAGE.md)
 

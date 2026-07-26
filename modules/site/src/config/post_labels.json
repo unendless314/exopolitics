@@ -1,0 +1,17 @@
+{
+  "en": {
+    "key_claim": "Key Claim",
+    "evidence_level": "Evidence Level",
+    "objective_impact": "Objective Impact"
+  },
+  "zh": {
+    "key_claim": "關鍵主張",
+    "evidence_level": "證據等級",
+    "objective_impact": "客觀影響"
+  },
+  "ja": {
+    "key_claim": "主要主張",
+    "evidence_level": "証拠レベル",
+    "objective_impact": "客観的影響"
+  }
+}

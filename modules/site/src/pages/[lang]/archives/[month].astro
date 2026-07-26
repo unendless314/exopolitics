@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import Base from "../../../layouts/Base.astro";
 import Timeline from "../../../components/Timeline.astro";
-import { useTranslations } from "../../../utils/i18n";
+import { useTranslations, localeProfiles } from "../../../utils/i18n";
 import { publishExportDir } from "../../../utils/paths";
 
 import type { TimelinePost } from "../../../components/Timeline.astro";
@@ -18,7 +18,7 @@ interface ArchiveEntry {
 }
 
 export function getStaticPaths() {
-  const languages = ["zh", "en", "ja"];
+  const languages = Object.keys(localeProfiles);
   const paths = [];
 
   for (const lang of languages) {

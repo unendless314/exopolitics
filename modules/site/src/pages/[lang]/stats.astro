@@ -2,15 +2,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import Base from "../../layouts/Base.astro";
-import { formatAbsoluteDateTime, useTranslations } from "../../utils/i18n";
+import { formatAbsoluteDateTime, useTranslations, localeProfiles } from "../../utils/i18n";
 import { publishExportDir } from "../../utils/paths";
 
 export function getStaticPaths() {
-  return [
-    { params: { lang: "zh" } },
-    { params: { lang: "en" } },
-    { params: { lang: "ja" } },
-  ];
+  return Object.keys(localeProfiles).map((lang) => ({ params: { lang } }));
 }
 
 const { lang = "zh" } = Astro.params;

@@ -81,7 +81,7 @@ The item JSON guarantees a validated `summary_short`, so the frontmatter `descri
 The Markdown file body below the frontmatter block is assembled from the structured fields: `summary_short` becomes the first paragraph, and when `bullets` is present the adapter appends a bullet list using the locale-specific post labels (see Section 2.2). There is no `content` field to fall back to.
 
 ### 2.2 Post Label Ownership (Adapter-Only)
-The three UI label strings used for the bullet list (`key_claim`, `evidence_level`, `objective_impact`) exist only in `modules/site/src/config/post_labels.json`. This file is the single source of truth for post label text: the adapter (`modules/site/scripts/generate-posts.js`) reads it directly and writes the labels into the generated Markdown, and Astro pages must not duplicate the same label keys in `uiTranslations`. Because label text lives only in the site's locale data, changing label wording requires only a site rebuild — no re-translation and no changes to the publish export.
+The three UI label strings used for the bullet list (`key_claim`, `evidence_level`, `objective_impact`) exist only in `modules/site/src/config/post_labels.json`. This file is the single source of truth for post label text: it is read by `loadPostLabels()` in `modules/site/scripts/lib/post_adapter.js`, and the adapter writes the labels into the generated Markdown; Astro pages must not duplicate the same label keys in `uiTranslations`. Because label text lives only in the site's locale data, changing label wording requires only a site rebuild — no re-translation and no changes to the publish export.
 
 ---
 

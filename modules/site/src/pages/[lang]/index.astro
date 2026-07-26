@@ -3,18 +3,14 @@ import fs from "node:fs";
 import path from "node:path";
 import Base from "../../layouts/Base.astro";
 import Timeline from "../../components/Timeline.astro";
-import { useTranslations } from "../../utils/i18n";
+import { useTranslations, localeProfiles } from "../../utils/i18n";
 import { publishExportDir } from "../../utils/paths";
 import type { TimelinePost } from "../../components/Timeline.astro";
 import { validateCatalogItem } from "../../utils/validation";
 import type { CatalogItem } from "../../utils/validation";
 
 export function getStaticPaths() {
-  return [
-    { params: { lang: "zh" } },
-    { params: { lang: "en" } },
-    { params: { lang: "ja" } },
-  ];
+  return Object.keys(localeProfiles).map((lang) => ({ params: { lang } }));
 }
 
 const { lang = "zh" } = Astro.params;

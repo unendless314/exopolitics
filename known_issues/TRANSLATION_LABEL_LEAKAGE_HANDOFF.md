@@ -1,6 +1,6 @@
 # 翻譯標籤洩漏重構：交接文件（2026-07-24）
 
-**狀態：** Phase 1、Phase 2、Phase 3 已完成並通過複審（Phase 3 於 2026-07-25 完成）；下一個執行項為 Phase 4（重塑 site adapter 與 i18n）
+**狀態：** Phase 1、Phase 2、Phase 3 已完成並通過複審（Phase 3 於 2026-07-25 完成）；Phase 4（重塑 site adapter 與 i18n）已完成並通過複審（2026-07-26）；下一個執行項為 Phase 5（同步 analysis 與全量驗收）
 **關聯文件：**
 - 核定計畫：[`TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md`](./TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md)
 - 處置清單與裁決紀錄：[`TRANSLATION_LABEL_LEAKAGE_DISPOSAL_LIST.md`](./TRANSLATION_LABEL_LEAKAGE_DISPOSAL_LIST.md)
@@ -118,16 +118,39 @@ Set-Location modules\site; npx vitest run tests/i18n.test.ts tests/readingTime.t
 - export 驗證（run 與 rebuild 後各驗一次）：item JSON 恰好 13 鍵、無 `content` 鍵；bullets 0-or-3 形狀正確；3,000 筆 index 條目逐一與 DB 比對 `summary_short` 逐字相符；全部輸出字串零 UI 標籤。
 - `data/publish_export/` 現為新格式真實資料，可直接供 Phase 4 的 site adapter 開發除錯。
 
-## 4. 剩餘工作事項
+## 4. Phase 4 完成紀錄（2026-07-26，已通過複審）
 
-### Phase 4：重塑 site adapter 與 i18n（下一個執行項）
+依處置清單 §3.3 與計畫 Phase 4 重塑 site adapter 與 i18n，全部測試轉綠。
 
-1. 新增 `modules/site/src/config/post_labels.json`（en/zh/ja 三組定案標籤）與 `modules/site/scripts/lib/post_adapter.js`（四函式，簽名見處置清單 §2，含 Q7 的 `language_code === locale` 校驗）。
-2. `generate-posts.js` 依處置清單 §3.3 改造（刪 summaryMap、content fallback、硬編碼語言）。
-3. 移除硬編碼語言陣列：generate-posts.js、archives 兩條 route，以及 Q8 核定一併處理的 `[lang]/index.astro`、`[lang]/stats.astro` 的 `getStaticPaths`（`astro.config.ts` 與 stats.astro 的 union type cast **維持豁免不動**）。
-4. `generatePosts.contract.test.ts` 應轉綠；`npm run type-check`、`npm run build` 通過。
+### 4.1 變更內容
 
-### Phase 5：同步 analysis 與全量驗收
+| 路徑 | 變更 |
+| --- | --- |
+| `modules/site/src/config/post_labels.json` | 新增：en/zh/ja 三組定案標籤；adapter 唯一 post label 來源，locale key 集與 `localeProfiles` 一致（測試鎖定）。 |
+| `modules/site/scripts/lib/post_adapter.js` | 新增：plain Node ESM、零相依，四函式 `loadPostLabels`／`validateItem`／`assembleMarkdown`／`getAdapterLanguages`，簽名與 arity 同處置清單 §2（含 Q7 的 `language_code === locale` 校驗；labels 檔缺失／無效／任一 locale 非恰三鍵非空即拋錯）。 |
+| `modules/site/scripts/generate-posts.js` | 依處置清單 §3.3 改造：刪 summaryMap（index.json／archives manifest／archive items 三段讀取）、description fallback 鏈、`content` 解構與 `getFirstParagraph`／`stripMarkdown`／`truncateDescription`；語言集改 `getAdapterLanguages(loadPostLabels())`；逐 item `assembleMarkdown()`，失敗即 `process.exit(1)`；translation map 行為不變。 |
+| `modules/site/src/pages/[lang]/index.astro`、`stats.astro`、`archives/index.astro`、`archives/[month].astro` | `getStaticPaths` 硬編碼三語改由 `Object.keys(localeProfiles)` 驅動（Q8）；`astro.config.ts` 的 `i18n.locales` 與 stats.astro union type cast 依豁免不動。 |
+| `modules/site/docs/DATA_HANDOFF_CONTRACT.md` | 複審 P3 修正：§2.2 標籤讀檔責任文句改為 `post_adapter.js` 的 `loadPostLabels()`，移除 generate-posts.js「直接」讀檔的過時描述（唯一非阻擋項，已結案）。 |
+
+### 4.2 驗證結果
+
+- `npx vitest run`：**36 passed**（generatePosts.contract.test.ts 23 全綠＋baseline i18n/readingTime 13 維持）。
+- `node scripts/generate-posts.js`（真實 export）：en/zh/ja 各 3,015 件全數通過 adapter 驗證，零失敗；translation map 正常寫出。
+- `npm run type-check`：0 errors／0 warnings。
+- `npm run build`：**9,340 pages built**，無錯誤。
+- 建置抽驗：zh `publish_summary` 頁恰含「關鍵主張／證據等級／客觀影響」各一次；en 頁含三個英文標籤；ja `publish_link` 頁零標籤、僅摘要段。
+
+### 4.3 給複審者的提示
+
+- `assembleMarkdown()` 內部先 `validateItem()`；generate-posts.js 僅呼叫 `assembleMarkdown()` 一處，驗證不重複，錯誤訊息帶 slug／檔名脈絡。
+- frontmatter 六鍵與舊版逐字一致（`title`／`publishDate`／`description`／`canonicalUrl`／`disclosureNote`／`authorMetadata`），`description` 直取 `summary_short` 原文不截斷。
+- 標籤 JSON key 順序（en/zh/ja）僅影響 adapter 處理順序；頁面語言顯示順序由 `localeProfiles`（zh/en/ja）決定，不受影響。
+- `BaseHead.astro`／`LanguageSelector.astro` 的 `["zh","en","ja"]` 為非 post 頁的 fallback 預設值，不在處置清單 §3.3 點名範圍，未動。
+- type-check 期間 glob-loader 對兩個 slug 報 duplicate id warning（同 id 同路徑自我覆寫；generated/en 為 3,015 檔、與 item 數一致），判定為既有現象，不影響建置結果。
+
+## 5. 剩餘工作事項
+
+### Phase 5：同步 analysis 與全量驗收（下一個執行項）
 
 1. `translate_queries.py:142` 的 `get_translation_char_volumes()` 換五欄公式（**只改這一條**；global/share 查詢依 Q10 裁決另案，待 REPORT_CONTRACTS 納入）。
 2. 依處置清單 §3.4 更新 `generate_mock_db.py`（含 `data/test_sandbox.db` 重建）與五個 test 檔的 seed；注意 `downstream_action` 與 bullets 形狀的 0-or-3 一致性。
@@ -141,7 +164,7 @@ Set-Location modules\site; npx vitest run tests/i18n.test.ts tests/readingTime.t
 - 禁止寫任何把舊 `content_body` 用 regex 拆回五欄的 migration。
 - 新輸出全數驗收前不切換服務；舊快照驗收期保留。
 
-## 5. 給接手者的提示
+## 6. 給接手者的提示
 
 - 處置清單 §2 有全部測試釘住的目標 API 簽名（已核定，實作勿偏離；若要改命名需同步改測試）。
 - 處置清單 §4 是 Review 裁決紀錄（Q1-Q12），實作前先讀。
