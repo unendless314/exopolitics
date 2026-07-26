@@ -7,7 +7,7 @@ import { localeProfiles } from '../src/utils/i18n';
 
 /**
  * Phase 1 contract tests for the site adapter rework
- * (TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md, plan section 7.1 "site adapter" row).
+ * (known_issues/resolved/TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md, plan section 7.1 "site adapter" row).
  *
  * These tests target the Phase 4 adapter API, which does not exist yet:
  *

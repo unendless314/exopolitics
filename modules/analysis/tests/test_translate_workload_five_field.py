@@ -1,6 +1,6 @@
 """
 Phase 1 test design for the translation label-leakage refactor
-(`known_issues/TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md`, Phase 5 step 1;
+(`known_issues/resolved/TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md`, Phase 5 step 1;
 verification matrix 7.1, analysis row), converged after the Phase 1
 review.
 
@@ -19,7 +19,7 @@ This file covers, on a five-column schema fixture (`display_title`,
 - the empty-cohort convention for `get_translation_char_volumes()`
   (list queries return []).
 
-Review ruling (see known_issues/TRANSLATION_LABEL_LEAKAGE_DISPOSAL_LIST.md):
+Review ruling (see known_issues/resolved/TRANSLATION_LABEL_LEAKAGE_DISPOSAL_LIST.md):
 the global Recorded / Intended workload queries and the section 4.3.4
 character-share query have no report consumer yet and are deferred to a
 separate case -- they will be designed and implemented only after

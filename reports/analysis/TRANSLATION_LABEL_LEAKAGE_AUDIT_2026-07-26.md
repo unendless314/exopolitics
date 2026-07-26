@@ -2,7 +2,7 @@
 
 **稽核日期：** 2026-07-26
 **稽核對象：** 全庫重建後的 `data/canonical.db`（2026-07-25 重建）與 `data/publish_export/`（同日出品）
-**依據：** `known_issues/TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md` Phase 5 步驟 4 與 §7.3；`known_issues/TRANSLATION_LABEL_LEAKAGE_HANDOFF.md` §5
+**依據：** `known_issues/resolved/TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md` Phase 5 步驟 4 與 §7.3；`known_issues/resolved/TRANSLATION_LABEL_LEAKAGE_HANDOFF.md` §5
 **方法：** 一次性稽核腳本直接復用 `modules/publish/src/orchestrator.py` 的 `UI_LABELS`（19 標籤）與 `has_ui_label_prefix()`，確保稽核清單與 runtime 守門完全一致；export 掃描為全量（非抽樣）。`data/canonical_final.db` 未納入、未接觸。
 
 ## 1. 結構稽核（canonical DB）

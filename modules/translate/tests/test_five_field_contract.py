@@ -2,7 +2,7 @@
 Phase 1 contract tests for the five-field translation refactor.
 
 Source contracts (all locked 2026-07-24):
-- known_issues/TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md section 7.1
+- known_issues/resolved/TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md section 7.1
   (fingerprint / assembler / translate schema / translate quality /
   bypass+stale / failure safety rows)
 - modules/translate/docs/DATA_CONTRACT.md section 1 (five-field schema)

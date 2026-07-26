@@ -1,6 +1,6 @@
 """
 Contract tests for the publish item payload after the translation label
-leakage refactor (known_issues/TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md,
+leakage refactor (known_issues/resolved/TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md,
 sections 3.1, 3.5 and the publish row of 7.1).
 
 These tests pin the TARGET behavior:

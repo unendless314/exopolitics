@@ -1,9 +1,9 @@
 # 代碼庫可維護性改進方向（記錄用）
 
-**狀態：** 方向記錄（2026-07-25），**待工程師詳盡調查與分析**；排定於翻譯標籤洩漏重構全部完成後啟動
+**狀態：** 方向記錄（2026-07-25），**待工程師詳盡調查與分析**；前置的翻譯標籤洩漏重構已於 2026-07-26 全部完成並結案，啟動條件已達成
 **性質：** 非緊急、非阻斷性問題；此文件只記錄方向與證據位置，不構成實作計畫
 **關聯文件：**
-- 進行中的重構：[`TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md`](./TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md)（完成前本文件所列項目不動工）
+- 已結案的重構：[`TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md`](./resolved/TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md)（2026-07-26 結案，原「完成前本文件所列項目不動工」的限制已解除）
 - 模組邊界現況：[`../docs/MODULE_BOUNDARIES.md`](../docs/MODULE_BOUNDARIES.md)
 
 ## 1. 背景
@@ -20,7 +20,7 @@
 
 ### 2.2 tests package 撞名，跨模組測試無法同一 invocation 執行
 
-- **證據：** `modules/publish/tests` 與 `modules/analysis/tests` 在同一 pytest invocation 下因 tests package 同名而收集失敗，目前 workaround 是分開執行（已記於 TRANSLATION_LABEL_LEAKAGE_HANDOFF.md §5）。
+- **證據：** `modules/publish/tests` 與 `modules/analysis/tests` 在同一 pytest invocation 下因 tests package 同名而收集失敗，目前 workaround 是分開執行（已記於 [`TRANSLATION_LABEL_LEAKAGE_HANDOFF.md`](./resolved/TRANSLATION_LABEL_LEAKAGE_HANDOFF.md) §6）。
 - **影響：** 妨礙 §2.1 的 CI 單一指令化；新人容易踩到。
 - **方向：** 調整 tests 目錄的 package 結構（例如加 `__init__.py` 命名空間或改 rootdir 配置），讓全倉測試可一鍵執行。
 
