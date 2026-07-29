@@ -1,8 +1,8 @@
 # Ingest 模組測試可維護性改善方案
 
-**狀態：** 建議方案，待工程師審查  
+**狀態：** 執行中 — Phase 0–4 已完成並通過兩輪 Code Review（LGTM），Phase 6 待執行  
 **日期：** 2026-07-30  
-**修訂：** 2026-07-30 審查修訂，Phase 1 增補 fetcher 時鐘注入、§7 決策 3 補上建議方向、原 Phase 5（可選整理）改為明確排程的 Phase 6（機械拆分）  
+**修訂：** 2026-07-30 審查修訂，Phase 1 增補 fetcher 時鐘注入、§7 決策 3 補上建議方向、原 Phase 5（可選整理）改為明確排程的 Phase 6（機械拆分）；2026-07-30 執行進度更新（詳 §8）  
 **範圍：** `modules/ingest/` 的 Python 測試與測試支援結構  
 **非範圍：** 不在本方案中改變 ingest 的資料契約、執行語意、清理流程或模組邊界
 
@@ -244,3 +244,31 @@ python -m modules.ingest.src.cli validate
    - 審查建議：鎖語意、不鎖名稱。`STORAGE_SCHEMA.md` 已聲明 SQL 語法細節可因引擎而異，索引名稱屬實作細節；測試應鎖定每個規定 index 的資料表、欄位順序與 unique 屬性，以及 FK delete action 與 CHECK 接受值，避免未來索引改名造成無意義的測試失敗。
 
 在上述決策完成前，可先執行 Phase 1 中不涉及 parse-failure 語意的案例，以及 Phase 2 的純 config 測試。
+
+**決議（2026-07-30 由維護者裁定）：**
+
+1. bozo 映射為 `parse_error`；Code Review 進一步限定為**僅語法錯誤**（`SAXParseException`），可回復 bozo（如 `CharacterEncodingOverride`）不算 parse failure。規則已鎖入 `FETCH_EXECUTION.md` §9。
+2. 嚴格映射：active config 的既有 warning 逐字鎖定於 `test_config.py::EXPECTED_ACTIVE_CONFIG_WARNINGS`，任何增減都使測試失敗。
+3. 採審查建議：鎖語意、不鎖名稱。
+
+## 8. 執行進度（2026-07-30 更新）
+
+測試基線：73 passed → **166 passed, 104 subtests passed**；完整套件五連跑全綠；`python -m modules.ingest.src.cli validate` 零 error。
+
+| Phase | 狀態 | 產出 |
+| --- | --- | --- |
+| Phase 0 | 完成 | `tests/feed_samples.py` 共用 mock feed 樣本 |
+| Phase 1 | 完成 | `tests/test_parser.py`；`test_fetcher.py` 補 `network_error` 分支、429 HTTP-date 改 mock 時鐘（精確斷言 30.0）；`test_scheduler.py` 補 round-trip/offset 與 `add_days_to_iso8601` 邊界測試 |
+| Phase 2 | 完成 | `test_config.py` 新增負向案例（subTest 覆蓋）、warning 獨立斷言、active config 嚴格映射測試 |
+| Phase 3 | 完成 | `tests/test_orchestrator_operations.py`（304、scope filtering、skip paths、force bypass、dry-run、quarantine 循環、bozo→parse_error） |
+| Phase 4 | 完成 | `tests/test_database.py`（表集合、index 語意、真實 SQLite unique/CHECK/FK、migration 幂等與失敗回滾、`split_sql_statements()`） |
+| Phase 6 | **待執行** | 依方案護欄：獨立提交、不改斷言語意、核對拆分前後測試總數與新舊 node ID 對照 |
+
+Production 改動（皆經決策或 review 授權）：`parser.py` 新增 `FeedParseError`（bozo 語法錯誤 → parse_error）；`database.py` 修 `split_sql_statements()` 同行多 statements 合併的缺陷。文件同步：`FETCH_EXECUTION.md` §9、`STORAGE_SCHEMA.md`（§4.4 `updated_at`、§4.1/§8 `dedup_rule` 值集）。
+
+Code Review 記錄：
+
+- 第一輪：[P1] bozo 不可一律視為 malformed（已限縮為語法錯誤並補測試）；[P1] `split_sql_statements` 同行 statements（已修 splitter 並補回歸測試）；spec drift 兩項（文件已對齊 DDL）。
+- 第二輪：LGTM，無遺留事項。
+
+Review 中發現但**僅鎖定現狀、未改 code**的行為落差，留待後續評估（不阻塞本方案）：disabled source 在 dispatch 前被過濾、不出現於 skip summary；`due_source_count` 實為 in-scope 數；304 寫回的 validators 取自舊 state。另發現 feedparser 會把 Atom `<id>` 提升為 `link`，非 URL 的 id 可能成為全域 `url:` dedup key，建議另案記錄。

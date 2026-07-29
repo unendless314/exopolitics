@@ -1,8 +1,12 @@
 import feedparser
+import xml.sax
 from typing import List, Optional, Dict, Any, Tuple
 from .models import NormalizedItem
 from .normalize import normalize_title, normalize_url, normalize_published_at
 from .dedup import generate_dedup_keys
+
+class FeedParseError(Exception):
+    """Raised when feedparser reports the payload as ill-formed (bozo) with a genuine syntax failure."""
 
 def parse_feed_entries(
     source_id: int,
@@ -12,8 +16,20 @@ def parse_feed_entries(
     """
     Parses raw XML feed content using feedparser, normalizes all elements, 
     computes deduplication keys, and returns a list of (NormalizedItem, raw_entry) tuples.
+
+    feedparser does not raise on malformed XML; it reports the `bozo` flag and
+    may return zero or even partial entries. Per FETCH_EXECUTION.md, a bozo
+    payload backed by a genuine syntax failure (SAX parse error) is a
+    source-level parse failure, so this function raises FeedParseError instead
+    of silently returning partial results. Recoverable bozo conditions (for
+    example feedparser's character-encoding override recovery) are not parse
+    failures: their entries are valid and processed normally. A structurally
+    valid payload with zero entries is not an error either.
     """
     parsed = feedparser.parse(xml_content)
+    bozo_exception = parsed.get("bozo_exception")
+    if parsed.bozo and isinstance(bozo_exception, xml.sax.SAXParseException):
+        raise FeedParseError(f"Malformed feed payload: {bozo_exception}")
     normalized_items: List[Tuple[NormalizedItem, Dict[str, Any]]] = []
 
     for entry in parsed.entries:

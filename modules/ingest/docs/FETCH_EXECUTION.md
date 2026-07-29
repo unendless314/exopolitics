@@ -138,3 +138,9 @@ Fetch execution does not own:
 - fetch execution includes sanitization as part of ingest completion
 - item-level anomalies must be representable without forcing a second module
 - source-level success and item usefulness are related but not identical states
+- a feed payload that feedparser reports as ill-formed (`bozo`) with a genuine
+  syntax failure (a SAX parse error) is a source-level `parse_error`, even when
+  partial entries were extractable; recoverable `bozo` conditions (for example
+  feedparser's character-encoding override recovery) are not parse failures and
+  their entries must be processed normally; a structurally valid payload with
+  zero entries is not a parse failure

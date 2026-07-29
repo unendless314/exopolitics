@@ -91,6 +91,23 @@ class TestHTTPFetcher(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.retry_count, 2)
         self.assertEqual(mock_sleep.call_count, 2)
 
+    @patch("asyncio.sleep", return_value=None)
+    @patch("httpx.AsyncClient.get")
+    async def test_fetch_network_error_retries_and_fails(self, mock_get, mock_sleep) -> None:
+        mock_get.side_effect = httpx.ConnectError("Connection refused", request=MagicMock())
+
+        result = await fetch_feed("https://example.com/feed.xml", max_retries=2, backoff_factor=0.01)
+
+        self.assertIsNone(result.status_code)
+        self.assertIsNone(result.content)
+        self.assertEqual(result.error_class, "network_error")
+        self.assertEqual(result.retry_count, 2)
+        # 1 initial attempt + 2 retries, with a backoff sleep before each retry.
+        self.assertEqual(mock_get.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+        mock_sleep.assert_any_call(0.01)
+        mock_sleep.assert_any_call(0.02)
+
     @patch("httpx.AsyncClient.get")
     async def test_fetch_unexpected_error_fails_immediately(self, mock_get) -> None:
         mock_get.side_effect = RuntimeError("Something completely unexpected happened")
@@ -200,13 +217,14 @@ class TestHTTPFetcher(unittest.IsolatedAsyncioTestCase):
     @patch("asyncio.sleep", return_value=None)
     @patch("httpx.AsyncClient.get")
     async def test_fetch_transient_429_retry_after_http_date(self, mock_get, mock_sleep) -> None:
+        # Fixed clock: the Retry-After HTTP-date is exactly 30s after "now",
+        # so the sleep assertion is exact and immune to execution-time drift.
+        fixed_now = datetime.datetime(2026, 7, 30, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        http_date = format_datetime(fixed_now + datetime.timedelta(seconds=30), usegmt=True)
+
         mock_response = MagicMock()
         mock_response.status_code = 429
         mock_response.text = "Too Many Requests"
-        http_date = format_datetime(
-            datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=30),
-            usegmt=True
-        )
         mock_response.headers = {"retry-after": http_date}
 
         mock_get.side_effect = httpx.HTTPStatusError(
@@ -215,14 +233,16 @@ class TestHTTPFetcher(unittest.IsolatedAsyncioTestCase):
             response=mock_response
         )
 
-        result = await fetch_feed("https://example.com/feed.xml", max_retries=1)
+        with patch("modules.ingest.src.fetcher.datetime") as mock_datetime_module:
+            mock_datetime_module.timezone.utc = datetime.timezone.utc
+            mock_datetime_module.datetime.now.return_value = fixed_now
+
+            result = await fetch_feed("https://example.com/feed.xml", max_retries=1)
 
         self.assertEqual(result.status_code, 429)
         self.assertEqual(result.error_class, "http_error_4xx")
         self.assertEqual(mock_sleep.call_count, 1)
-        actual_sleep = mock_sleep.call_args.args[0]
-        self.assertGreater(actual_sleep, 20.0)
-        self.assertLessEqual(actual_sleep, 30.0)
+        mock_sleep.assert_called_once_with(30.0)
 
     @patch("asyncio.sleep", return_value=None)
     @patch("httpx.AsyncClient.get")

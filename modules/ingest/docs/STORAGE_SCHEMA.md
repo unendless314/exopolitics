@@ -104,6 +104,11 @@ Status direction:
 - MVP minimum allowed `ingest_status` value: `ingested`
 - future expansion is allowed only by contract update, not silent implementation drift
 
+Dedup rule direction:
+
+- `source_item.dedup_rule` values are limited to `guid`, `url`, `tp`, and `fh`
+- the `th` title-hash rule is valid only on `ingest_dedup_marker`, never as the primary identity rule on `source_item`
+
 Uniqueness direction:
 
 - `ingest_dedup_key` should be unique within `source_item`
@@ -232,10 +237,11 @@ Logical columns:
 - `last_error_at`: nullable, latest source-level failure time
 - `health_status`: required, current source health state
 - `quarantine_until`: nullable, quarantine release time when applicable
+- `updated_at`: required, latest source-state update timestamp
 
 Nullability rules:
 
-- `source_id`, `consecutive_failures`, and `health_status` must be non-null
+- `source_id`, `consecutive_failures`, `health_status`, and `updated_at` must be non-null
 - the remaining fields may be null before first successful or failed activity
 
 Status direction:
@@ -446,6 +452,8 @@ When this logical design is translated into SQL migrations:
 Minimum bounded-value sets for first-migration checks:
 
 - `source_item.ingest_status`: `ingested`
+- `source_item.dedup_rule`: `guid`, `url`, `tp`, `fh`
+- `ingest_dedup_marker.dedup_rule`: `guid`, `url`, `tp`, `fh`, `th`
 - `source_state.health_status`: `healthy`, `degraded`, `quarantined`
 - `fetch_run.trigger_type`: `scheduled`, `manual`, `recovery`
 - `fetch_run.run_status`: `running`, `success`, `partial_failure`, `failed`

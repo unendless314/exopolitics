@@ -39,28 +39,30 @@ def transaction(conn: sqlite3.Connection):
 def split_sql_statements(sql_content: str) -> List[str]:
     """
     Safely splits a SQL script into individual complete statements.
-    Uses sqlite3.complete_statement to correctly respect statement boundaries.
+    Uses sqlite3.complete_statement to correctly respect statement boundaries,
+    including multiple statements on a single line and semicolons inside
+    string literals.
     """
     statements = []
     buffer = []
-    
-    for line in sql_content.splitlines():
-        buffer.append(line)
-        combined = "\n".join(buffer).strip()
-        
-        if not combined:
-            buffer.clear()
+
+    for char in sql_content:
+        buffer.append(char)
+        if char != ";":
             continue
-            
-        if sqlite3.complete_statement(combined):
-            if _has_executable_sql(combined):
-                statements.append(combined)
+        combined = "".join(buffer)
+        if not sqlite3.complete_statement(combined):
+            continue
+        if _has_executable_sql(combined):
+            statements.append(combined.strip())
             buffer.clear()
-            
-    remaining = "\n".join(buffer).strip()
+        # Comment-only chunks stay in the buffer so leading comments remain
+        # attached to the statement that follows them.
+
+    remaining = "".join(buffer).strip()
     if remaining and _has_executable_sql(remaining):
         statements.append(remaining)
-        
+
     return statements
 
 def _has_executable_sql(statement: str) -> bool:
