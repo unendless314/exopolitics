@@ -10,6 +10,13 @@ class ModelRefusalError(Exception):
     """Raised when the LLM provider explicitly refuses to generate a classification."""
     pass
 
+class NonRetryableHTTPError(Exception):
+    """Raised when the LLM provider returns a non-200 status that is not
+    retry-eligible per EXECUTION_POLICY (any status other than 429 or 5xx).
+    Deliberately not an httpx.HTTPError subclass so the retry handler in
+    fetch_llm_classification() does not catch it."""
+    pass
+
 from .config import ClassifyConfig
 from .database import (
     get_connection,
@@ -189,7 +196,9 @@ def validate_classification_response(data: Dict[str, Any]) -> Tuple[Dict[str, An
 
     # 3. Validate confidence
     confidence = data["classification_confidence"]
-    if not isinstance(confidence, (int, float)) or not (0.0 <= confidence <= 1.0):
+    # bool is a subclass of int in Python, so it must be rejected explicitly;
+    # otherwise JSON true/false would pass as 1.0/0.0 and mask provider type drift.
+    if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not (0.0 <= confidence <= 1.0):
         raise ValueError(f"Invalid classification_confidence '{confidence}', must be a float between 0.0 and 1.0")
 
     # 4. Validate content_density
@@ -206,7 +215,8 @@ def validate_classification_response(data: Dict[str, Any]) -> Tuple[Dict[str, An
 
     # 6. Validate governmental_involvement
     gov = data["governmental_involvement"]
-    if gov not in (0, 1):
+    # bool must be rejected explicitly: True == 1 and False == 0 in Python.
+    if isinstance(gov, bool) or gov not in (0, 1):
         raise ValueError(f"Invalid governmental_involvement '{gov}', must be 0 or 1")
 
     # 7. Validate primary_language_code
@@ -288,16 +298,17 @@ async def fetch_llm_classification(
                 timeout=policy.request_timeout_seconds
             )
 
-            # Check for Rate Limit (429) or Server error (5xx)
+            # Retry-eligible statuses per EXECUTION_POLICY: 429 and 5xx raise
+            # HTTPStatusError, which the retry handler below catches.
             if response.status_code == 429 or (500 <= response.status_code < 600):
                 response.raise_for_status()
 
-            # For other non-200 HTTP statuses, raise error directly (do not retry 4xx errors other than 429)
+            # All other non-200 statuses are non-retryable client errors
+            # (e.g. 400/401/403): raise a dedicated error type that bypasses
+            # the retry handler, so they fail after exactly one attempt.
             if response.status_code != 200:
-                raise httpx.HTTPStatusError(
-                    f"LLM API returned client error status {response.status_code}",
-                    request=response.request,
-                    response=response
+                raise NonRetryableHTTPError(
+                    f"LLM API returned non-retryable status {response.status_code}"
                 )
 
             parsed_json = _parse_response_content(response)

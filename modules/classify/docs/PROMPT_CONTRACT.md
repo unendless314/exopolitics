@@ -1,7 +1,7 @@
 # Classification Prompt Contract
 
-**Document version:** v3.3  
-**Updated:** 2026-06-13  
+**Document version:** v3.4  
+**Updated:** 2026-07-30  
 **Status:** Planning & Active rewrite draft
 
 ---
@@ -24,11 +24,10 @@ The prompt must **not** contain raw HTML, feed tags, or unparsed summaries.
 
 ## 3. LLM Structured Output Schema
 
-The model is expected to return a valid JSON object matching the following structure. If the model supports structured outputs (e.g., JSON Schema/`response_format`), this schema must be enforced at the API layer.
+The model is expected to return a valid JSON object matching the following structure. If the model supports structured outputs (e.g., JSON Schema/`response_format`), this schema must be enforced at the API layer. The example below mirrors the exact outbound schema built by the orchestrator (see `JSON_SCHEMA` in `src/orchestrator.py`), including `additionalProperties: false` and the required-but-nullable experimental fields required by OpenAI strict mode.
 
 ```json
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
     "topic_class": {
@@ -58,6 +57,14 @@ The model is expected to return a valid JSON object matching the following struc
     "governmental_involvement": {
       "type": "integer",
       "enum": [0, 1]
+    },
+    "content_timeliness": {
+      "type": ["string", "null"],
+      "enum": ["current", "evergreen", "historical", "unclear", null]
+    },
+    "primary_evidence_type": {
+      "type": ["string", "null"],
+      "enum": ["physical_material", "radar_sensor", "video_photo", "eyewitness", "official_document", "scientific_paper", "media_report", "none", null]
     }
   },
   "required": [
@@ -67,8 +74,11 @@ The model is expected to return a valid JSON object matching the following struc
     "content_density", 
     "source_text_quality", 
     "primary_language_code", 
-    "governmental_involvement"
-  ]
+    "governmental_involvement",
+    "content_timeliness",
+    "primary_evidence_type"
+  ],
+  "additionalProperties": false
 }
 ```
 

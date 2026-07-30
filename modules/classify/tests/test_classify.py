@@ -8,66 +8,24 @@ import sqlite3
 import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
-from typing import Optional, Any
-import httpx
 
-from modules.classify.src.config import validate_and_load_config, ClassifyConfig
+from modules.classify.src.config import validate_and_load_config
 from modules.classify.src.database import (
     run_migrations,
     get_connection,
     ClassificationResultRepository,
-    transaction
 )
 from modules.classify.src.orchestrator import (
     orchestrate_run,
     validate_classification_response,
-    fetch_llm_classification,
-    classify_item
 )
-
-DEFAULT_CLASSIFY_MIGRATIONS = pathlib.Path(__file__).resolve().parent.parent / "src" / "migrations"
-
-def create_mock_ingest_tables(db_path: pathlib.Path) -> None:
-    """Helper to seed the minimal schema required for upstream ingest tables."""
-    conn = get_connection(db_path)
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS source_item (
-                source_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_id INTEGER NOT NULL,
-                source_item_guid TEXT,
-                canonical_url TEXT,
-                title TEXT NOT NULL,
-                published_at TEXT,
-                fetched_at TEXT NOT NULL,
-                ingest_dedup_key TEXT NOT NULL UNIQUE,
-                dedup_rule TEXT NOT NULL,
-                ingest_status TEXT NOT NULL CHECK (ingest_status IN ('ingested'))
-            );
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS source_item_text (
-                source_item_text_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_item_id INTEGER NOT NULL UNIQUE,
-                sanitized_text TEXT NOT NULL,
-                sanitization_method TEXT NOT NULL,
-                html_detected INTEGER NOT NULL CHECK (html_detected IN (0, 1)),
-                was_truncated INTEGER NOT NULL CHECK (was_truncated IN (0, 1)),
-                text_processing_status TEXT NOT NULL CHECK (text_processing_status IN ('completed', 'low_context', 'failed')),
-                text_processing_reason TEXT,
-                raw_text_length INTEGER,
-                sanitized_text_length INTEGER NOT NULL,
-                reduction_ratio REAL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE RESTRICT
-            );
-        """)
-        conn.commit()
-    finally:
-        conn.close()
-
+from modules.classify.tests.helpers import (
+    CLASSIFY_MIGRATIONS_DIR,
+    create_mock_ingest_tables,
+    make_config,
+    make_http_response,
+    seed_source_item,
+)
 
 class TestConfig(unittest.TestCase):
     def setUp(self) -> None:
@@ -278,32 +236,14 @@ class TestDatabaseRepository(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = pathlib.Path(self.temp_dir.name) / "canonical.db"
-        
+
         # Seed mock Ingest tables locally to decouple tests
         create_mock_ingest_tables(self.db_path)
         # Run Classify migrations
-        run_migrations(self.db_path, DEFAULT_CLASSIFY_MIGRATIONS)
+        run_migrations(self.db_path, CLASSIFY_MIGRATIONS_DIR)
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
-
-    def seed_test_item(self, conn, item_id: int, title: str, text: str, text_processing_status: str = 'completed', text_processing_reason: Optional[str] = None) -> None:
-        cursor = conn.cursor()
-        # Seed source_item
-        cursor.execute("""
-            INSERT INTO source_item (
-                source_item_id, source_id, title, ingest_dedup_key, dedup_rule, ingest_status, fetched_at
-            ) VALUES (?, 1, ?, ?, 'guid', 'ingested', '2026-06-13T21:00:00Z')
-        """, (item_id, title, f"key-{item_id}"))
-        
-        # Seed source_item_text
-        cursor.execute("""
-            INSERT INTO source_item_text (
-                source_item_id, sanitized_text, sanitization_method, html_detected, was_truncated,
-                text_processing_status, text_processing_reason, sanitized_text_length, created_at, updated_at
-            ) VALUES (?, ?, 'clean_v1', 0, 0, ?, ?, ?, '2026-06-13T21:00:00Z', '2026-06-13T21:00:00Z')
-        """, (item_id, text, text_processing_status, text_processing_reason, len(text)))
-        conn.commit()
 
     def test_pending_query_and_upsert(self) -> None:
         conn = get_connection(self.db_path)
@@ -312,16 +252,16 @@ class TestDatabaseRepository(unittest.TestCase):
 
             # 1. Seed the queue-eligibility matrix: every outcome except
             # post_cleanup_empty and failed enters the pending queue
-            self.seed_test_item(conn, 10, "Completed Item", "This is working text body.", text_processing_status='completed')
-            self.seed_test_item(conn, 20, "Mostly Links", "https://example.com/a https://example.com/b", text_processing_status='low_context', text_processing_reason='mostly_links')
-            self.seed_test_item(conn, 21, "Too Short", "Thin", text_processing_status='low_context', text_processing_reason='too_short')
-            self.seed_test_item(conn, 22, "Title Heavy", "Title-like text", text_processing_status='low_context', text_processing_reason='title_heavy')
-            self.seed_test_item(conn, 23, "Title Only", "Title only text", text_processing_status='low_context', text_processing_reason='title_only')
-            self.seed_test_item(conn, 24, "Template Heavy", "Boilerplate text", text_processing_status='low_context', text_processing_reason='template_heavy')
-            self.seed_test_item(conn, 25, "Truncated", "Truncated text", text_processing_status='low_context', text_processing_reason='truncated_to_low_context')
-            self.seed_test_item(conn, 26, "Empty After Cleanup", "", text_processing_status='low_context', text_processing_reason='post_cleanup_empty')
-            self.seed_test_item(conn, 27, "Missing Body", "", text_processing_status='failed', text_processing_reason='missing_body')
-            self.seed_test_item(conn, 28, "Sanitizer Exception", "", text_processing_status='failed', text_processing_reason='sanitizer_exception')
+            seed_source_item(self.db_path, 10, "Completed Item", "This is working text body.", status='completed')
+            seed_source_item(self.db_path, 20, "Mostly Links", "https://example.com/a https://example.com/b", status='low_context', reason='mostly_links')
+            seed_source_item(self.db_path, 21, "Too Short", "Thin", status='low_context', reason='too_short')
+            seed_source_item(self.db_path, 22, "Title Heavy", "Title-like text", status='low_context', reason='title_heavy')
+            seed_source_item(self.db_path, 23, "Title Only", "Title only text", status='low_context', reason='title_only')
+            seed_source_item(self.db_path, 24, "Template Heavy", "Boilerplate text", status='low_context', reason='template_heavy')
+            seed_source_item(self.db_path, 25, "Truncated", "Truncated text", status='low_context', reason='truncated_to_low_context')
+            seed_source_item(self.db_path, 26, "Empty After Cleanup", "", status='low_context', reason='post_cleanup_empty')
+            seed_source_item(self.db_path, 27, "Missing Body", "", status='failed', reason='missing_body')
+            seed_source_item(self.db_path, 28, "Sanitizer Exception", "", status='failed', reason='sanitizer_exception')
 
             # 2. Get pending items: completed plus every allowed low-context reason
             pending = repo.get_pending_items(limit=20)
@@ -381,7 +321,7 @@ class TestDatabaseRepository(unittest.TestCase):
         conn = get_connection(self.db_path)
         try:
             repo = ClassificationResultRepository(conn)
-            self.seed_test_item(conn, 30, "Constraint Test", "Body")
+            seed_source_item(self.db_path, 30, "Constraint Test", "Body")
 
             # Confidence > 1.0 check constraint violation
             with self.assertRaises(sqlite3.IntegrityError):
@@ -410,7 +350,7 @@ class TestDatabaseRepository(unittest.TestCase):
         conn = get_connection(self.db_path)
         try:
             repo = ClassificationResultRepository(conn)
-            self.seed_test_item(conn, 40, "Delete Test", "Body")
+            seed_source_item(self.db_path, 40, "Delete Test", "Body")
             
             # Insert result
             repo.upsert({
@@ -444,69 +384,29 @@ class TestOrchestrator(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = pathlib.Path(self.temp_dir.name) / "canonical.db"
         create_mock_ingest_tables(self.db_path)
-        run_migrations(self.db_path, DEFAULT_CLASSIFY_MIGRATIONS)
+        run_migrations(self.db_path, CLASSIFY_MIGRATIONS_DIR)
 
-        # Setup mock configs
-        self.config = MagicMock(spec=ClassifyConfig)
-        self.config.active_provider_name = "test-provider"
-        self.config.active_provider = MagicMock()
-        self.config.active_provider.model_name = "gpt-5.4-mini"
-        self.config.active_provider.api_base = "https://api.test.com"
-        self.config.active_provider.api_key_env = "TEST_API_KEY"
-        self.config.active_provider.supports_structured_output = True
-
-        self.config.active_template = MagicMock()
-        self.config.active_template.version = "v4.0"
-        self.config.active_template.system_instruction = "System Instruction"
-        self.config.active_template.user_prompt_template = "Title: {title}, Text: {sanitized_text}"
-
-        self.config.execution_policy = MagicMock()
-        self.config.execution_policy.batch_size = 20
-        self.config.execution_policy.max_concurrent_requests = 3
-        self.config.execution_policy.rate_limit_per_minute = 60
-        self.config.execution_policy.request_timeout_seconds = 10.0
-        self.config.execution_policy.retry_attempts = 2
-        self.config.execution_policy.backoff_factor = 0.1
-
-        self.config.request_defaults = MagicMock()
-        self.config.request_defaults.temperature = 0.1
-        self.config.request_defaults.top_p = 0.95
-        self.config.request_defaults.max_output_tokens = 500
-
-
+        # Real config object with explicit, test-controlled execution policy
+        self.config = make_config(
+            supports_structured_output=True,
+            request_timeout_seconds=10.0,
+            retry_attempts=2,
+            backoff_factor=0.1,
+            max_output_tokens=500,
+        )
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
-
-    def seed_test_item(self, item_id: int, title: str, text: str, text_processing_status: str = 'completed', text_processing_reason: Optional[str] = None) -> None:
-        conn = get_connection(self.db_path)
-        try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO source_item (
-                    source_item_id, source_id, title, ingest_dedup_key, dedup_rule, ingest_status, fetched_at
-                ) VALUES (?, 1, ?, ?, 'guid', 'ingested', '2026-06-13T21:00:00Z')
-            """, (item_id, title, f"key-{item_id}"))
-            
-            cursor.execute("""
-                INSERT INTO source_item_text (
-                    source_item_id, sanitized_text, sanitization_method, html_detected, was_truncated,
-                    text_processing_status, text_processing_reason, sanitized_text_length, created_at, updated_at
-                ) VALUES (?, ?, 'clean_v1', 0, 0, ?, ?, ?, '2026-06-13T21:00:00Z', '2026-06-13T21:00:00Z')
-            """, (item_id, text, text_processing_status, text_processing_reason, len(text)))
-            conn.commit()
-        finally:
-            conn.close()
 
     @patch.dict(os.environ, {"TEST_API_KEY": "dummy_key"})
     @patch("httpx.AsyncClient.post")
     def test_orchestrate_success_and_exclusions(self, mock_post) -> None:
         # Seed one completed item and one allowed low-context item (both proceed
         # through the normal LLM path), plus the two excluded outcomes
-        self.seed_test_item(1, "Core UAP Hearing", "Active congressional committee discussed military radar tracks.", text_processing_status='completed')
-        self.seed_test_item(2, "Link Wrapper", "https://news.example/a https://news.example/b", text_processing_status='low_context', text_processing_reason='mostly_links')
-        self.seed_test_item(3, "Empty After Cleanup", "", text_processing_status='low_context', text_processing_reason='post_cleanup_empty')
-        self.seed_test_item(4, "Missing Body", "", text_processing_status='failed', text_processing_reason='missing_body')
+        seed_source_item(self.db_path,1, "Core UAP Hearing", "Active congressional committee discussed military radar tracks.", status='completed')
+        seed_source_item(self.db_path,2, "Link Wrapper", "https://news.example/a https://news.example/b", status='low_context', reason='mostly_links')
+        seed_source_item(self.db_path,3, "Empty After Cleanup", "", status='low_context', reason='post_cleanup_empty')
+        seed_source_item(self.db_path,4, "Missing Body", "", status='failed', reason='missing_body')
 
         # Mock LLM API Response for every eligible item
         mock_response = MagicMock()
@@ -587,8 +487,8 @@ class TestOrchestrator(unittest.TestCase):
     @patch("httpx.AsyncClient.post")
     def test_orchestrate_llm_failure_isolation(self, mock_post) -> None:
         # Seed two items (both normal, requiring LLM calls)
-        self.seed_test_item(100, "Core Case", "UFO reported in sky.")
-        self.seed_test_item(200, "Fail Case", "Bad content.")
+        seed_source_item(self.db_path,100, "Core Case", "UFO reported in sky.")
+        seed_source_item(self.db_path,200, "Fail Case", "Bad content.")
 
         # Configure mock_post to return success for item 100 and throw error for item 200
         mock_ok = MagicMock()
@@ -611,10 +511,10 @@ class TestOrchestrator(unittest.TestCase):
             }]
         }
 
-        # Mock fail responses
-        mock_fail = MagicMock()
-        mock_fail.status_code = 500  # Will trigger HTTPStatusError and retry
-        
+        # Mock fail responses: a real 500 response keeps raise_for_status
+        # behavior, so the item exercises the retry path (retry_attempts=2).
+        mock_fail = make_http_response(500, {"error": {"message": "server error"}})
+
         # Setup side effect: first call (item 100) succeeded, subsequent retries for item 200 fail
         mock_post.side_effect = [mock_ok, mock_fail, mock_fail]
 
@@ -644,7 +544,7 @@ class TestOrchestrator(unittest.TestCase):
     @patch.dict(os.environ, {"TEST_API_KEY": "dummy_key"})
     @patch("httpx.AsyncClient.post")
     def test_orchestrate_dry_run_not_committed(self, mock_post) -> None:
-        self.seed_test_item(300, "Dry Run Case", "Some content.")
+        seed_source_item(self.db_path,300, "Dry Run Case", "Some content.")
 
         mock_ok = MagicMock()
         mock_ok.status_code = 200
@@ -689,10 +589,10 @@ class TestOrchestrator(unittest.TestCase):
             conn.close()
 
     def test_orchestrate_preview_prompts_summary(self) -> None:
-        self.seed_test_item(400, "Preview Case 1", "Content 1.", text_processing_status='completed')
-        self.seed_test_item(500, "Preview Case 2", "Content 2.", text_processing_status='low_context', text_processing_reason='too_short')
-        self.seed_test_item(600, "Preview Case 3", "", text_processing_status='low_context', text_processing_reason='post_cleanup_empty')
-        self.seed_test_item(700, "Preview Case 4", "", text_processing_status='failed', text_processing_reason='sanitizer_exception')
+        seed_source_item(self.db_path,400, "Preview Case 1", "Content 1.", status='completed')
+        seed_source_item(self.db_path,500, "Preview Case 2", "Content 2.", status='low_context', reason='too_short')
+        seed_source_item(self.db_path,600, "Preview Case 3", "", status='low_context', reason='post_cleanup_empty')
+        seed_source_item(self.db_path,700, "Preview Case 4", "", status='failed', reason='sanitizer_exception')
 
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
@@ -719,9 +619,9 @@ class TestOrchestrator(unittest.TestCase):
     @patch("httpx.AsyncClient.post")
     def test_sqlite_concurrency_safe(self, mock_post) -> None:
         # Seed 3 items to test concurrent DB write locking
-        self.seed_test_item(1001, "Case 1", "Body 1")
-        self.seed_test_item(1002, "Case 2", "Body 2")
-        self.seed_test_item(1003, "Case 3", "Body 3")
+        seed_source_item(self.db_path,1001, "Case 1", "Body 1")
+        seed_source_item(self.db_path,1002, "Case 2", "Body 2")
+        seed_source_item(self.db_path,1003, "Case 3", "Body 3")
 
         mock_ok = MagicMock()
         mock_ok.status_code = 200
@@ -767,7 +667,7 @@ class TestOrchestrator(unittest.TestCase):
     @patch.dict(os.environ, {"TEST_API_KEY": "dummy_key"})
     @patch("httpx.AsyncClient.post")
     def test_orchestrate_model_refusal_no_retries(self, mock_post) -> None:
-        self.seed_test_item(2001, "Refusal Case", "Content")
+        seed_source_item(self.db_path,2001, "Refusal Case", "Content")
 
         # Mock API response explicitly returning a refusal
         mock_refusal = MagicMock()
@@ -798,7 +698,7 @@ class TestOrchestrator(unittest.TestCase):
     @patch.dict(os.environ, {"TEST_API_KEY": "dummy_key"})
     @patch("httpx.AsyncClient.post")
     def test_orchestrate_non_string_content_triggers_retry(self, mock_post) -> None:
-        self.seed_test_item(2002, "Non String Case", "Content")
+        seed_source_item(self.db_path,2002, "Non String Case", "Content")
 
         # Mock first response returning a non-string list content (should trigger retry)
         mock_bad = MagicMock()
