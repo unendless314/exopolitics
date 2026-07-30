@@ -1,7 +1,7 @@
 # Curate Data Contract
 
-**Document version:** v1.6  
-**Updated:** 2026-07-02  
+**Document version:** v1.7  
+**Updated:** 2026-07-30  
 **Status:** Planning & Active rewrite draft
 
 ---
@@ -23,7 +23,7 @@ The `curate` module records its outputs in three distinct tables in `data/canoni
 * **Zero Modification on Upstream:** `curate` must not write to or alter the `source_item` or `classification_result` tables.
 * **Separation from Edit module:** `curate` does not write directly to `edit_draft`. The `editor_brief` serves as the interface boundary.
 * **Runner-Generated Failed State:** The `failed` status in `curate_status` is generated strictly by the runner/orchestrator upon catching transient API or parser errors, never by the model.
-* **Downstream Action Nullability:** If `curate_status = 'failed'`, the `downstream_action` column **must be `NULL`** since no decision could be reached. If `curate_status` is `'approved'` or `'rejected'`, `downstream_action` **must be `NOT NULL`**.
+* **Downstream Action Nullability:** If `curate_status = 'failed'`, the `downstream_action` column **must be `NULL`** since no decision could be reached. If `curate_status` is `'approved'`, `'rejected'`, or `'withdrawn'`, `downstream_action` **must be `NOT NULL`**. This rule is enforced at two layers: the `CHECK` constraint in the table DDL (SQLite `CHECK` expressions pass on `NULL` results, so the rule must be stated explicitly) and `CurationRepository.upsert_curation_decision()`, which rejects such writes with a concrete error before they reach the database.
 * **Retry Counter:** Failed items can be retried up to 3 times before requiring manual operator intervention. This is tracked via `retry_count`.
 
 ---
@@ -107,10 +107,15 @@ CREATE TABLE IF NOT EXISTS curation_decision (
     updated_at TEXT NOT NULL,
     FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE,
     CHECK (
-        (curate_status = 'failed' AND downstream_action IS NULL) OR
-        (curate_status = 'approved' AND downstream_action IN ('publish_link', 'publish_summary')) OR
-        (curate_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard')) OR
-        (curate_status = 'withdrawn' AND downstream_action IN ('publish_link', 'publish_summary'))
+        (
+            (curate_status = 'failed' AND downstream_action IS NULL) OR
+            (curate_status = 'approved' AND downstream_action IN ('publish_link', 'publish_summary')) OR
+            (curate_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard')) OR
+            (curate_status = 'withdrawn' AND downstream_action IN ('publish_link', 'publish_summary'))
+        )
+        -- SQLite CHECK passes on NULL results, so the non-failed NOT NULL
+        -- rule must be explicit: only 'failed' may carry a NULL action.
+        AND (curate_status = 'failed' OR downstream_action IS NOT NULL)
     )
 );
 
@@ -200,7 +205,7 @@ The `curate` module's queue loader reads from the canonical SQLite database. To 
 * **`ingest_status`**: `TEXT NOT NULL` — Evaluated as `'ingested'` to check suitability.
 
 ### 5.2 `source_item_text` (Owned by `ingest`)
-* **`source_item_id`**: `INTEGER NOT NULL UNIQUE` — FK to `source_item(source_item_id)` with `ON DELETE CASCADE`. Guaranteed to have at most one row per source item.
+* **`source_item_id`**: `INTEGER NOT NULL UNIQUE` — FK to `source_item(source_item_id)` with `ON DELETE RESTRICT` (per the active ingest v001 migration). Guaranteed to have at most one row per source item. Deleting a `source_item` is blocked while its text row exists, so curate-owned cascade deletes only run after ingest-owned rows are removed first.
 * **`sanitized_text`**: `TEXT NOT NULL` — The cleaned content text used for LLM prompt context.
 
 ### 5.3 `classification_result` (Owned by `classify`)

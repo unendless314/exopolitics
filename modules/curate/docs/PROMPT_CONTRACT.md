@@ -1,7 +1,7 @@
 # Curation Prompt Contract
 
-**Document version:** v1.6  
-**Updated:** 2026-06-16  
+**Document version:** v1.7  
+**Updated:** 2026-07-30  
 **Status:** Planning & Active rewrite draft
 
 ---
@@ -54,7 +54,8 @@ The model is expected to return a valid JSON object matching the following struc
           "maxLength": 250
         }
       },
-      "required": ["curate_status", "downstream_action", "decision_reason"]
+      "required": ["curate_status", "downstream_action", "decision_reason"],
+      "additionalProperties": false
     },
     "editor_brief": {
       "type": ["object", "null"],
@@ -85,7 +86,8 @@ The model is expected to return a valid JSON object matching the following struc
           "type": "string"
         }
       },
-      "required": ["brief_goal", "target_format", "risk_flags", "tone_guidance"]
+      "required": ["brief_goal", "target_format", "risk_flags", "tone_guidance"],
+      "additionalProperties": false
     },
     "curation_output": {
       "type": ["object", "null"],
@@ -111,12 +113,17 @@ The model is expected to return a valid JSON object matching the following struc
           "maxLength": 250
         }
       },
-      "required": ["display_title", "summary_short"]
+      "required": ["display_title", "summary_short"],
+      "additionalProperties": false
     }
   },
-  "required": ["curation_decision", "editor_brief", "curation_output"]
+  "required": ["curation_decision", "editor_brief", "curation_output"],
+  "additionalProperties": false
 }
 ```
+
+> [!NOTE]
+> **Fallback Validation Behavior (`json_object` mode):** When the active provider does not support structured outputs (`supports_structured_output: false`), the runner requests `{"type": "json_object"}` and the local `validate_curation_response()` becomes the last schema gate before model output enters the canonical DB. The local validator enforces the required top-level fields, per-action nullability rules, field types, and length limits described in this document, but it **deliberately accepts unknown top-level and nested keys** — it does not locally enforce `additionalProperties: false`. This leniency is a decided compatibility behavior; do not assume API-side strict schema enforcement will intercept extra keys on the fallback path. It should only be revisited if the provider compatibility policy explicitly changes.
 
 ---
 

@@ -16,10 +16,15 @@ CREATE TABLE IF NOT EXISTS curation_decision (
     updated_at TEXT NOT NULL,
     FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE,
     CHECK (
-        (curate_status = 'failed' AND downstream_action IS NULL) OR
-        (curate_status = 'approved' AND downstream_action IN ('publish_link', 'publish_summary')) OR
-        (curate_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard')) OR
-        (curate_status = 'withdrawn' AND downstream_action IN ('publish_link', 'publish_summary'))
+        (
+            (curate_status = 'failed' AND downstream_action IS NULL) OR
+            (curate_status = 'approved' AND downstream_action IN ('publish_link', 'publish_summary')) OR
+            (curate_status = 'rejected' AND downstream_action IN ('edit_rewrite', 'reject_discard')) OR
+            (curate_status = 'withdrawn' AND downstream_action IN ('publish_link', 'publish_summary'))
+        )
+        -- SQLite CHECK passes on NULL results, so the non-failed NOT NULL
+        -- rule must be explicit: only 'failed' may carry a NULL action.
+        AND (curate_status = 'failed' OR downstream_action IS NOT NULL)
     )
 );
 

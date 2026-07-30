@@ -11,79 +11,34 @@ from modules.curate.src.database import (
     CurationRepository,
     transaction
 )
-
-DEFAULT_CURATE_MIGRATIONS = pathlib.Path(__file__).resolve().parent.parent / "src" / "migrations"
-
-def create_mock_upstream_tables(db_path: pathlib.Path) -> None:
-    """Helper to seed the minimal schema required for upstream ingest/classify tables."""
-    conn = get_connection(db_path)
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS source_item (
-                source_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                canonical_url TEXT,
-                ingest_status TEXT NOT NULL CHECK (ingest_status IN ('ingested', 'draft'))
-            );
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS source_item_text (
-                source_item_text_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_item_id INTEGER NOT NULL UNIQUE,
-                sanitized_text TEXT NOT NULL,
-                FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
-            );
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS classification_result (
-                classification_result_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_item_id INTEGER NOT NULL UNIQUE,
-                topic_class TEXT NOT NULL,
-                classification_reason TEXT,
-                governmental_involvement INTEGER,
-                FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
-            );
-        """)
-        conn.commit()
-    finally:
-        conn.close()
+from modules.curate.tests.support import (
+    CURATE_MIGRATIONS_DIR,
+    create_mock_upstream_tables,
+    seed_upstream_item as _seed_upstream_item,
+)
 
 
 class TestDatabaseRepository(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = pathlib.Path(self.temp_dir.name) / "canonical.db"
-        
-        # Seed mock Ingest/Classify tables locally
-        create_mock_upstream_tables(self.db_path)
+
+        # Seed mock ingest/classify tables (test-local, non-canonical schema)
+        # with 'draft' allowed so queue filtering of non-ingested rows can be
+        # exercised; the real upstream contract is covered by handoff tests.
+        create_mock_upstream_tables(self.db_path, allow_draft_status=True)
         # Run Curate migrations
-        run_migrations(self.db_path, DEFAULT_CURATE_MIGRATIONS)
+        run_migrations(self.db_path, CURATE_MIGRATIONS_DIR)
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
     def seed_upstream_item(self, conn, item_id: int, title: str, text: str, topic_class: str, ingest_status: str = "ingested", gov_involvement: int = 0) -> None:
-        cursor = conn.cursor()
-        # Seed source_item
-        cursor.execute("""
-            INSERT INTO source_item (source_item_id, source_id, title, ingest_status)
-            VALUES (?, 1, ?, ?)
-        """, (item_id, title, ingest_status))
-        
-        # Seed source_item_text
-        cursor.execute("""
-            INSERT INTO source_item_text (source_item_id, sanitized_text)
-            VALUES (?, ?)
-        """, (item_id, text))
-
-        # Seed classification_result
-        cursor.execute("""
-            INSERT INTO classification_result (source_item_id, topic_class, classification_reason, governmental_involvement)
-            VALUES (?, ?, 'Reason for test', ?)
-        """, (item_id, topic_class, gov_involvement))
-        conn.commit()
+        _seed_upstream_item(
+            conn, item_id,
+            title=title, text=text, topic_class=topic_class,
+            ingest_status=ingest_status, governmental_involvement=gov_involvement,
+        )
 
     def test_pending_query_and_retries(self) -> None:
         conn = get_connection(self.db_path)

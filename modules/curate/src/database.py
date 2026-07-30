@@ -188,6 +188,17 @@ class CurationRepository:
         """
         Upserts a curation decision using INSERT ... ON CONFLICT(source_item_id) DO UPDATE.
         """
+        # Mirror of the DDL status/action contract: any non-failed status must
+        # carry a concrete routing decision. Reject here so every repository
+        # writer gets a specific error before reaching the database.
+        curate_status = decision_data["curate_status"]
+        downstream_action = decision_data.get("downstream_action")
+        if curate_status != "failed" and downstream_action is None:
+            raise ValueError(
+                f"downstream_action must not be NULL when curate_status is "
+                f"'{curate_status}' (only 'failed' may carry a NULL action)"
+            )
+
         now = get_utc_now_iso8601()
         fields = {
             "source_item_id": decision_data["source_item_id"],

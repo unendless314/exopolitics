@@ -5,7 +5,8 @@ import pathlib
 import random
 import sqlite3
 import sys
-from typing import Dict, Any, Optional, Tuple, List
+import time
+from typing import Awaitable, Callable, Dict, Any, Optional, Tuple, List
 
 import httpx
 
@@ -20,6 +21,69 @@ from .database import (
 class ModelRefusalError(Exception):
     """Raised when the LLM provider explicitly refuses to generate a curation."""
     pass
+
+class NonRetryableHTTPError(Exception):
+    """Raised when the LLM provider returns a non-retryable HTTP status.
+
+    General client errors (e.g. 400/401/403/404) indicate a request or
+    credential problem that retrying cannot fix; they must fail fast with a
+    single request instead of consuming the retry budget.
+    """
+    def __init__(self, status_code: int, detail: str = ""):
+        self.status_code = status_code
+        message = f"LLM API returned non-retryable status {status_code}"
+        if detail:
+            message = f"{message}: {detail}"
+        super().__init__(message)
+
+class DispatchPacer:
+    """Shared dispatch-time rate limiter for LLM API requests.
+
+    Spaces the start of every HTTP request (initial attempts and retries
+    alike) at least `60 / rate_limit_per_minute` seconds after the previous
+    dispatch, no matter when the semaphore releases queued workers. Pacing
+    at dispatch time is required because the semaphore only caps in-flight
+    requests: workers released together after a slow request would otherwise
+    dispatch back-to-back.
+
+    The pacer lock is held through the wait, and the next slot is anchored to
+    the moment the wait actually completes. This keeps the spacing intact
+    even when an event-loop stall wakes several workers late in the same
+    loop iteration: pre-reserving future slots and sleeping outside the lock
+    would let all of those sleeps complete together and dispatch in a burst.
+    After an idle gap the schedule likewise re-anchors to the current time
+    instead of catching up on stale slots.
+
+    `clock` and `sleep` are injectable for deterministic tests.
+    """
+
+    def __init__(
+        self,
+        rate_limit_per_minute: float,
+        *,
+        clock: Optional[Callable[[], float]] = None,
+        sleep: Optional[Callable[[float], Awaitable[None]]] = None,
+    ):
+        self._interval = 60.0 / rate_limit_per_minute if rate_limit_per_minute > 0 else 0.0
+        self._clock = clock if clock is not None else time.monotonic
+        self._sleep = sleep if sleep is not None else asyncio.sleep
+        self._lock = asyncio.Lock()
+        self._next_slot: Optional[float] = None
+
+    async def wait(self) -> None:
+        """Blocks until this caller may dispatch.
+
+        Holds the pacer lock through the wait so the next caller's earliest
+        slot is anchored to this dispatch's actual completion time, not to a
+        slot reserved before sleeping.
+        """
+        if self._interval <= 0:
+            return
+        async with self._lock:
+            now = self._clock()
+            if self._next_slot is not None and self._next_slot > now:
+                await self._sleep(self._next_slot - now)
+            self._next_slot = self._clock() + self._interval
 
 class ProcessLock:
     def __init__(self, lock_path: pathlib.Path):
@@ -204,11 +268,27 @@ def _build_request_payload(config: CurateConfig, item: sqlite3.Row) -> Dict[str,
 
 def _parse_response_content(response: httpx.Response) -> Dict[str, Any]:
     res_data = response.json()
-    if "choices" not in res_data or not res_data["choices"]:
+    if not isinstance(res_data, dict):
+        raise ValueError(
+            f"LLM API returned a non-object JSON body (got {type(res_data).__name__})"
+        )
+
+    choices = res_data.get("choices")
+    if not isinstance(choices, list) or not choices:
         raise ValueError("LLM API returned response with empty or missing choices list")
 
-    choice = res_data["choices"][0]
-    message = choice.get("message", {})
+    choice = choices[0]
+    if not isinstance(choice, dict):
+        raise ValueError(
+            f"LLM API returned a malformed choice entry (got {type(choice).__name__})"
+        )
+
+    message = choice.get("message")
+    if not isinstance(message, dict):
+        raise ValueError(
+            "LLM API returned choice with missing or malformed message object "
+            f"(got {type(message).__name__})"
+        )
 
     if message.get("refusal"):
         raise ModelRefusalError(f"Model refused to curate: {message['refusal']}")
@@ -278,8 +358,15 @@ def validate_curation_response(data: Dict[str, Any]) -> None:
     if status == "rejected" and action not in ("edit_rewrite", "reject_discard"):
         raise ValueError(f"Rejected status is incompatible with action: {action}")
         
-    brief = data.get("editor_brief")
-    output = data.get("curation_output")
+    # The prompt contract requires all three top-level keys to be present,
+    # even when an action allows the nullable sections to carry null.
+    if "editor_brief" not in data:
+        raise ValueError("Missing 'editor_brief' in response")
+    if "curation_output" not in data:
+        raise ValueError("Missing 'curation_output' in response")
+
+    brief = data["editor_brief"]
+    output = data["curation_output"]
     
     # Conditional checks based on action
     if action == "reject_discard":
@@ -367,10 +454,13 @@ async def fetch_llm_curation(
     client: httpx.AsyncClient,
     config: CurateConfig,
     item: sqlite3.Row,
-    api_key: str
+    api_key: str,
+    pacer: Optional[DispatchPacer] = None
 ) -> Dict[str, Any]:
     """
     Submits prompt to active LLM provider with exponential backoff retries.
+    Every request dispatch (initial attempt and each retry) is paced through
+    the shared `pacer` when one is provided.
     Returns validated raw JSON object.
     """
     provider = config.active_provider
@@ -392,6 +482,8 @@ async def fetch_llm_curation(
 
     for attempt in range(1, attempts + 1):
         try:
+            if pacer is not None:
+                await pacer.wait()
             response = await client.post(
                 url,
                 headers=headers,
@@ -399,17 +491,26 @@ async def fetch_llm_curation(
                 timeout=policy.request_timeout_seconds
             )
 
-            # Check for Rate Limit (429) or Server error (5xx)
+            # Retryable statuses: rate limiting (429) or server-side errors (5xx).
+            # Raise explicitly so the retry decision never depends on the
+            # response object's raise_for_status behavior.
             if response.status_code == 429 or (500 <= response.status_code < 600):
-                response.raise_for_status()
-
-            # For other non-200 HTTP statuses, raise error directly (do not retry 4xx errors other than 429)
-            if response.status_code != 200:
                 raise httpx.HTTPStatusError(
-                    f"LLM API returned client error status {response.status_code}",
+                    f"LLM API returned retryable status {response.status_code}",
                     request=response.request,
                     response=response
                 )
+
+            # Other non-200 statuses (e.g. 400/401/403/404) are non-retryable
+            # client errors: fail fast with a single request, do not consume
+            # the retry budget.
+            if response.status_code != 200:
+                body_snippet = ""
+                try:
+                    body_snippet = response.text[:200]
+                except Exception:
+                    pass
+                raise NonRetryableHTTPError(response.status_code, body_snippet)
 
             parsed_json = _parse_response_content(response)
 
@@ -437,7 +538,8 @@ async def curate_item(
     item: sqlite3.Row,
     api_key: str,
     db_lock: asyncio.Lock,
-    commit: bool = True
+    commit: bool = True,
+    pacer: Optional[DispatchPacer] = None
 ) -> bool:
     """
     Processes a single item: checks pre-existing curation state, runs LLM curation,
@@ -461,7 +563,8 @@ async def curate_item(
             client=client,
             config=config,
             item=item,
-            api_key=api_key
+            api_key=api_key,
+            pacer=pacer
         )
         
         # Extract parsed fields
@@ -558,7 +661,8 @@ async def orchestrate_run(
     """
     Orchestrates the curation batch run.
     Uses file locking to avoid multi-process concurrency issues on SQLite,
-    schedules items with rate limits, and updates database records cleanly.
+    paces request dispatch through a shared rate limiter, and updates
+    database records cleanly.
     """
     # 1. Multi-Process Lock Coordination
     workspace_root = db_path.parent.parent
@@ -628,20 +732,18 @@ async def orchestrate_run(
         # Semaphores and Lock for SQLite writes
         semaphore = asyncio.Semaphore(config.execution_policy.max_concurrent_requests)
         db_lock = asyncio.Lock()
-        
-        # Calculate rate limit delays
-        rpm = config.execution_policy.rate_limit_per_minute
-        request_delay = 60.0 / rpm if rpm > 0 else 0.0
+
+        # Shared dispatch-time rate limiter: spaces the start of every HTTP
+        # request at least 60/rpm seconds apart, regardless of semaphore
+        # release timing (the semaphore caps in-flight requests, not gaps
+        # between dispatches).
+        pacer = DispatchPacer(config.execution_policy.rate_limit_per_minute)
 
         # Asynchronous HTTP client
         async with httpx.AsyncClient() as client:
             tasks = []
-            
-            async def worker(item, idx):
-                # Apply rate limit delay stagger
-                if idx > 0 and request_delay > 0:
-                    await asyncio.sleep(idx * request_delay)
 
+            async def worker(item):
                 async with semaphore:
                     # Execute curation
                     # Under dry_run, we process fully but do not commit the transaction
@@ -652,12 +754,13 @@ async def orchestrate_run(
                         item=item,
                         api_key=api_key,
                         db_lock=db_lock,
-                        commit=not dry_run
+                        commit=not dry_run,
+                        pacer=pacer
                     )
                     return success
 
-            for idx, item in enumerate(pending_items):
-                tasks.append(worker(item, idx))
+            for item in pending_items:
+                tasks.append(worker(item))
 
             results = await asyncio.gather(*tasks)
 

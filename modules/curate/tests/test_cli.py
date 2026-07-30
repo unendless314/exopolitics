@@ -3,34 +3,34 @@ import pathlib
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
+
 from click.testing import CliRunner
 
 from modules.curate.src.cli import cli
 from modules.curate.src.database import get_connection
+from modules.curate.tests.support import create_mock_upstream_tables
 
 class TestCliCommands(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = pathlib.Path(self.temp_dir.name) / "canonical.db"
-        
-        # Build mock source_item
+
+        # Build mock upstream tables (test-local, non-canonical schema)
+        create_mock_upstream_tables(self.db_path)
         conn = get_connection(self.db_path)
         try:
             cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS source_item (
-                    source_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    source_id INTEGER NOT NULL,
-                    title TEXT NOT NULL,
-                    canonical_url TEXT,
-                    ingest_status TEXT NOT NULL CHECK (ingest_status IN ('ingested'))
-                );
-            """)
             cursor.execute("INSERT INTO source_item (source_item_id, source_id, title, ingest_status) VALUES (1, 1, 'Test Item 1', 'ingested')")
             cursor.execute("INSERT INTO source_item (source_item_id, source_id, title, ingest_status) VALUES (2, 1, 'Test Item 2', 'ingested')")
             conn.commit()
         finally:
             conn.close()
+
+        # Never load the workspace .env during CLI tests
+        dotenv_patch = patch("modules.curate.src.cli.load_dotenv", lambda *a, **k: None)
+        dotenv_patch.start()
+        self.addCleanup(dotenv_patch.stop)
 
         self.runner = CliRunner()
 

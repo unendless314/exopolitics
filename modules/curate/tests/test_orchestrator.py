@@ -9,7 +9,6 @@ from unittest.mock import patch, MagicMock
 
 import httpx
 
-from modules.curate.src.config import CurateConfig
 from modules.curate.src.database import (
     run_migrations,
     get_connection,
@@ -21,79 +20,35 @@ from modules.curate.src.orchestrator import (
     fetch_llm_curation,
     curate_item
 )
-
-DEFAULT_CURATE_MIGRATIONS = pathlib.Path(__file__).resolve().parent.parent / "src" / "migrations"
-
-def create_mock_upstream_tables(db_path: pathlib.Path) -> None:
-    """Helper to seed the minimal schema required for upstream ingest/classify tables."""
-    conn = get_connection(db_path)
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS source_item (
-                source_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                canonical_url TEXT,
-                ingest_status TEXT NOT NULL CHECK (ingest_status IN ('ingested'))
-            );
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS source_item_text (
-                source_item_text_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_item_id INTEGER NOT NULL UNIQUE,
-                sanitized_text TEXT NOT NULL,
-                FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
-            );
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS classification_result (
-                classification_result_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_item_id INTEGER NOT NULL UNIQUE,
-                topic_class TEXT NOT NULL,
-                classification_reason TEXT,
-                governmental_involvement INTEGER,
-                FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
-            );
-        """)
-        conn.commit()
-    finally:
-        conn.close()
+from modules.curate.tests.support import (
+    CURATE_MIGRATIONS_DIR,
+    build_test_config,
+    create_mock_upstream_tables,
+    seed_upstream_item as _seed_upstream_item,
+)
 
 
 class TestOrchestrator(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.db_path = pathlib.Path(self.temp_dir.name) / "canonical.db"
+        # DB lives under data/ so the runner lock file (derived from
+        # db_path.parent.parent) stays inside the temporary workspace.
+        self.db_path = pathlib.Path(self.temp_dir.name) / "data" / "canonical.db"
         create_mock_upstream_tables(self.db_path)
-        run_migrations(self.db_path, DEFAULT_CURATE_MIGRATIONS)
+        run_migrations(self.db_path, CURATE_MIGRATIONS_DIR)
 
-        # Mock config setup
-        self.config = MagicMock(spec=CurateConfig)
-        self.config.active_provider_name = "test-provider"
-        self.config.active_provider = MagicMock()
-        self.config.active_provider.model_name = "gpt-5.4-mini"
-        self.config.active_provider.api_base = "https://api.test.com"
-        self.config.active_provider.api_key_env = "TEST_API_KEY"
-        self.config.active_provider.supports_structured_output = True
-
-        self.config.active_template = MagicMock()
-        self.config.active_template.version = "curator_v1"
-        self.config.active_template.system_instruction = "System Instruction"
-        self.config.active_template.user_prompt_template = "Title: {raw_title}, Text: {sanitized_text}"
-
-        self.config.execution_policy = MagicMock()
-        self.config.execution_policy.batch_size = 20
-        self.config.execution_policy.max_concurrent_requests = 3
-        self.config.execution_policy.rate_limit_per_minute = 60
-        self.config.execution_policy.request_timeout_seconds = 10.0
-        self.config.execution_policy.retry_attempts = 2
-        self.config.execution_policy.backoff_factor = 0.1
-
-        self.config.request_defaults = MagicMock()
-        self.config.request_defaults.temperature = 0.2
-        self.config.request_defaults.top_p = 0.95
-        self.config.request_defaults.max_output_tokens = 2048
+        # Mock config with test-local values; tests derive expectations from
+        # this object, never from the active workspace config.
+        self.config = build_test_config(
+            supports_structured_output=True,
+            user_prompt_template="Title: {raw_title}, Text: {sanitized_text}",
+            batch_size=20,
+            max_concurrent_requests=3,
+            rate_limit_per_minute=60,
+            request_timeout_seconds=10.0,
+            retry_attempts=2,
+            backoff_factor=0.1,
+        )
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -101,20 +56,11 @@ class TestOrchestrator(unittest.TestCase):
     def seed_upstream_item(self, item_id: int, title: str, text: str, topic_class: str = "core", gov: int = 1) -> None:
         conn = get_connection(self.db_path)
         try:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO source_item (source_item_id, source_id, title, ingest_status)
-                VALUES (?, 1, ?, 'ingested')
-            """, (item_id, title))
-            cursor.execute("""
-                INSERT INTO source_item_text (source_item_id, sanitized_text)
-                VALUES (?, ?)
-            """, (item_id, text))
-            cursor.execute("""
-                INSERT INTO classification_result (source_item_id, topic_class, governmental_involvement)
-                VALUES (?, ?, ?)
-            """, (item_id, topic_class, gov))
-            conn.commit()
+            _seed_upstream_item(
+                conn, item_id,
+                title=title, text=text, topic_class=topic_class,
+                governmental_involvement=gov,
+            )
         finally:
             conn.close()
 
