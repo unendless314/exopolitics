@@ -1,7 +1,7 @@
 """Integration tests for orchestrator operational contracts.
 
-Covers the non-force execution paths that test_integration.py (which mostly
-runs with force=True) does not prove: 304 cache-hit handling, run-scope
+Covers the non-force execution paths that test_success_flow.py (which runs
+with force=True) does not prove: 304 cache-hit handling, run-scope
 filtering, skip paths (not_due / quarantined / disabled), the force bypass,
 dry-run write isolation, the consecutive-failure quarantine cycle, and the
 bozo -> parse_error source-level failure contract.
@@ -22,52 +22,16 @@ from modules.ingest.src.database import get_connection, run_migrations
 from modules.ingest.src.fetcher import FetchResult
 from modules.ingest.src.orchestrator import orchestrate_run, orchestrate_source
 from modules.ingest.tests import feed_samples
+from modules.ingest.tests.integration_helpers import (
+    MIGRATIONS_DIR,
+    source_block as _source_block,
+    sources_yaml as _sources_yaml,
+    write_base_config,
+)
 
 # All orchestrator-visible timestamps are pinned to this value by patching
 # modules.ingest.src.orchestrator.get_utc_now_iso8601.
 FIXED_NOW = "2026-07-01T00:00:00Z"
-
-
-def _sources_yaml(sources_block: str) -> str:
-    """Composes a minimal valid sources.yaml around the given sources block."""
-    return (
-        "schema_version: 1\n"
-        "schedule_classes:\n"
-        "  daily:\n"
-        "    target_interval_minutes: 1440\n"
-        "    description: Daily\n"
-        "sanitization_profiles:\n"
-        "  default_html_article:\n"
-        "    input_preference: [summary]\n"
-        "    decode_entities: true\n"
-        "    remove_selectors: [script]\n"
-        "sources:\n"
-        + sources_block
-    )
-
-
-_SOURCE_TEMPLATE = """  - id: {id}
-    title: {title}
-    xml_url: {xml_url}
-    category_id: 1
-    fetch_group: {fetch_group}
-    schedule_class: {schedule_class}
-    sanitization_profile: default_html_article
-    enabled: {enabled}
-"""
-
-
-def _source_block(**overrides) -> str:
-    values = {
-        "id": 101,
-        "title": "Test Feed",
-        "xml_url": "https://example.com/rss",
-        "fetch_group": 1,
-        "schedule_class": "daily",
-        "enabled": "true",
-    }
-    values.update(overrides)
-    return _SOURCE_TEMPLATE.format(**values)
 
 
 def _fetch_one(db_path: pathlib.Path, sql: str, params=()):
@@ -155,28 +119,10 @@ class TestOrchestratorOperations(unittest.TestCase):
         self.config_dir = pathlib.Path(self.temp_dir.name)
         self.db_path = self.config_dir / "test.db"
 
-        with open(self.config_dir / "categories.yaml", "w", encoding="utf-8") as f:
-            f.write("""
-schema_version: 1
-categories:
-  1:
-    name: Test Category
-    slug: test-cat
-    enabled: true
-""")
-        with open(self.config_dir / "retention_policy.yaml", "w", encoding="utf-8") as f:
-            f.write("""
-schema_version: 1
-raw_retention:
-  default_days: 14
-  delete_batch_size: 500
-  dry_run: false
-  audit_log: true
-""")
+        write_base_config(self.config_dir)
         self._write_sources(_source_block())
 
-        self.migrations_dir = pathlib.Path(__file__).resolve().parent.parent / "src" / "migrations"
-        run_migrations(self.db_path, self.migrations_dir)
+        run_migrations(self.db_path, MIGRATIONS_DIR)
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()

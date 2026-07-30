@@ -1,8 +1,8 @@
 # Ingest 模組測試可維護性改善方案
 
-**狀態：** 執行中 — Phase 0–4 已完成並通過兩輪 Code Review（LGTM），Phase 6 待執行  
+**狀態：** 完成 — Phase 0–4 已完成並通過兩輪 Code Review（LGTM），Phase 6 拆分已執行並通過驗收  
 **日期：** 2026-07-30  
-**修訂：** 2026-07-30 審查修訂，Phase 1 增補 fetcher 時鐘注入、§7 決策 3 補上建議方向、原 Phase 5（可選整理）改為明確排程的 Phase 6（機械拆分）；2026-07-30 執行進度更新（詳 §8）  
+**修訂：** 2026-07-30 審查修訂，Phase 1 增補 fetcher 時鐘注入、§7 決策 3 補上建議方向、原 Phase 5（可選整理）改為明確排程的 Phase 6（機械拆分）；2026-07-30 執行進度更新（詳 §8）；2026-07-30 Phase 6 拆分執行更新（詳 §8）  
 **範圍：** `modules/ingest/` 的 Python 測試與測試支援結構  
 **非範圍：** 不在本方案中改變 ingest 的資料契約、執行語意、清理流程或模組邊界
 
@@ -255,6 +255,8 @@ python -m modules.ingest.src.cli validate
 
 測試基線：73 passed → **166 passed, 104 subtests passed**；完整套件五連跑全綠；`python -m modules.ingest.src.cli validate` 零 error。
 
+Phase 6 拆分後基線不變：**166 passed, 104 subtests passed**；拆分前後 `--collect-only` 皆 166 項，152 個未搬移 node ID 逐字相同，14 個搬移測試舊新 node ID 一對一對照（同名方法、僅檔案與類別前綴變更）；五連跑全綠；`cli validate` 零 error。
+
 | Phase | 狀態 | 產出 |
 | --- | --- | --- |
 | Phase 0 | 完成 | `tests/feed_samples.py` 共用 mock feed 樣本 |
@@ -262,7 +264,7 @@ python -m modules.ingest.src.cli validate
 | Phase 2 | 完成 | `test_config.py` 新增負向案例（subTest 覆蓋）、warning 獨立斷言、active config 嚴格映射測試 |
 | Phase 3 | 完成 | `tests/test_orchestrator_operations.py`（304、scope filtering、skip paths、force bypass、dry-run、quarantine 循環、bozo→parse_error） |
 | Phase 4 | 完成 | `tests/test_database.py`（表集合、index 語意、真實 SQLite unique/CHECK/FK、migration 幂等與失敗回滾、`split_sql_statements()`） |
-| Phase 6 | **待執行** | 依方案護欄：獨立提交、不改斷言語意、核對拆分前後測試總數與新舊 node ID 對照 |
+| Phase 6 | 完成 | `test_integration.py` 14 項測試依職責拆分：`test_success_flow.py`、`test_persistence_isolation.py` 新檔，dedup（3）／error contract（5）／sanitizer 計數（3）整合測試併入對應既有測試檔的新類別；新增 `tests/integration_helpers.py` 集中 temporary config 與 migration 路徑 helper（`test_orchestrator_operations.py` 同步改用），`feed_samples.py` 補 `RSS_TWO_ARTICLES`；斷言與測試名稱語意不變 |
 
 Production 改動（皆經決策或 review 授權）：`parser.py` 新增 `FeedParseError`（bozo 語法錯誤 → parse_error）；`database.py` 修 `split_sql_statements()` 同行多 statements 合併的缺陷。文件同步：`FETCH_EXECUTION.md` §9、`STORAGE_SCHEMA.md`（§4.4 `updated_at`、§4.1/§8 `dedup_rule` 值集）。
 

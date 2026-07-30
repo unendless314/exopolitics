@@ -148,6 +148,33 @@ RSS_SHORT_TITLE = """<?xml version="1.0" encoding="UTF-8"?>
 </rss>
 """
 
+# Two-article RSS feed for pipeline-level integration tests: Article 1 carries
+# a body long enough to pass the minimum length check; Article 2 is too short
+# and lands in low_context.
+RSS_TWO_ARTICLES = """<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Mock Feed</title>
+    <link>https://example.com/</link>
+    <description>Mock Description</description>
+    <item>
+      <title>Article 1</title>
+      <link>https://example.com/art1</link>
+      <guid>guid-art1</guid>
+      <pubDate>Tue, 02 Jun 2026 12:00:00 GMT</pubDate>
+      <description><![CDATA[<p>This is a sufficiently long description that should pass the minimum length check for the test. It contains more than one hundred characters of text in total.</p>]]></description>
+    </item>
+    <item>
+      <title>Article 2</title>
+      <link>https://example.com/art2</link>
+      <guid>guid-art2</guid>
+      <pubDate>Tue, 02 Jun 2026 13:00:00 GMT</pubDate>
+      <description><![CDATA[<p>Short body text.</p>]]></description>
+    </item>
+  </channel>
+</rss>
+"""
+
 # Structurally valid RSS feed with zero items.
 RSS_EMPTY_CHANNEL = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
