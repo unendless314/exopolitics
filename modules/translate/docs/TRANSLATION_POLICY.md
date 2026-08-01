@@ -1,7 +1,7 @@
 # Translation Policy and Terminology Glossary
 
-**Document version:** v1.3  
-**Updated:** 2026-07-24  
+**Document version:** v1.4  
+**Updated:** 2026-08-01  
 **Status:** Locked Contract  
 
 ---
@@ -57,7 +57,7 @@ To maintain consistency in UAP (Unidentified Anomalous Phenomena) and government
    - Japanese & Traditional Chinese: Maximum 120 characters (due to CJK double-byte character density).
    - *Note: These limits are canonically configured per-language in [model_settings.yaml](../config/model_settings.yaml).*
 2. **Content Length**:
-   - The aggregate of the translated summary and all non-empty translated bullets must remain proportional to the aggregate of the corresponding source fields. Significant expansion (more than 1.2x of raw character length equivalents, configured as `content_ratio_limit` in [model_settings.yaml](../config/model_settings.yaml)) is treated as validation failure. The ratio is always computed over the aggregate, never over a single short bullet.
+   - The aggregate of the translated summary and all non-empty translated bullets must remain proportional to the aggregate of the corresponding source fields. Significant expansion (more than 5.0x of raw character length equivalents, configured as `content_ratio_limit` in [model_settings.yaml](../config/model_settings.yaml)) is treated as validation failure. The ratio is always computed over the aggregate, never over a single short bullet.
 
 *Note: Any violation of these title length or content length constraints is verified runner-side during validation and will transition the task status to `'failed'` (incrementing `retry_count`) as defined in [EXECUTION_POLICY.md](./EXECUTION_POLICY.md#5-runner-side-content-validation-rules).*
 

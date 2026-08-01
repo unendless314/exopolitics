@@ -40,12 +40,64 @@ def compute_content_fingerprint(
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def _validate_upstream_bullet_shape(
+    downstream_action: Optional[str],
+    bullet_1: Optional[str],
+    bullet_2: Optional[str],
+    bullet_3: Optional[str]
+) -> Optional[str]:
+    """
+    Zero-trust validation of the upstream curation payload's bullet shape
+    (DATA_CONTRACT.md sections 1.1 and 1.5).
+
+    The all-or-none invariant is enforced exactly:
+    - publish_summary: all three bullets must be non-empty, non-whitespace strings.
+    - publish_link:    all three bullets must be NULL.
+
+    Returns None when the shape is legal; otherwise returns a diagnostic
+    reason string identifying the violating slot. This function never repairs
+    data (no padding, truncation, or global string conversion) and never
+    changes the downstream action.
+    """
+    bullets = (bullet_1, bullet_2, bullet_3)
+
+    if downstream_action == 'publish_summary':
+        for idx, value in enumerate(bullets, start=1):
+            if value is None:
+                return (
+                    f"publish_summary requires three non-empty bullets; "
+                    f"bullet_{idx} is NULL"
+                )
+            if not isinstance(value, str) or not value.strip():
+                return (
+                    f"publish_summary requires three non-empty bullets; "
+                    f"bullet_{idx} is empty or whitespace-only"
+                )
+        return None
+
+    if downstream_action == 'publish_link':
+        for idx, value in enumerate(bullets, start=1):
+            if value is not None:
+                return (
+                    f"publish_link requires three NULL bullets; "
+                    f"bullet_{idx} is populated"
+                )
+        return None
+
+    return None
+
+
 def assemble_approved_content_records(conn: sqlite3.Connection) -> Dict[str, Any]:
     """
     Delta-oriented shared handoff assembler.
     Scans curation approvals, copies the five structured content fields
     straight through (never injecting UI presentation labels), computes
     fingerprints, and updates approved_content_record.
+
+    Zero-trust boundary: before any write, each candidate's bullet shape is
+    validated against its downstream_action. Illegal items are rejected
+    per-item (no new handoff row, existing valid rows never overwritten) and
+    reported with diagnostics; legal items in the same assembly continue.
     """
     cursor = conn.cursor()
     
@@ -78,7 +130,9 @@ def assemble_approved_content_records(conn: sqlite3.Connection) -> Dict[str, Any
         "inserted": 0,
         "updated": 0,
         "skipped": 0,
+        "rejected": 0,
     }
+    rejected_items = []
 
     for cand in candidates:
         source_item_id = cand["source_item_id"]
@@ -100,6 +154,22 @@ def assemble_approved_content_records(conn: sqlite3.Connection) -> Dict[str, Any
 
         if existing and existing_upstream_updated_at and cand["upstream_updated_at"] <= existing_upstream_updated_at:
             stats["skipped"] += 1
+            continue
+
+        # Zero-trust upstream bullet shape validation (DATA_CONTRACT.md
+        # sections 1.1 and 1.5). Rejection is isolated per item: no new
+        # handoff row is written and an existing valid row is never
+        # overwritten; other legal items in the same assembly continue.
+        violation = _validate_upstream_bullet_shape(
+            cand["downstream_action"], cand["bullet_1"], cand["bullet_2"], cand["bullet_3"]
+        )
+        if violation is not None:
+            stats["rejected"] += 1
+            rejected_items.append({
+                "source_item_id": source_item_id,
+                "downstream_action": cand["downstream_action"],
+                "reason": violation,
+            })
             continue
 
         # Straight-through copy of the five content fields
@@ -180,4 +250,5 @@ def assemble_approved_content_records(conn: sqlite3.Connection) -> Dict[str, Any
                 stats["skipped"] += 1
 
     conn.commit()
+    stats["rejected_items"] = rejected_items
     return stats

@@ -18,6 +18,16 @@ from .database import (
     get_utc_now_iso8601
 )
 
+class NonRetryableLLMError(Exception):
+    """Permanent LLM API failure that must not consume the retry budget.
+
+    Raised for non-429 HTTP 4xx client errors (EXECUTION_POLICY.md section 4):
+    an identical retry cannot fix a request/contract problem, so the task
+    fails immediately instead of looping through the backoff policy.
+    Only provider-documented retryable 4xx statuses may be added to the
+    retry policy in the future.
+    """
+
 class ProcessLock:
     def __init__(self, lock_path: pathlib.Path):
         self.lock_path = lock_path
@@ -348,15 +358,17 @@ async def fetch_llm_translation(
                 timeout=policy.request_timeout_seconds
             )
 
-            # Check for rate limiting (429) or server errors (5xx)
+            # Retryable statuses: rate limiting (429) or server errors (5xx).
             if response.status_code == 429 or (500 <= response.status_code < 600):
                 response.raise_for_status()
 
             if response.status_code != 200:
-                raise httpx.HTTPStatusError(
-                    f"LLM API returned client error status {response.status_code}",
-                    request=response.request,
-                    response=response
+                # Non-429 4xx (and any other unexpected status) is a permanent
+                # client error: fail immediately without consuming the retry
+                # budget (EXECUTION_POLICY.md section 4).
+                raise NonRetryableLLMError(
+                    f"LLM API returned non-retryable client error status {response.status_code} "
+                    "(only 429 and 5xx are eligible for retry)"
                 )
 
             parsed_json = _parse_response_content(response)
@@ -493,8 +505,23 @@ async def translate_task(
             return False
         else:
             # First-time / non-completed task failure:
-            # Write 'failed', increment retry_count, keep content NULL if first run
-            print(f"Error translating task ({parent_content_id}, '{target_language}'): {exc}", file=sys.stderr)
+            # Write 'failed', increment retry_count, keep content NULL if first run.
+            # A permanent (non-retryable) client error cannot be fixed by an
+            # identical re-request, so the row is locked out of the automatic
+            # queue immediately: retry_count is written at the configured retry
+            # limit instead of incremented by one (EXECUTION_POLICY.md
+            # section 4). An operator can still rerun the item via --force.
+            if isinstance(exc, NonRetryableLLMError):
+                new_retry_count = config.execution_policy.retry_attempts
+                print(
+                    f"Permanent failure translating task ({parent_content_id}, "
+                    f"'{target_language}'): {exc} "
+                    "(locked at retry limit; requires operator intervention)",
+                    file=sys.stderr,
+                )
+            else:
+                new_retry_count = existing_retry_count + 1
+                print(f"Error translating task ({parent_content_id}, '{target_language}'): {exc}", file=sys.stderr)
             try:
                 # Retrieve existing values to preserve them if this was not the first run
                 old_title = existing["display_title"] if existing else None
@@ -520,7 +547,7 @@ async def translate_task(
                             "bullet_3": old_bullet_3,
                             "source_fingerprint": task["content_fingerprint"],
                             "translation_status": "failed",
-                            "retry_count": existing_retry_count + 1,
+                            "retry_count": new_retry_count,
                             "model_name": config.active_provider.model_name,
                             "prompt_version": config.active_template.version,
                             "translated_at": existing["translated_at"] if existing else None
@@ -543,12 +570,31 @@ async def orchestrate_run(
     """
     Orchestrates the translation queue run.
     """
+    # Validate the effective batch size first, before acquiring the process
+    # lock or opening the database, so a rejected override leaves nothing
+    # behind. batch_size counts source items and must be a positive integer
+    # (EXECUTION_POLICY.md section 2); the CLI enforces the same rule at
+    # option parsing and config validation enforces it for configured values.
+    run_batch_size = batch_size if batch_size is not None else config.execution_policy.batch_size
+    if (
+        not isinstance(run_batch_size, int)
+        or isinstance(run_batch_size, bool)
+        or run_batch_size < 1
+    ):
+        raise ValueError(
+            f"batch_size must be a positive integer (source-item unit), got {run_batch_size!r}"
+        )
+
     # 1. Multi-process Runner Lock
+    # --dry-run issues real LLM API requests, so it must hold the same
+    # exclusive process lock as a normal run to prevent duplicate API
+    # execution (EXECUTION_POLICY.md section 3). Only --preview-prompts skips
+    # the lock because it never calls the API and never writes to the DB.
     workspace_root = db_path.parent.parent
     lock_file = workspace_root / "data" / "translate_runner.lock"
     process_lock = ProcessLock(lock_file)
 
-    if not preview_prompts and not dry_run:
+    if not preview_prompts:
         try:
             process_lock.acquire()
         except RuntimeError as err:
@@ -558,7 +604,6 @@ async def orchestrate_run(
     conn = get_connection(db_path)
     repo = TranslationRepository(conn)
 
-    run_batch_size = batch_size if batch_size is not None else config.execution_policy.batch_size
     target_langs = list(config.target_languages.keys())
 
     try:
@@ -627,11 +672,35 @@ async def orchestrate_run(
         except Exception:
             pass
 
-        # Slice to batch size
-        pending_tasks = all_tasks[:run_batch_size]
+        # Slice to batch size BY SOURCE ITEM (EXECUTION_POLICY.md section 2):
+        # batch_size counts distinct mother-drafts, not language tasks.
+        # Select up to batch_size articles that have at least one eligible
+        # translation, ordered by approved_at ASC with parent_content_id ASC
+        # as the deterministic tie-breaker, then expand every eligible
+        # language task of each selected article so a batch boundary never
+        # splits one article's pending language set. API concurrency and
+        # request frequency are governed separately by
+        # max_concurrent_requests and rate_limit_per_minute.
+        selected_parent_ids = []
+        seen_parent_ids = set()
+        ordered_tasks = sorted(
+            all_tasks,
+            key=lambda t: (t["approved_at"], t["parent_content_id"], t["language_code"])
+        )
+        for task in ordered_tasks:
+            pid = task["parent_content_id"]
+            if pid in seen_parent_ids:
+                continue
+            seen_parent_ids.add(pid)
+            selected_parent_ids.append(pid)
+            if len(selected_parent_ids) >= run_batch_size:
+                break
+        selected_id_set = set(selected_parent_ids)
+        pending_tasks = [t for t in ordered_tasks if t["parent_content_id"] in selected_id_set]
 
         if not pending_tasks:
             return {
+                "source_items": 0,
                 "total_queried": 0,
                 "processed_successfully": 0,
                 "failures": 0,
@@ -646,6 +715,7 @@ async def orchestrate_run(
                 if item:
                     _print_preview_item(config, item, task["language_code"])
             return {
+                "source_items": len(selected_parent_ids),
                 "total_queried": len(pending_tasks),
                 "processed_successfully": 0,
                 "previewed": len(pending_tasks),
@@ -702,6 +772,7 @@ async def orchestrate_run(
         failed = len(results) - succeeded
 
         return {
+            "source_items": len(selected_parent_ids),
             "total_queried": len(pending_tasks),
             "processed_successfully": succeeded,
             "failures": failed,
@@ -710,5 +781,5 @@ async def orchestrate_run(
 
     finally:
         conn.close()
-        if not preview_prompts and not dry_run:
+        if not preview_prompts:
             process_lock.release()

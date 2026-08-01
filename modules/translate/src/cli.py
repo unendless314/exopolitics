@@ -22,7 +22,8 @@ def print_run_summary(summary: dict) -> None:
     click.echo(SUMMARY_SEPARATOR)
     click.echo(f"TRANSLATE BATCH RUN SUMMARY: {summary['status'].upper()}")
     click.echo(SUMMARY_SEPARATOR)
-    click.echo(f"  Total Queried:             {summary['total_queried']}")
+    click.echo(f"  Source Items Selected:     {summary['source_items']}")
+    click.echo(f"  Language Tasks Queried:    {summary['total_queried']}")
     if summary["status"] == "preview":
         click.echo(f"  Previewed Prompts:         {summary['previewed']}")
     else:
@@ -117,6 +118,12 @@ def cmd_assemble(ctx, db_path):
             click.echo(f"  Inserted Records: {stats['inserted']}")
             click.echo(f"  Updated Records:  {stats['updated']}")
             click.echo(f"  Skipped (Delta):  {stats['skipped']}")
+            click.echo(f"  Rejected (Invalid Upstream Shape): {stats['rejected']}")
+            for item in stats.get("rejected_items", []):
+                click.echo(
+                    f"    - source_item_id={item['source_item_id']} "
+                    f"action={item['downstream_action']}: {item['reason']}"
+                )
             click.echo(SUMMARY_SEPARATOR)
         finally:
             conn.close()
@@ -134,8 +141,8 @@ def cmd_assemble(ctx, db_path):
 )
 @click.option(
     "--batch-size",
-    type=int,
-    help="Override batch size config"
+    type=click.IntRange(min=1),
+    help="Override batch size config (maximum number of source items selected per run; must be a positive integer)"
 )
 @click.option(
     "--preview-prompts",

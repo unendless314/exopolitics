@@ -43,7 +43,10 @@ class ExecutionPolicy(BaseModel):
 
 class ValidationConfig(BaseModel):
     default_max_title_length: int = 500
-    content_ratio_limit: float = 1.2
+    # Locked production policy is 5.0 (deliberately relaxed from 1.2 in
+    # commit bc165eb, 2026-06-23). The default must match the locked policy
+    # so an omitted key cannot silently resurrect the superseded 1.2.
+    content_ratio_limit: float = 5.0
 
 class ProviderConfig(BaseModel):
     api_type: str

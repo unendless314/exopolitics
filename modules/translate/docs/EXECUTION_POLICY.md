@@ -1,7 +1,7 @@
 # Translate Execution Policy
 
-**Document version:** v1.2  
-**Updated:** 2026-07-24  
+**Document version:** v1.5  
+**Updated:** 2026-08-01  
 **Status:** Locked Contract  
 
 ---
@@ -20,17 +20,22 @@ This document defines execution controls, batching constraints, concurrent API l
   2. A row exists in `translation_output` with `translation_status = 'pending'`.
   3. A row exists in `translation_output` with `translation_status = 'stale'`.
   4. A row exists in `translation_output` with `translation_status = 'failed'` and `retry_count < retry_attempts` (where `retry_attempts` is defined in `config/model_settings.yaml`).
-* **Batch Size**: Defaults to the value configured in `config/model_settings.yaml` (e.g. `20` items, representing up to `20 * number of target languages` translation calls per execution run), which can be overridden via the `--batch-size` CLI flag.
+* **Batch Size (source-item unit)**: `batch_size` counts **distinct source items (mother-drafts)**, not language tasks. The runner first selects up to `batch_size` distinct `parent_content_id` values that have at least one eligible translation, ordered by `approved_at ASC` with `parent_content_id ASC` as the deterministic tie-breaker, then expands **all** eligible target-language tasks of each selected article. A batch boundary must never split one article's pending language set; an article's languages that are already completed (and not stale) are not redone. This matches the operator mental model of "this run processed N articles"; API concurrency and request frequency are governed separately by `max_concurrent_requests` and `rate_limit_per_minute`. Defaults to the value configured in `config/model_settings.yaml`, overridable via the `--batch-size` CLI flag. The effective value must be a **positive integer**: the CLI rejects non-positive `--batch-size` overrides at option parsing (usage error), config validation enforces `execution_policy.batch_size > 0`, and the orchestrator re-validates the effective value before any queue loading, stale marking or API traffic. The orchestrator boundary requires an actual `int`: non-integer numerics such as `1.5` from a direct Python caller are rejected with an input error, not silently truncated.
+* **Run Summary**: The run summary must report both counts: the number of selected source items and the number of resulting language tasks queried.
 * **Dry Run / Preview**: If `--preview-prompts` is supplied:
   * The runner prepares the inputs, constructs the prompts for each target language, and prints the generated payloads to stdout.
   * It must **not** invoke the LLM API and must **not** write any entries to the database.
+  * Because it performs no API calls and no DB writes, it does not acquire the multi-process runner lock.
+* If `--dry-run` is supplied:
+  * The runner executes the complete translation flow **including real LLM API requests**, but must not commit any database writes (stale detection marking included).
+  * Because it consumes real API quota, it must acquire the same multi-process runner lock as a normal run, so a dry-run and a normal run (or two dry-runs) can never execute duplicate API requests for the same queue concurrently.
 
 ---
 
 ## 3. Database Transactions & Concurrency
 
 * **Multi-Process Runner Lock**:
-  * To prevent duplicate API execution and lock contention in SQLite, the runner must acquire an exclusive file lock on `data/translate_runner.lock` at start.
+  * To prevent duplicate API execution and lock contention in SQLite, the runner must acquire an exclusive file lock on `data/translate_runner.lock` at start. This applies to normal runs and to `--dry-run` (which still issues real LLM API requests); `--preview-prompts` is exempt because it makes no API calls.
   * If the lock cannot be acquired, the runner must log an error and exit immediately.
 * **Concurrency Semaphore**:
   * Parallel execution of translation requests is managed asynchronously. Concurrency is limited by `max_concurrent_requests` (via `asyncio.Semaphore`, defaulting to the value configured in `config/model_settings.yaml`, e.g. 5) to respect API rate limits.
@@ -49,8 +54,9 @@ This document defines execution controls, batching constraints, concurrent API l
 ## 4. Error Handling & Retry Policies
 
 * **Transient Error Trapping**:
-  * Network timeouts, rate limits (`429`), model overloaded (`503`), JSON parsing/schema validation, or runner-side validation failures must not crash the overall translation runner.
-  * When an error occurs during a translation task:
+  * Network timeouts, rate limits (`429`), server errors (`5xx`, e.g. model overloaded `503`), JSON parsing/schema validation, or runner-side validation failures must not crash the overall translation runner.
+  * **Retry eligibility by HTTP status**: only `429` and `5xx` responses (plus transport-level timeouts/network errors) are eligible for retry. Any other non-200 status — including general HTTP `4xx` client errors such as `400`, `401`, `403`, `404` — is a permanent failure: the runner must fail the task immediately after the first response, without consuming the retry budget or sleeping. Because an identical re-request cannot fix a request/contract problem, the failed task is also locked out of the automatic queue immediately: the runner writes the `failed` row with `retry_count` set to `retry_attempts` (the same logical lock as an exhausted retry budget; STATE_TRANSITIONS.md section 1.1), and rerunning the unchanged request requires explicit operator intervention (`--force` on the specific item). The lock pins only the unchanged request: if the upstream `content_fingerprint` later changes, fingerprint stale detection transitions the locked row to `stale` and the next bulk run retries it automatically, because the retried request carries new content and is no longer an identical re-request. A provider-specific retryable `4xx` may only be added together with provider documentation, implementation, and a regression test in the same change.
+  * When a transient (retryable) error occurs during a translation task:
     - The runner must catch the error.
     - Write a `'failed'` status in `translation_output` for `(parent_content_id, language_code)`. Keep all five content fields (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`) as `NULL` if this is the first execution (do not write empty strings or fake content).
     - Increment `retry_count` by 1.
@@ -71,7 +77,7 @@ To guarantee structured field fidelity and translation quality, the runner must 
    - If the translated title exceeds the configured limit for the target language, the validation fails.
 2. **Aggregate Content Length Ratio Check**:
    - Aggregate all non-empty translated fields (`translated_summary` plus all non-null translated bullets) and the corresponding source fields (`summary_short` plus all non-null source bullets), then calculate: `len(aggregated translation) / len(aggregated source)`.
-   - If the ratio is strictly greater than the configured `content_ratio_limit` (e.g. `1.2` in `config/model_settings.yaml`), the validation fails. (This prevents LLM hallucination or excessive rambling.)
+   - If the ratio is strictly greater than the configured `content_ratio_limit` (configured in `config/model_settings.yaml`, currently `5.0`), the validation fails. (This prevents LLM hallucination or excessive rambling.)
    - The ratio must always be computed over the aggregate, never over a single short bullet, to avoid false rejections of valid translations.
 3. **Script Presence Check**:
    - For target `language_code = 'zh'`, the aggregated translated content must contain at least one CJK Unified Ideograph (Chinese character).

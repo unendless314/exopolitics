@@ -1,7 +1,7 @@
 # Translate Data Contract
 
-**Document version:** v1.5  
-**Updated:** 2026-07-24  
+**Document version:** v1.6  
+**Updated:** 2026-08-01  
 **Status:** Locked Contract  
 
 > [!IMPORTANT]
@@ -33,7 +33,7 @@ Stores the finalized publication mother-draft ready for downstream modules. Exac
 | `content_fingerprint` | `TEXT` | `NOT NULL` | SHA-256 hash of the fixed five-field serialization (`display_title`, `summary_short`, `bullet_1`, `bullet_2`, `bullet_3`) defined in Section 2.1.1, used for change detection. This fingerprint is computed only by the upstream handoff assembler at write time and then treated as canonical by downstream consumers. |
 | `content_language_code` | `TEXT` | `NOT NULL` | The language code of the finalized mother-draft (e.g. `'zh'`, `'en'`), computed and written only by the upstream handoff assembler at write time. |
 | `approved_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 business timestamp when curation approval or editing was finalized. This is the canonical editorial approval/publication time preserved for downstream consumers. |
-| `author_metadata` | `TEXT` | `NULL` | JSON string representing author metadata. For the MVP, this must contain `source_module` and `writer_type` (e.g., `'AI'`, `'human'`, `'hybrid'`). Conditional schema rule: when `writer_type` is `'human'` or `'hybrid'`, it must also contain a non-empty `editor` field designating human responsibility. When `writer_type` is `'AI'` or `'machine'`, the `editor` field is optional. In the current implementation (curated via pure API), `writer_type` defaults to `'AI'`. |
+| `author_metadata` | `TEXT` | `NULL` | JSON string representing author metadata. For the MVP, this must contain `source_module` and `writer_type` (e.g., `'AI'`, `'human'`, `'hybrid'`). Conditional schema rule: when `writer_type` is `'human'` or `'hybrid'`, it must also contain a non-empty `editor` field designating human responsibility. When `writer_type` is `'AI'` or `'machine'`, the `editor` field is optional. In the current implementation (curated via pure API), `writer_type` defaults to `'AI'`. The assembler additionally stores `upstream_updated_at` here: the freshness marker of the upstream finalized row at materialization time, used for delta pre-screening (Section 2.1.2). The handoff row's own `updated_at` is refreshed by every assembly run and must never be used as the upstream freshness marker. |
 | `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp for when this handoff row was first materialized in `approved_content_record`. |
 | `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp for when this handoff row was last refreshed in `approved_content_record`. |
 
@@ -146,7 +146,12 @@ This DDL is written for a freshly created canonical database; no in-place migrat
 - The assembler may be physically co-located under `modules/translate/`, but it must remain implementation-independent from translation runtime logic and should not import translation-specific code.
 - `approved_at` must be copied and preserved in the handoff row even if it is derivable from current upstream tables, because upstream editorial storage and retention policies may later diverge from downstream historical needs.
 - `created_at` and `updated_at` are system materialization timestamps and must not be used as substitutes for the editorial meaning of `approved_at`.
-- In the current MVP, the assembler may use the effective upstream finalized row's `updated_at` as its freshness signal for delta pre-screening when no separate `finalized_at`-style field exists.
+- **Bullet shape enforcement (zero-trust write boundary)**: the assembler is the final write boundary of `approved_content_record` and must validate the upstream payload's all-or-none bullet invariant against its `downstream_action` before any write:
+  - `publish_summary` accepts exactly three non-empty, non-whitespace bullet values; any NULL, empty-string, or whitespace-only bullet slot is illegal.
+  - `publish_link` accepts exactly three `NULL` bullets; any populated bullet slot is illegal.
+  - Rejection is isolated per item: an illegal item produces no new handoff row and must never overwrite an existing valid handoff row, and it must not block other legal items in the same assembly run. The assembler reports rejected items separately in its statistics, with diagnostics identifying the source item, the downstream action, and the violating slot, so operators can trace the violation back to the upstream module.
+  - The assembler must never repair illegal payloads — no automatic padding, truncation, global string conversion, or silent downgrade of the item's downstream action. An item stays rejected until the upstream data is corrected and a later assembly run materializes it.
+- In the current MVP, the assembler uses the effective upstream finalized row's `updated_at` as its freshness signal for delta pre-screening when no separate `finalized_at`-style field exists. The marker is preserved in `author_metadata.upstream_updated_at` at materialization time, because the handoff row's own `updated_at` is refreshed by every assembly run and cannot serve as the upstream change marker.
 - This means the current upstream contract assumes the effective `updated_at` of the selected finalized row changes whenever the downstream-visible mother-draft payload or its approval state changes.
 
 ---
@@ -184,10 +189,10 @@ The single source of truth for the mother-draft state version is `approved_conte
 ### 2.1.2 Delta Detection Rules For The Assembler
 
 - The assembler performs delta detection in two stages: a timestamp-based pre-screen followed by payload re-assembly and fingerprint confirmation.
-- In the MVP contract, when the upstream module does not expose a dedicated `finalized_at` or `version_approved_at` field, the assembler should compare the effective upstream finalized row's `updated_at` against `approved_content_record.updated_at`.
+- In the MVP contract, when the upstream module does not expose a dedicated `finalized_at` or `version_approved_at` field, the assembler compares the effective upstream finalized row's `updated_at` against the `upstream_updated_at` marker preserved in `author_metadata` at the previous materialization. The handoff row's own `updated_at` is refreshed by every assembly run (including metadata-only refreshes) and must never be used as the upstream change marker.
 - If no `approved_content_record` row exists for the `source_item_id`, the assembler must assemble the payload, compute the fingerprint, and insert the row.
-- If `upstream.updated_at` is later than `approved_content_record.updated_at`, the assembler should treat the item as a candidate refresh, re-assemble the payload, and recompute the fingerprint.
-- If `upstream.updated_at` is not later than `approved_content_record.updated_at`, the assembler may skip that item during normal delta runs.
+- If `upstream.updated_at` is later than the preserved `author_metadata.upstream_updated_at`, the assembler should treat the item as a candidate refresh, re-assemble the payload, and recompute the fingerprint.
+- If `upstream.updated_at` is not later than the preserved `author_metadata.upstream_updated_at`, the assembler may skip that item during normal delta runs.
 - Timestamp comparison is only a pre-screen optimization. The authoritative content-drift check remains the recomputed payload fingerprint for candidate rows.
 - `approved_at` remains the editorial approval timestamp of the current canonical version and must not be repurposed as the primary delta-comparison field.
 
