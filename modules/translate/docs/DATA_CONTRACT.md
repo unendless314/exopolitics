@@ -1,8 +1,8 @@
 # Translate Data Contract
 
-**Document version:** v1.6  
-**Updated:** 2026-08-01  
-**Status:** Locked Contract  
+**Document version:** v1.6
+**Updated:** 2026-08-01
+**Status:** Locked Contract
 
 > [!IMPORTANT]
 > **Co-location Disclaimer**: The `approved_content_record` table represents a shared canonical handoff capability (not owned solely by the `translate` module). For implementation simplicity, its schema migrations and assembly helper scripts are temporarily co-located under `modules/translate/`. This co-location does not alter the module boundaries defined in [MODULE_BOUNDARIES.md](file:///C:/Users/user/Documents/exopolitics/docs/MODULE_BOUNDARIES.md); `translate` remains a pure downstream consumer of this handoff table.

@@ -1,8 +1,8 @@
 # Translate State Transitions
 
-**Document version:** v1.5  
-**Updated:** 2026-08-01  
-**Status:** Locked Contract  
+**Document version:** v1.5
+**Updated:** 2026-08-01
+**Status:** Locked Contract
 
 ---
 

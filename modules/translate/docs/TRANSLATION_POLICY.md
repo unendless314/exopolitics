@@ -1,8 +1,8 @@
 # Translation Policy and Terminology Glossary
 
-**Document version:** v1.4  
-**Updated:** 2026-08-01  
-**Status:** Locked Contract  
+**Document version:** v1.4
+**Updated:** 2026-08-01
+**Status:** Locked Contract
 
 ---
 
