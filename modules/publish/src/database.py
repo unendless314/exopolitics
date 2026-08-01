@@ -245,6 +245,49 @@ class PublishRepository:
         cursor.execute("SELECT slug FROM publish_record")
         return {row["slug"] for row in cursor.fetchall()}
 
+    def get_archive_metadata(self, language_code: str, archive_month: str) -> Optional[sqlite3.Row]:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT * FROM publish_archive_metadata WHERE language_code = ? AND archive_month = ?",
+            (language_code, archive_month),
+        )
+        return cursor.fetchone()
+
+    def get_archive_metadata_for_language(self, language_code: str) -> List[sqlite3.Row]:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT * FROM publish_archive_metadata WHERE language_code = ?",
+            (language_code,),
+        )
+        return cursor.fetchall()
+
+    def get_archive_metadata_languages(self) -> List[str]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT DISTINCT language_code FROM publish_archive_metadata")
+        return [row[0] for row in cursor.fetchall()]
+
+    def get_publish_language_status_languages(self) -> List[str]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT DISTINCT language_code FROM publish_language_status")
+        return [row[0] for row in cursor.fetchall()]
+
+    def upsert_archive_metadata(self, language_code: str, archive_month: str, updated_at: str) -> None:
+        now = get_utc_now_iso8601()
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            INSERT INTO publish_archive_metadata (language_code, archive_month, updated_at, created_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (language_code, archive_month) DO UPDATE SET
+                updated_at = excluded.updated_at
+        """, (language_code, archive_month, updated_at, now))
+
+    def delete_archive_metadata(self, language_code: str, archive_month: str) -> None:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "DELETE FROM publish_archive_metadata WHERE language_code = ? AND archive_month = ?",
+            (language_code, archive_month),
+        )
+
     def fetch_canonical_item_payload(self, source_item_id: int, language_code: str) -> Optional[sqlite3.Row]:
         """
         Fetch canonical fields required for publishing directly from upstream tables,

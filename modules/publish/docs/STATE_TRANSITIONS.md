@@ -50,7 +50,7 @@ The module must:
 4. Mark the corresponding `publish_language_status` row as `withdrawn`.
 5. Remove the item from `index.json`.
 6. Locate the monthly archive file `archive_YYYY_MM.json` (using the calendar month derived strictly from the item's `source_published_at` mapping to `source_item.published_at`) and rewrite it with the withdrawn item removed.
-7. If the monthly archive file becomes empty after removal, the runner **must delete** the empty `archive_YYYY_MM.json` file from disk and **must remove** its corresponding entry from the archives index manifest `archives/index.json` (rather than keeping an empty file or registering a 0-item count).
+7. If the monthly archive file becomes empty after removal, the runner **must delete** the empty `archive_YYYY_MM.json` file from disk and **must remove** its corresponding entry from the archives index manifest `archives/index.json` (rather than keeping an empty file or registering a 0-item count). The archive's `publish_archive_metadata` row is deleted together with the file; if the same month's archive is later recreated, it starts a new row with a new logical write timestamp.
 8. Rebuild the archives index manifest `archives/index.json` and stats `stats.json` (see data aggregation source rules in [EXECUTION_POLICY.md](./EXECUTION_POLICY.md)) to reflect the updated metrics.
 
 The module must not delete:

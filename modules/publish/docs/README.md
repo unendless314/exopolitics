@@ -96,6 +96,7 @@ If the repository later adopts partial-language export, that must be introduced 
 - [STATE_TRANSITIONS.md](./STATE_TRANSITIONS.md): Publish states, withdrawal synchronization, and file cleanup behavior.
 - [EXECUTION_POLICY.md](./EXECUTION_POLICY.md): Runner sequencing, rebuild rules, transaction boundaries, and idempotency expectations.
 - [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md): Development phases, test focus, and implementation milestones.
+- [TEST_COVERAGE_MAP.md](./TEST_COVERAGE_MAP.md): Per-test coverage map, unique assertions, and consolidation rules for the test suite.
 
 ---
 

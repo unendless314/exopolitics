@@ -1,108 +1,20 @@
-import asyncio
-import json
 import os
 import pathlib
-import sqlite3
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-
-from modules.publish.src.config import PublishConfig, PublishSettingsYaml, ExecutionPolicy, IndexPolicy
 from modules.publish.src.database import (
     run_migrations,
     get_connection,
     PublishRepository,
 )
 from modules.publish.src.orchestrator import (
-    orchestrate_run,
     ValidationError,
     slugify,
     generate_slug,
 )
-
-DEFAULT_PUBLISH_MIGRATIONS = pathlib.Path(__file__).resolve().parent.parent / "src" / "migrations"
-
-def create_mock_upstream_tables(db_path: pathlib.Path) -> None:
-    """Helper to seed the minimal schema required for upstream ingest/curate/translate tables."""
-    conn = get_connection(db_path)
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS source_item (
-                source_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_id INTEGER NOT NULL,
-                source_item_guid TEXT,
-                canonical_url TEXT,
-                title TEXT NOT NULL,
-                published_at TEXT,
-                fetched_at TEXT NOT NULL,
-                ingest_dedup_key TEXT NOT NULL,
-                dedup_rule TEXT NOT NULL,
-                ingest_status TEXT NOT NULL
-            );
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS approved_content_record (
-                parent_content_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_item_id INTEGER NOT NULL UNIQUE,
-                display_title TEXT NOT NULL,
-                summary_short TEXT NOT NULL,
-                bullet_1 TEXT,
-                bullet_2 TEXT,
-                bullet_3 TEXT,
-                content_fingerprint TEXT NOT NULL,
-                content_language_code TEXT NOT NULL,
-                approved_at TEXT NOT NULL,
-                author_metadata TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
-            );
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS translation_output (
-                translation_output_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                parent_content_id INTEGER NOT NULL,
-                source_item_id INTEGER NOT NULL,
-                language_code TEXT NOT NULL,
-                display_title TEXT,
-                summary_short TEXT,
-                bullet_1 TEXT,
-                bullet_2 TEXT,
-                bullet_3 TEXT,
-                source_fingerprint TEXT NOT NULL,
-                translation_status TEXT NOT NULL,
-                retry_count INTEGER NOT NULL DEFAULT 0,
-                model_name TEXT NOT NULL,
-                prompt_version TEXT NOT NULL,
-                translated_at TEXT,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY (parent_content_id) REFERENCES approved_content_record (parent_content_id) ON DELETE CASCADE,
-                FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id),
-                UNIQUE (parent_content_id, language_code)
-            );
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS curation_decision (
-                curation_decision_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_item_id INTEGER NOT NULL UNIQUE,
-                curate_status TEXT NOT NULL,
-                downstream_action TEXT,
-                decision_reason TEXT,
-                decision_actor TEXT NOT NULL,
-                retry_count INTEGER NOT NULL DEFAULT 0,
-                model_name TEXT NOT NULL,
-                prompt_version TEXT NOT NULL,
-                curated_at TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY (source_item_id) REFERENCES source_item (source_item_id) ON DELETE CASCADE
-            );
-        """)
-        conn.commit()
-    finally:
-        conn.close()
+from modules.publish.tests import support
 
 
 class TestPublishModule(unittest.TestCase):
@@ -110,80 +22,19 @@ class TestPublishModule(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = pathlib.Path(self.temp_dir.name) / "canonical.db"
         self.export_dir = pathlib.Path(self.temp_dir.name) / "publish_export"
-        
-        # Setup tables and run migrations
-        create_mock_upstream_tables(self.db_path)
-        run_migrations(self.db_path, DEFAULT_PUBLISH_MIGRATIONS)
 
-        # Setup configuration
-        self.settings = PublishSettingsYaml(
-            target_languages={"zh": "Traditional Chinese", "en": "English"},
-            coverage_policy="strict_match",
-            execution_policy=ExecutionPolicy(default_export_dir=str(self.export_dir), batch_size=10),
-            index_policy=IndexPolicy(latest_limit=5, archive_granularity="month")
-        )
-        self.config = PublishConfig(self.settings)
+        # Setup tables and run migrations
+        support.create_upstream_tables(self.db_path)
+        run_migrations(self.db_path, support.PUBLISH_MIGRATIONS_DIR)
+
+        self.config = support.make_config(export_dir=self.export_dir, batch_size=10, latest_limit=5)
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-    def seed_data(
-        self,
-        item_id: int,
-        title: str,
-        published_at: str,
-        curate_status: str = "approved",
-        translation_status_zh: str = "completed",
-        translation_status_en: str = "completed",
-        content_fingerprint: str = "fp_123",
-        trans_fingerprint_zh: str = "fp_123",
-        trans_fingerprint_en: str = "fp_123",
-        author_metadata: str = '{"source_module": "edit", "writer_type": "human", "editor": "john_doe"}'
-    ) -> None:
-        conn = get_connection(self.db_path)
-        try:
-            cursor = conn.cursor()
-            # 1. source_item
-            cursor.execute("""
-                INSERT OR REPLACE INTO source_item (source_item_id, source_id, title, canonical_url, published_at, fetched_at, ingest_dedup_key, dedup_rule, ingest_status)
-                VALUES (?, 1, ?, ?, ?, '2026-06-20T10:00:00Z', ?, 'guid', 'ingested')
-            """, (item_id, title, f"https://example.com/{item_id}", published_at, f"key_{item_id}"))
-            
-            # 2. approved_content_record (curation hardcodes publish_summary -> all three bullets non-null)
-            cursor.execute("""
-                INSERT OR REPLACE INTO approved_content_record (parent_content_id, source_item_id, display_title, summary_short, bullet_1, bullet_2, bullet_3, content_fingerprint, content_language_code, approved_at, author_metadata, created_at, updated_at)
-                VALUES (?, ?, ?, 'Original summary', 'Original key claim', 'Original evidence level', 'Original objective impact', ?, 'zh', '2026-06-20T12:00:00Z', ?, '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
-            """, (item_id * 10, item_id, title, content_fingerprint, author_metadata))
-
-            # 3. curation_decision
-            cursor.execute("""
-                INSERT OR REPLACE INTO curation_decision (source_item_id, curate_status, downstream_action, decision_reason, decision_actor, model_name, prompt_version, curated_at, created_at, updated_at)
-                VALUES (?, ?, 'publish_summary', 'Approved', 'operator', 'curator', 'v1', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
-            """, (item_id, curate_status))
-
-            # 4. translation_output (ZH); non-completed rows carry NULL content fields
-            if translation_status_zh == "completed":
-                zh_fields = (f"ZH summary for {title}", f"ZH key claim for {title}", f"ZH evidence level for {title}", f"ZH objective impact for {title}")
-            else:
-                zh_fields = (None, None, None, None)
-            cursor.execute("""
-                INSERT OR REPLACE INTO translation_output (translation_output_id, parent_content_id, source_item_id, language_code, display_title, summary_short, bullet_1, bullet_2, bullet_3, source_fingerprint, translation_status, model_name, prompt_version, translated_at, updated_at)
-                VALUES (?, ?, ?, 'zh', ?, ?, ?, ?, ?, ?, ?, 'translator', 'v1', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
-            """, (item_id * 100, item_id * 10, item_id, title, *zh_fields, trans_fingerprint_zh, translation_status_zh))
-
-            # 5. translation_output (EN); non-completed rows carry NULL content fields
-            if translation_status_en == "completed":
-                en_fields = (f"EN summary for {title}", f"EN key claim for {title}", f"EN evidence level for {title}", f"EN objective impact for {title}")
-            else:
-                en_fields = (None, None, None, None)
-            cursor.execute("""
-                INSERT OR REPLACE INTO translation_output (translation_output_id, parent_content_id, source_item_id, language_code, display_title, summary_short, bullet_1, bullet_2, bullet_3, source_fingerprint, translation_status, model_name, prompt_version, translated_at, updated_at)
-                VALUES (?, ?, ?, 'en', ?, ?, ?, ?, ?, ?, ?, 'translator', 'v1', '2026-06-20T12:00:00Z', '2026-06-20T12:00:00Z')
-            """, (item_id * 100 + 1, item_id * 10, item_id, f"EN {title}", *en_fields, trans_fingerprint_en, translation_status_en))
-
-            conn.commit()
-        finally:
-            conn.close()
+    def seed_data(self, item_id: int, title: str, published_at: str, **kwargs) -> None:
+        """Legacy zh/en convenience wrapper; new tests should call support.seed_item directly."""
+        support.seed_item(self.db_path, item_id, title, published_at, **kwargs)
 
     def test_slug_generation_and_freezing(self) -> None:
         """
@@ -200,7 +51,7 @@ class TestPublishModule(unittest.TestCase):
 
         # Test database slug freezing
         self.seed_data(1, "Test Article", "2026-06-25T10:00:00Z")
-        summary = asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        summary = support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertEqual(summary["published_count"], 2) # en and zh
 
         # Fetch slug
@@ -220,7 +71,7 @@ class TestPublishModule(unittest.TestCase):
         conn.commit()
         conn.close()
 
-        summary2 = asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        summary2 = support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertEqual(summary2["published_count"], 2) # re-published because fingerprint changed
         # Check slug is still same
         conn = get_connection(self.db_path)
@@ -234,14 +85,14 @@ class TestPublishModule(unittest.TestCase):
         2. Test strict-match eligibility when one language is missing, failed, stale, or fingerprint-mismatched.
         """
         # Case A: Missing translation_output for 'en'
-        self.seed_data(2, "Missing English", "2026-06-25T10:00:00Z", translation_status_en="pending")
+        self.seed_data(2, "Missing English", "2026-06-25T10:00:00Z", translations={"zh": {}, "en": {"status": "pending"}})
         # Delete EN translation output
         conn = get_connection(self.db_path)
         conn.execute("DELETE FROM translation_output WHERE source_item_id = 2 AND language_code = 'en'")
         conn.commit()
         conn.close()
 
-        summary = asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        support.run_publish(self.config, self.db_path, self.export_dir)
         # Should not publish anything for item 2
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
@@ -249,24 +100,24 @@ class TestPublishModule(unittest.TestCase):
         conn.close()
 
         # Case B: Failed status for 'en'
-        self.seed_data(3, "Failed English", "2026-06-25T10:00:00Z", translation_status_en="failed")
-        asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        self.seed_data(3, "Failed English", "2026-06-25T10:00:00Z", translations={"zh": {}, "en": {"status": "failed"}})
+        support.run_publish(self.config, self.db_path, self.export_dir)
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
         self.assertIsNone(repo.get_publish_record_by_source_item_id(3))
         conn.close()
 
         # Case C: Stale status for 'en'
-        self.seed_data(4, "Stale English", "2026-06-25T10:00:00Z", translation_status_en="stale")
-        asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        self.seed_data(4, "Stale English", "2026-06-25T10:00:00Z", translations={"zh": {}, "en": {"status": "stale"}})
+        support.run_publish(self.config, self.db_path, self.export_dir)
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
         self.assertIsNone(repo.get_publish_record_by_source_item_id(4))
         conn.close()
 
         # Case D: Fingerprint mismatch for 'en'
-        self.seed_data(5, "Fingerprint Mismatch English", "2026-06-25T10:00:00Z", trans_fingerprint_en="fp_old")
-        asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        self.seed_data(5, "Fingerprint Mismatch English", "2026-06-25T10:00:00Z", translations={"zh": {}, "en": {"fingerprint": "fp_old"}})
+        support.run_publish(self.config, self.db_path, self.export_dir)
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
         self.assertIsNone(repo.get_publish_record_by_source_item_id(5))
@@ -279,7 +130,7 @@ class TestPublishModule(unittest.TestCase):
         """
         # First publish item 6
         self.seed_data(6, "Item Six", "2026-06-25T10:00:00Z")
-        summary = asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        summary = support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertEqual(summary["published_count"], 2)
 
         # Check files exist
@@ -301,7 +152,7 @@ class TestPublishModule(unittest.TestCase):
         conn.execute("UPDATE curation_decision SET curate_status = 'withdrawn' WHERE source_item_id = 6")
         conn.commit()
         conn.close()
-        summary2 = asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        summary2 = support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertEqual(summary2["withdrawn_count"], 2)
 
         # Check files deleted
@@ -324,7 +175,7 @@ class TestPublishModule(unittest.TestCase):
         conn.execute("UPDATE curation_decision SET curate_status = 'approved' WHERE source_item_id = 6")
         conn.commit()
         conn.close()
-        summary3 = asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        summary3 = support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertEqual(summary3["published_count"], 2)
 
         # Check files exist again
@@ -349,9 +200,9 @@ class TestPublishModule(unittest.TestCase):
         self.seed_data(8, "Item Eight", "2026-06-25T10:00:00Z", curate_status="approved")
 
         # Run 1: Normal run (publish both)
-        summary1 = asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        summary1 = support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertEqual(summary1["published_count"], 4) # 7 and 8 (zh & en)
-        
+
         # Withdraw Item Eight in database
         conn = get_connection(self.db_path)
         conn.execute("UPDATE curation_decision SET curate_status = 'withdrawn' WHERE source_item_id = 8")
@@ -359,22 +210,21 @@ class TestPublishModule(unittest.TestCase):
         conn.close()
 
         # Run 2: Idempotent rerun / incremental run (should withdraw Item Eight)
-        summary_idemp = asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        summary_idemp = support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertEqual(summary_idemp["published_count"], 0)
         self.assertEqual(summary_idemp["withdrawn_count"], 2) # Item Eight zh & en
 
         # Verify index has Item Seven but not Eight
-        with open(self.export_dir / "zh" / "index.json", "r", encoding="utf-8") as f:
-            zh_index = json.load(f)
+        zh_index = support.read_index(self.export_dir, "zh")
         self.assertEqual(len(zh_index), 1)
         self.assertEqual(zh_index[0]["slug"], "en-item-seven")
 
         # Run 3: Full Rebuild
-        summary_rebuild = asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir, rebuild=True))
+        summary_rebuild = support.run_publish(self.config, self.db_path, self.export_dir, rebuild=True)
         # It should rebuild Item Seven only and not need to withdraw Item Eight again
         self.assertEqual(summary_rebuild["published_count"], 2) # item 7 (en & zh)
         self.assertEqual(summary_rebuild["withdrawn_count"], 0) # already withdrawn in Run 2
-        
+
         # Check that files exist and index still correct
         self.assertTrue((self.export_dir / "zh" / "items" / "en-item-seven.json").exists())
         self.assertFalse((self.export_dir / "zh" / "items" / "en-item-eight.json").exists())
@@ -390,7 +240,7 @@ class TestPublishModule(unittest.TestCase):
         self.seed_data(9, "June Item", "2026-06-15T12:00:00Z")
         self.seed_data(10, "May Item", "2026-05-15T12:00:00Z")
 
-        asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        support.run_publish(self.config, self.db_path, self.export_dir)
 
         # Check monthly archives written
         june_archive_path = self.export_dir / "zh" / "archives" / "archive_2026_06.json"
@@ -399,14 +249,12 @@ class TestPublishModule(unittest.TestCase):
         self.assertTrue(may_archive_path.exists())
 
         # Check overlap consistency: June Item is in index.json AND in archive_2026_06.json
-        with open(self.export_dir / "zh" / "index.json", "r", encoding="utf-8") as f:
-            idx = json.load(f)
+        idx = support.read_index(self.export_dir, "zh")
         idx_slugs = {x["slug"] for x in idx}
         self.assertIn("en-june-item", idx_slugs)
         self.assertIn("en-may-item", idx_slugs)
 
-        with open(june_archive_path, "r", encoding="utf-8") as f:
-            june_arc = json.load(f)
+        june_arc = support.read_archive(self.export_dir, "zh", "2026-06")
         self.assertEqual(len(june_arc), 1)
         self.assertEqual(june_arc[0]["slug"], "en-june-item")
 
@@ -415,31 +263,32 @@ class TestPublishModule(unittest.TestCase):
         conn.execute("UPDATE curation_decision SET curate_status = 'withdrawn' WHERE source_item_id = 10")
         conn.commit()
         conn.close()
-        asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        support.run_publish(self.config, self.db_path, self.export_dir)
 
         # Check archive_2026_05.json deleted (as it became empty)
         self.assertFalse(may_archive_path.exists())
 
         # Check archives index manifest is updated
-        with open(self.export_dir / "zh" / "archives" / "index.json", "r", encoding="utf-8") as f:
-            manifest = json.load(f)
+        manifest = support.read_manifest(self.export_dir, "zh")
         self.assertEqual(len(manifest), 1)
         self.assertEqual(manifest[0]["archive_month"], "2026-06")
 
         # Validate stats.json
-        with open(self.export_dir / "stats.json", "r", encoding="utf-8") as f:
-            stats = json.load(f)
+        stats = support.read_stats(self.export_dir)
         self.assertEqual(stats["total_active_published_items_by_language"]["zh"], 1)
         self.assertEqual(stats["total_withdrawn_items_by_language"]["zh"], 1)
 
     def test_validation_errors(self) -> None:
         """
         Test compilation failures and validation errors for invalid metadata.
+
+        Unique protection (TEST_COVERAGE_MAP.md): CLI validate/migrate/status/
+        run/rebuild success surface and status blocked-item counting.
         """
         # Invalid writer_type: hybrid but missing editor
         self.seed_data(11, "Invalid Meta", "2026-06-25T10:00:00Z", author_metadata='{"source_module": "edit", "writer_type": "hybrid"}')
         with self.assertRaises(ValidationError) as ctx:
-            asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+            support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertIn("editor field is required and must be non-empty when writer_type is 'hybrid'", str(ctx.exception))
 
         # Assert database was NOT mutated to published for item 11 (prevent divergence)
@@ -457,7 +306,7 @@ class TestPublishModule(unittest.TestCase):
         from modules.publish.src.cli import cli
 
         runner = CliRunner()
-        
+
         # Write temporary settings file
         temp_yaml = self.export_dir / "settings.yaml"
         temp_yaml.parent.mkdir(parents=True, exist_ok=True)
@@ -474,7 +323,7 @@ index_policy:
   latest_limit: 1000
   archive_granularity: "month"
 """)
-        
+
         # Test CLI validate
         res_val = runner.invoke(cli, ["--config-path", str(temp_yaml), "validate", "--db-path", str(self.db_path)])
         self.assertEqual(res_val.exit_code, 0)
@@ -514,7 +363,10 @@ index_policy:
 
     @patch("json.dump")
     def test_first_time_file_write_compensation(self, mock_dump) -> None:
-        """Verify first-time publish file write failure deletes DB states instead of creating withdrawn."""
+        """Verify first-time publish file write failure deletes DB states instead of creating withdrawn.
+
+        Unique protection (TEST_COVERAGE_MAP.md): first-time publish compensation
+        removes the newly created publish_record rather than marking it withdrawn."""
         mock_dump.side_effect = IOError("Disk full")
 
         # Seed a new eligible item 15
@@ -522,7 +374,7 @@ index_policy:
 
         # Run orchestrate_run, it should raise and handle the exception (reverting the DB)
         with self.assertRaises(IOError) as ctx:
-            asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+            support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertIn("Disk full", str(ctx.exception))
 
         # Verify no database rows are left for item 15
@@ -533,37 +385,42 @@ index_policy:
         conn.close()
 
     def test_warning_per_command_scope(self) -> None:
-        """Verify target-language warnings are logged once per execution run."""
+        """Verify target-language warnings are logged once per execution run.
+
+        Unique protection (TEST_COVERAGE_MAP.md): warning count per command
+        execution, across two consecutive runs."""
         # Setup settings with a language that doesn't exist in DB translations (e.g. 'ja')
-        settings = PublishSettingsYaml(
+        config = support.make_config(
             target_languages={"zh": "Traditional Chinese", "ja": "Japanese"},
-            coverage_policy="strict_match",
-            execution_policy=ExecutionPolicy(default_export_dir=str(self.export_dir), batch_size=10),
-            index_policy=IndexPolicy(latest_limit=5, archive_granularity="month")
+            export_dir=self.export_dir,
+            batch_size=10,
+            latest_limit=5,
         )
-        config = PublishConfig(settings)
 
         # Seed translation for zh only, ja is missing
-        self.seed_data(16, "Item Sixteen", "2026-06-25T10:00:00Z", translation_status_en="pending")
+        self.seed_data(16, "Item Sixteen", "2026-06-25T10:00:00Z", translations={"zh": {}, "en": {"status": "pending"}})
 
         # Call 1
         with self.assertLogs("publish.orchestrator", level="WARNING") as log:
-            asyncio.run(orchestrate_run(config, self.db_path, self.export_dir))
+            support.run_publish(config, self.db_path, self.export_dir)
         self.assertEqual(len(log.output), 1)
         self.assertIn("Target language 'ja' has zero completed translations in the database.", log.output[0])
 
         # Call 2 in same process
         with self.assertLogs("publish.orchestrator", level="WARNING") as log2:
-            asyncio.run(orchestrate_run(config, self.db_path, self.export_dir))
+            support.run_publish(config, self.db_path, self.export_dir)
         self.assertEqual(len(log2.output), 1)
         self.assertIn("Target language 'ja' has zero completed translations in the database.", log2.output[0])
 
     @patch("json.dump")
     def test_update_file_write_compensation(self, mock_dump) -> None:
-        """Verify that updating an already-published item fails to write file restores previous DB states."""
+        """Verify that updating an already-published item fails to write file restores previous DB states.
+
+        Unique protection (TEST_COVERAGE_MAP.md): update-path compensation
+        restores the prior fingerprint and published status."""
         # 1. First, publish an item successfully
         self.seed_data(17, "Item Seventeen", "2026-06-25T10:00:00Z")
-        summary = asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+        summary = support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertEqual(summary["status"], "success")
 
         # Capture the successful database states
@@ -593,7 +450,7 @@ index_policy:
 
         # Run orchestrate_run, it should raise and handle the exception, reverting DB state to previous published status
         with self.assertRaises(IOError) as ctx:
-            asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+            support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertIn("Disk full on update", str(ctx.exception))
 
         # 3. Verify that database rows for item 17 are restored to the state before the failed update
@@ -612,22 +469,22 @@ index_policy:
         """Verify direct rebuild after upstream withdrawal without a preceding incremental run."""
         # 1. First, publish successfully
         self.seed_data(18, "Item Eighteen", "2026-06-25T10:00:00Z")
-        asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
-        
+        support.run_publish(self.config, self.db_path, self.export_dir)
+
         zh_file = self.export_dir / "zh" / "items" / "en-item-eighteen.json"
         self.assertTrue(zh_file.exists())
-        
+
         # 2. Update curate_status to withdrawn in database
         conn = get_connection(self.db_path)
         conn.execute("UPDATE curation_decision SET curate_status = 'withdrawn' WHERE source_item_id = 18")
         conn.commit()
         conn.close()
-        
+
         # 3. Run rebuild directly
-        summary = asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir, rebuild=True))
+        summary = support.run_publish(self.config, self.db_path, self.export_dir, rebuild=True)
         self.assertEqual(summary["withdrawn_count"], 2) # en and zh
         self.assertEqual(summary["published_count"], 0)
-        
+
         # 4. Verify item files are deleted and DB reflects withdrawn
         self.assertFalse(zh_file.exists())
         conn = get_connection(self.db_path)
@@ -639,22 +496,25 @@ index_policy:
 
     @patch("json.dump")
     def test_rebuild_file_write_failure_divergence_prevention(self, mock_dump) -> None:
-        """Verify rebuild file write failure does not clear or corrupt final export directory."""
+        """Verify rebuild file write failure does not clear or corrupt final export directory.
+
+        Unique protection (TEST_COVERAGE_MAP.md): pre-existing export files
+        survive a failed rebuild unchanged."""
         # 1. Publish item 19 successfully
         self.seed_data(19, "Item Nineteen", "2026-06-25T10:00:00Z")
-        asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
-        
+        support.run_publish(self.config, self.db_path, self.export_dir)
+
         zh_file = self.export_dir / "zh" / "items" / "en-item-nineteen.json"
         self.assertTrue(zh_file.exists())
-        
+
         # 2. Mock file writing to fail during rebuild
         mock_dump.side_effect = IOError("Disk full on rebuild")
-        
+
         # 3. Run rebuild, it should fail
         with self.assertRaises(IOError) as ctx:
-            asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir, rebuild=True))
+            support.run_publish(self.config, self.db_path, self.export_dir, rebuild=True)
         self.assertIn("Disk full on rebuild", str(ctx.exception))
-        
+
         # 4. The final export directory should NOT be cleared/half-deleted
         self.assertTrue(zh_file.exists())
 
@@ -663,39 +523,36 @@ index_policy:
         # Seed 5 items
         for i in range(20, 25):
             self.seed_data(i, f"Item {i}", f"2026-06-25T10:0{i-20}:00Z")
-            
+
         # Run with batch_size = 10, latest_limit = 2
-        settings = PublishSettingsYaml(
-            target_languages={"zh": "Traditional Chinese", "en": "English"},
-            coverage_policy="strict_match",
-            execution_policy=ExecutionPolicy(default_export_dir=str(self.export_dir), batch_size=10),
-            index_policy=IndexPolicy(latest_limit=2, archive_granularity="month")
-        )
-        config = PublishConfig(settings)
-        
-        asyncio.run(orchestrate_run(config, self.db_path, self.export_dir))
-        
+        config = support.make_config(export_dir=self.export_dir, batch_size=10, latest_limit=2)
+
+        support.run_publish(config, self.db_path, self.export_dir)
+
         # Verify index.json has exactly 2 items
-        with open(self.export_dir / "zh" / "index.json", "r", encoding="utf-8") as f:
-            zh_index = json.load(f)
+        zh_index = support.read_index(self.export_dir, "zh")
         self.assertEqual(len(zh_index), 2)
 
     def test_promotion_midway_failure_reversion(self) -> None:
-        """Verify that a failure midway through file promotion reverts both the export directory and the database."""
+        """Verify that a failure midway through file promotion reverts both the export directory and the database.
+
+        Unique protection (TEST_COVERAGE_MAP.md): byte-identical export-tree
+        snapshot restore plus DB fingerprint/updated_at restore after a
+        promotion-phase failure."""
         # 1. Publish item 25 successfully
         self.seed_data(25, "Item TwentyFive", "2026-06-25T10:00:00Z")
-        asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
-        
+        support.run_publish(self.config, self.db_path, self.export_dir)
+
         zh_file = self.export_dir / "zh" / "items" / "en-item-twentyfive.json"
         self.assertTrue(zh_file.exists())
-        
+
         # Keep track of original item JSON to verify it was restored
         orig_item_json = zh_file.read_text(encoding="utf-8")
 
         # Snapshot the entire export tree; a complete rollback must restore it exactly,
         # regardless of which files happened to be promoted before the failure
         tree_before = {p.relative_to(self.export_dir): p.read_bytes() for p in self.export_dir.rglob("*.json")}
-        
+
         # Capture database state before update
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
@@ -704,17 +561,17 @@ index_policy:
         fingerprint_orig = pls_orig["source_fingerprint"]
         updated_at_orig = pub_rec_orig["updated_at"]
         conn.close()
-        
+
         # 2. Trigger an update by modifying downstream content/fingerprint in DB
         conn = get_connection(self.db_path)
         conn.execute("UPDATE approved_content_record SET content_fingerprint = 'new-fp-25' WHERE source_item_id = 25")
         conn.execute("UPDATE translation_output SET source_fingerprint = 'new-fp-25' WHERE parent_content_id = (SELECT parent_content_id FROM approved_content_record WHERE source_item_id = 25)")
         conn.commit()
         conn.close()
-        
+
         # Seed a new item 26 to trigger a run with two items (25 update + 26 publish)
         self.seed_data(26, "Item TwentySix", "2026-06-25T10:00:00Z")
-        
+
         orig_replace = os.replace
         staging_dir = self.export_dir / ".staging"
         zh_index_dest = self.export_dir / "zh" / "index.json"
@@ -727,25 +584,25 @@ index_policy:
             if pathlib.Path(src).is_relative_to(staging_dir) and pathlib.Path(dst) == zh_index_dest:
                 raise OSError("Staging promotion disk full simulated error")
             return orig_replace(src, dst)
-            
+
         with patch("os.replace", side_effect=side_effect):
             with self.assertRaises(OSError) as ctx:
-                asyncio.run(orchestrate_run(self.config, self.db_path, self.export_dir))
+                support.run_publish(self.config, self.db_path, self.export_dir)
             self.assertIn("Staging promotion disk full simulated error", str(ctx.exception))
-            
+
         # 3. Verify final export dir is restored:
         # - Item 25 should still have its original item JSON (not the updated one)
         # - Item 26 file should NOT exist
         self.assertTrue(zh_file.exists())
         self.assertEqual(zh_file.read_text(encoding="utf-8"), orig_item_json)
-        
+
         zh_file_26 = self.export_dir / "zh" / "items" / "en-item-twentysix.json"
         self.assertFalse(zh_file_26.exists())
 
         # The whole export tree must be byte-identical to the pre-failure snapshot
         tree_after = {p.relative_to(self.export_dir): p.read_bytes() for p in self.export_dir.rglob("*.json")}
         self.assertEqual(tree_before, tree_after)
-        
+
         # 4. Verify DB was rolled back:
         # - Item 25 fingerprint and updated_at in DB should be restored to orig
         # - Item 26 should not be in DB
@@ -755,8 +612,11 @@ index_policy:
         pls_zh_25 = repo.get_publish_language_status(pub_rec_25["publish_record_id"], "zh")
         self.assertEqual(pls_zh_25["source_fingerprint"], fingerprint_orig)
         self.assertEqual(pub_rec_25["updated_at"], updated_at_orig)
-        
+
         pub_rec_26 = repo.get_publish_record_by_source_item_id(26)
         self.assertIsNone(pub_rec_26)
         conn.close()
 
+
+if __name__ == "__main__":
+    unittest.main()

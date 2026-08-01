@@ -12,6 +12,20 @@ from .database import PublishRepository, get_connection, transaction, get_utc_no
 
 logger = logging.getLogger("publish.orchestrator")
 
+
+def _is_symlink_or_reparse_point(path: pathlib.Path) -> bool:
+    """True for symlinks and Windows reparse points (junctions etc.).
+
+    ``os.path.islink`` alone misses junctions on Windows (they are reparse
+    points, not symlinks), so the lstat reparse tag is checked as well.
+    """
+    try:
+        if os.path.islink(path):
+            return True
+        return getattr(os.lstat(path), "st_reparse_tag", 0) != 0
+    except FileNotFoundError:
+        return False
+
 class ValidationError(Exception):
     """Custom exception raised when artifact validation fails."""
     pass
@@ -146,10 +160,14 @@ def validate_item_payload(payload: Dict[str, Any]) -> None:
     if "writer_type" not in author_metadata:
         raise ValidationError("author_metadata is missing required key: 'writer_type'")
 
+    source_module = author_metadata.get("source_module")
+    if not isinstance(source_module, str) or not source_module.strip():
+        raise ValidationError("author_metadata.source_module must be a string that remains non-empty after trimming")
+
     writer_type = author_metadata.get("writer_type")
     if writer_type in ("human", "hybrid"):
         editor = author_metadata.get("editor")
-        if not editor or not str(editor).strip():
+        if not isinstance(editor, str) or not editor.strip():
             raise ValidationError(f"editor field is required and must be non-empty when writer_type is '{writer_type}'")
     elif writer_type not in ("AI", "machine"):
         raise ValidationError(f"invalid writer_type: '{writer_type}'")
@@ -205,7 +223,7 @@ def rollback_db_state(conn: sqlite3.Connection, db_compensations: List[Dict[str,
     repo = PublishRepository(conn)
     # We rollback in reverse order of modifications
     for comp in reversed(db_compensations):
-        item_id = comp["source_item_id"]
+        item_id = comp.get("source_item_id")
         lang = comp["language_code"]
         
         with transaction(conn, commit=True):
@@ -265,6 +283,22 @@ def rollback_db_state(conn: sqlite3.Connection, db_compensations: List[Dict[str,
                     repo.update_publish_record_updated_at(
                         comp["pub_rec"]["publish_record_id"],
                         comp["pub_rec"]["updated_at"]
+                    )
+
+            elif comp["type"] == "archive_meta":
+                # Rollback an archive metadata change: restore the prior row
+                # exactly, or delete the row if it did not exist before.
+                month = comp["archive_month"]
+                cursor = conn.cursor()
+                cursor.execute(
+                    "DELETE FROM publish_archive_metadata WHERE language_code = ? AND archive_month = ?",
+                    (lang, month)
+                )
+                if comp["prior"] is not None:
+                    prior = comp["prior"]
+                    cursor.execute(
+                        "INSERT INTO publish_archive_metadata (language_code, archive_month, updated_at, created_at) VALUES (?, ?, ?, ?)",
+                        (lang, month, prior["updated_at"], prior["created_at"])
                     )
 
 async def orchestrate_run(
@@ -468,6 +502,24 @@ async def orchestrate_run(
             mutated_pairs.add((item_id, lang))
             withdrawn_count += 1
 
+        # Third, drop publish_archive_metadata rows for languages no longer
+        # configured (language-set shrink): their archive artifacts are
+        # removed from the export tree during the promotion phase, so the
+        # publish-owned write metadata must not outlive them
+        # (DATA_CONTRACT.md section 2.3).
+        for meta_lang in repo.get_archive_metadata_languages():
+            if meta_lang in config.target_languages:
+                continue
+            for meta_row in repo.get_archive_metadata_for_language(meta_lang):
+                db_compensations.append({
+                    "type": "archive_meta",
+                    "language_code": meta_lang,
+                    "archive_month": meta_row["archive_month"],
+                    "prior": dict(meta_row)
+                })
+                with transaction(conn, commit=True):
+                    repo.delete_archive_metadata(meta_lang, meta_row["archive_month"])
+
         # Set up staging directory (clear it first to start clean)
         if staging_dir.exists():
             shutil.rmtree(staging_dir)
@@ -531,8 +583,12 @@ async def orchestrate_run(
                 """, (lang,))
                 affected_months_by_lang[lang] = {r[0] for r in cursor.fetchall() if r[0]}
         else:
-            # Find months for mutated items
+            # Find months for mutated items. Pairs whose language is no
+            # longer configured (language-set shrink) have their item
+            # artifacts withdrawn but their aggregates are not managed.
             for item_id, lang in mutated_pairs:
+                if lang not in affected_months_by_lang:
+                    continue
                 cursor.execute("SELECT published_at FROM source_item WHERE source_item_id = ?", (item_id,))
                 res = cursor.fetchone()
                 if res and res[0]:
@@ -592,10 +648,37 @@ async def orchestrate_run(
             with open(index_path, "w", encoding="utf-8") as f:
                 json.dump(index_items, f, indent=2, ensure_ascii=False)
 
+            # --- 4.2a Self-heal missing archive metadata ---
+            # An active month without a publish_archive_metadata row predates
+            # the table (databases created before v002). Rewrite its archive
+            # once in this run so the row records a real file write; the
+            # runner never stamps metadata for an archive it did not write
+            # (DATA_CONTRACT.md section 2.3). A full rebuild already rewrites
+            # every active month, so no healing is needed there.
+            if not rebuild:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT DISTINCT SUBSTR(s.published_at, 1, 7)
+                    FROM publish_record pr
+                    JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
+                    JOIN source_item s ON s.source_item_id = pr.source_item_id
+                    WHERE pls.language_code = ? AND pls.publish_status = 'published'
+                """, (lang,))
+                for heal_row in cursor.fetchall():
+                    heal_month = heal_row[0]
+                    if not heal_month or heal_month in affected_months_by_lang[lang]:
+                        continue
+                    if repo.get_archive_metadata(lang, heal_month) is None:
+                        affected_months_by_lang[lang].add(heal_month)
+
             # --- 4.2 Rebuild Affected Monthly Archives ---
             archives_dir = lang_dir / "archives"
             archives_dir.mkdir(parents=True, exist_ok=True)
-            
+
+            # Logical write timestamps for archives (re)written in this run,
+            # recorded in publish_archive_metadata for the manifest contract.
+            written_month_timestamps: Dict[str, str] = {}
+
             for month in affected_months_by_lang[lang]:
                 archive_items = []
                 offset = 0
@@ -619,11 +702,11 @@ async def orchestrate_run(
                         ORDER BY source_published_at DESC, pr.slug ASC
                         LIMIT ? OFFSET ?
                     """, (lang, month, batch_size, offset))
-                    
+
                     rows = cursor.fetchall()
                     if not rows:
                         break
-                    
+
                     for row in rows:
                         archive_items.append({
                             "slug": row["slug"],
@@ -638,23 +721,59 @@ async def orchestrate_run(
 
                 month_file_name = f"archive_{month.replace('-', '_')}.json"
                 archive_file_path = archives_dir / month_file_name
-                
+
                 if archive_items:
+                    write_timestamp = get_utc_now_iso8601()
                     with open(archive_file_path, "w", encoding="utf-8") as f:
                         json.dump(archive_items, f, indent=2, ensure_ascii=False)
+                    written_month_timestamps[month] = write_timestamp
+
+            # --- 4.2b Sync publish-owned archive write metadata ---
+            # Archives (re)written in this run get this run's logical clock;
+            # affected months whose archive became empty lose their row along
+            # with the file deletion during promotion; untouched months keep
+            # their existing timestamps. A full rebuild also drops metadata
+            # for months that are no longer active at all.
+            for month in affected_months_by_lang[lang]:
+                prior_meta = repo.get_archive_metadata(lang, month)
+                if month in written_month_timestamps:
+                    db_compensations.append({
+                        "type": "archive_meta",
+                        "language_code": lang,
+                        "archive_month": month,
+                        "prior": dict(prior_meta) if prior_meta else None
+                    })
+                    with transaction(conn, commit=True):
+                        repo.upsert_archive_metadata(lang, month, written_month_timestamps[month])
+                elif prior_meta is not None:
+                    db_compensations.append({
+                        "type": "archive_meta",
+                        "language_code": lang,
+                        "archive_month": month,
+                        "prior": dict(prior_meta)
+                    })
+                    with transaction(conn, commit=True):
+                        repo.delete_archive_metadata(lang, month)
+
+            if rebuild:
+                for meta_row in repo.get_archive_metadata_for_language(lang):
+                    stale_month = meta_row["archive_month"]
+                    if stale_month not in affected_months_by_lang[lang]:
+                        db_compensations.append({
+                            "type": "archive_meta",
+                            "language_code": lang,
+                            "archive_month": stale_month,
+                            "prior": dict(meta_row)
+                        })
+                        with transaction(conn, commit=True):
+                            repo.delete_archive_metadata(lang, stale_month)
 
             # --- 4.3 Rebuild Archives Manifest ---
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT
                     SUBSTR(s.published_at, 1, 7) AS archive_month,
-                    COUNT(*) AS item_count,
-                    MAX(
-                        CASE
-                            WHEN pls.publish_status = 'published' THEN COALESCE(pls.published_at, pls.created_at)
-                            ELSE COALESCE(pls.withdrawn_at, pls.created_at)
-                        END
-                    ) AS last_updated
+                    COUNT(*) AS item_count
                 FROM publish_record pr
                 JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
                 JOIN source_item s ON s.source_item_id = pr.source_item_id
@@ -662,18 +781,28 @@ async def orchestrate_run(
                 GROUP BY archive_month
                 ORDER BY archive_month DESC;
             """, (lang,))
-            
+
             manifest_rows = cursor.fetchall()
             manifest_json = []
             for row in manifest_rows:
                 m_month = row["archive_month"]
                 if not m_month:
                     continue
+                meta_row = repo.get_archive_metadata(lang, m_month)
+                if meta_row is None:
+                    # The 4.2a heal (incremental) and the full archive
+                    # rewrite (rebuild) guarantee a metadata row for every
+                    # active month; a missing row here means the archive
+                    # writes and the manifest query disagree, which is a
+                    # runner bug, not a recoverable state.
+                    raise RuntimeError(
+                        f"Missing publish_archive_metadata row for active month {m_month} lang {lang}"
+                    )
                 manifest_json.append({
                     "archive_month": m_month,
                     "file_name": f"archive_{m_month.replace('-', '_')}.json",
                     "item_count": row["item_count"],
-                    "updated_at": row["last_updated"]
+                    "updated_at": meta_row["updated_at"]
                 })
 
             manifest_path = archives_dir / "index.json"
@@ -797,6 +926,22 @@ async def orchestrate_run(
                 # Incremental run:
                 # 1. Clean up withdrawn item files
                 for item_id, lang, slug, fingerprint in items_to_withdraw:
+                    lang_dir = export_dir / lang
+                    item_dir = lang_dir / "items"
+                    if lang not in config.target_languages and (
+                        _is_symlink_or_reparse_point(lang_dir)
+                        or _is_symlink_or_reparse_point(item_dir)
+                    ):
+                        # A removed language's directory that links outside
+                        # the export tree, or whose item directory does, is
+                        # no longer publish's to clean; never delete through
+                        # either link (see the sweep below).
+                        logger.warning(
+                            f"Skipping cleanup of withdrawn item '{slug}' for language '{lang}': "
+                            "its directory or items subdirectory is a symlink or junction; "
+                            "reconcile its artifacts manually."
+                        )
+                        continue
                     rel_p = pathlib.Path(lang) / "items" / f"{slug}.json"
                     item_file_path = export_dir / rel_p
                     if item_file_path.exists():
@@ -826,6 +971,55 @@ async def orchestrate_run(
                             backup_path.parent.mkdir(parents=True, exist_ok=True)
                             os.replace(manifest_path, backup_path)
                             promoted_actions.append({"type": "delete", "rel_path": manifest_rel_path})
+
+            # 3. Clean up artifacts of languages no longer configured
+            # (language-set shrink), in both run and rebuild modes
+            # (EXECUTION_POLICY.md section 6.2). A directory is treated as a
+            # removed-language directory only when its name still has
+            # publish-owned state: publish_language_status rows, which
+            # persist as withdrawn. Directory names and generic subdirectory
+            # shapes (items/, archives/) are NOT ownership evidence, so
+            # directories without publish state are never touched; leftovers
+            # from a canonical database reset are cleared by wiping the
+            # derived export tree, not by heuristic sweeps. Symlinks and
+            # junctions are never followed during this destructive sweep:
+            # their targets may live outside the export tree.
+            removed_languages = {
+                lang
+                for lang in repo.get_publish_language_status_languages()
+                if lang not in config.target_languages
+            }
+            for entry in sorted(export_dir.iterdir()):
+                if not entry.is_dir() or entry.name.startswith("."):
+                    continue
+                if entry.name not in removed_languages:
+                    continue
+                if _is_symlink_or_reparse_point(entry):
+                    logger.warning(
+                        f"Skipping cleanup of language directory '{entry.name}': "
+                        "it is a symlink or junction; reconcile its artifacts manually."
+                    )
+                    continue
+                stale_artifacts = []
+                removed_lang_index = entry / "index.json"
+                if removed_lang_index.exists():
+                    stale_artifacts.append(removed_lang_index)
+                for sub_name in ("items", "archives"):
+                    sub_dir = entry / sub_name
+                    if sub_dir.exists():
+                        if _is_symlink_or_reparse_point(sub_dir):
+                            logger.warning(
+                                f"Skipping cleanup of '{sub_name}' for language directory '{entry.name}': "
+                                "it is a symlink or junction; reconcile its artifacts manually."
+                            )
+                            continue
+                        stale_artifacts.extend(sorted(sub_dir.glob("*.json")))
+                for stale_path in stale_artifacts:
+                    stale_rel_path = stale_path.relative_to(export_dir)
+                    backup_path = backup_dir / stale_rel_path
+                    backup_path.parent.mkdir(parents=True, exist_ok=True)
+                    os.replace(stale_path, backup_path)
+                    promoted_actions.append({"type": "delete", "rel_path": stale_rel_path})
 
             # If all promotion succeeds, clean up backup
             if backup_dir.exists():

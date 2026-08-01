@@ -49,7 +49,31 @@ Tracks language-specific export state as a downstream synchronization record.
 | `source_fingerprint` | `TEXT` | `NOT NULL` | Snapshot of `approved_content_record.content_fingerprint` used for the exported artifact version. |
 | `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp. |
 
-### 2.3 Logical Constraints
+### 2.3 `publish_archive_metadata`
+
+Stores publish-owned logical write timestamps for monthly archive files. The
+archives index manifest (`archives/index.json`) reads `updated_at` from this
+table so the value reflects the most recent successful write or rewrite of
+that specific archive file, rather than an aggregate over item-level publish
+timestamps.
+
+| Field Name | SQLite Type | Nullability | Description / Constraint |
+| :--- | :--- | :--- | :--- |
+| `language_code` | `TEXT` | `NOT NULL` | Exported language code. Part of the composite primary key `(language_code, archive_month)`. |
+| `archive_month` | `TEXT` | `NOT NULL` | Calendar month key in `YYYY-MM` form, derived strictly from `source_item.published_at`. Part of the composite primary key. |
+| `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 logical clock of the run that most recently wrote or rewrote the archive file (creation, withdrawal- or correction-driven rewrite, or full rebuild). |
+| `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp for row creation. |
+
+Lifecycle rules:
+
+- a row is inserted or updated only when the corresponding archive file is written in the same run
+- an incremental run that does not touch an archive leaves its row (and therefore its manifest `updated_at`) unchanged
+- an active month without a row (databases created before this table existed) is healed by rewriting its archive file once in the next incremental run, so the new row still records a run that actually wrote the file; the runner never stamps a row for an archive it did not write in that run
+- when an archive becomes empty after withdrawal and the file is deleted, the row is deleted with it; a later recreation of the same month starts a new row with a new logical write timestamp
+- when a language leaves the configured set, its rows are deleted together with that language's archive artifacts
+- a full rebuild rewrites every active archive and therefore refreshes every row; rows for months with no active items are removed
+
+### 2.4 Logical Constraints
 
 - `publish_record` exists at most once per `source_item_id`.
 - `publish_language_status` exists at most once per `(publish_record_id, language_code)`.
@@ -62,7 +86,7 @@ Tracks language-specific export state as a downstream synchronization record.
 
 ## 3. SQLite DDL
 
-This migration should reside in `modules/publish/src/migrations/v001_initial_publish_tables.sql` for the active rewrite.
+The initial publish tables reside in `modules/publish/src/migrations/v001_initial_publish_tables.sql`; the archive metadata table resides in `modules/publish/src/migrations/v002_archive_metadata.sql`.
 
 ```sql
 PRAGMA foreign_keys = ON;
@@ -101,6 +125,20 @@ CREATE INDEX IF NOT EXISTS idx_publish_language_status_record_lang
 
 CREATE INDEX IF NOT EXISTS idx_publish_language_status_state
     ON publish_language_status(language_code, publish_status);
+```
+
+`v002_archive_metadata.sql`:
+
+```sql
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS publish_archive_metadata (
+    language_code TEXT NOT NULL,
+    archive_month TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (language_code, archive_month)
+);
 ```
 
 ---
@@ -227,12 +265,13 @@ Contract requirements:
 
 - `author_metadata` is required for every exportable artifact and must parse successfully as a JSON object.
 - The parsed object must contain at least `source_module` and `writer_type`.
+- `source_module` must be a JSON string that remains non-empty after trimming whitespace; a missing key, a non-string JSON value, an empty string, or a whitespace-only string all fail validation. No type coercion is applied.
 - If `author_metadata` is `NULL` in the database, invalid JSON, not a JSON object, or missing required keys, the artifact fails validation and must not be exported.
 - `publish` must not emit mixed output types for this field. The exported item JSON always uses the object form.
 - **Disclosure Note Generation**: The `disclosure_note` text is determined directly from `writer_type` without heuristic guessing:
   - If `writer_type` is `'human'` or `'hybrid'`, the note must be: `"This item is AI-assisted and human-curated."`
   - If `writer_type` is `'AI'` or `'machine'`, the note must be: `"This item is AI-generated."`
-  - **Validation Rule**: To ensure reliability, when `writer_type` is `'human'` or `'hybrid'`, the `author_metadata` must contain a non-empty `editor` field. If `editor` is missing or empty for human/hybrid content, the artifact fails validation and must not be published (see [EXECUTION_POLICY.md](file:///C:/Users/user/Documents/exopolitics/modules/publish/docs/EXECUTION_POLICY.md)).
+  - **Validation Rule**: To ensure reliability, when `writer_type` is `'human'` or `'hybrid'`, the `author_metadata` must contain an `editor` field that is a JSON string remaining non-empty after trimming whitespace, under the same type rule as `source_module` (no coercion of numbers or other JSON types). If `editor` is missing, not a string, empty, or whitespace-only for human/hybrid content, the artifact fails validation and must not be published (see [EXECUTION_POLICY.md](./EXECUTION_POLICY.md)).
 
 **Structured Content Fields**:
 - `summary_short` is required for every exported item and must be a string that remains non-empty after trimming whitespace. It is passed through from `translation_output.summary_short` and serves as the single summary source for item, index, and archive entries.
@@ -356,7 +395,7 @@ Contract example:
 ```
 
 - The list must be sorted by `archive_month DESC`.
-- `updated_at` tracks the UTC ISO-8601 timestamp of the most recent write to that specific monthly archive file.
+- `updated_at` tracks the UTC ISO-8601 timestamp of the most recent write to that specific monthly archive file. It is read from the publish-owned `publish_archive_metadata` state (see Section 2.3), not derived from item-level publish timestamps and not from file-system mtime. Active months that predate `publish_archive_metadata` are rewritten once so the recorded timestamp always corresponds to an actual file write (see Section 2.3).
 
 ### 6.5 Global Stats JSON
 

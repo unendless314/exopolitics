@@ -106,13 +106,13 @@
       ]
     },
     "author_metadata": {
-      "description": "Always exported as a structured object (deserialized from the canonical TEXT column). Requires source_module and writer_type; human/hybrid writer types additionally require a non-empty editor field.",
+      "description": "Always exported as a structured object (deserialized from the canonical TEXT column). Requires source_module (a string that remains non-empty after trimming) and writer_type; human/hybrid writer types additionally require an editor field under the same trim-non-empty string rule.",
       "type": "object",
       "required": ["source_module", "writer_type"],
       "properties": {
         "source_module": {
           "type": "string",
-          "minLength": 1
+          "pattern": "\\S"
         },
         "writer_type": {
           "enum": ["human", "hybrid", "AI", "machine"]

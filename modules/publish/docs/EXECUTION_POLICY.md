@@ -80,7 +80,7 @@ The `rebuild` command must treat `data/publish_export/` as disposable output.
 ### 6.1 Rebuild vs. Incremental Run Granularity
 - **Incremental Run (`run` command)**:
   - Latest Index: The runner always rebuilds `index.json` (containing the latest $N$ items).
-  - Monthly Archives: To avoid unnecessary disk I/O, the runner must compute the calendar months affected by items newly published, updated, or withdrawn in the current execution run. It must only overwrite or create those specific `archive_YYYY_MM.json` files. Other historical month archives must not be read or written.
+  - Monthly Archives: To avoid unnecessary disk I/O, the runner must compute the calendar months affected by items newly published, updated, or withdrawn in the current execution run. It must only overwrite or create those specific `archive_YYYY_MM.json` files. Other historical month archives must not be read or written. The single exception is the one-time self-heal of active months whose `publish_archive_metadata` row is missing (databases created before that table existed): those archives are rewritten once so the metadata records a real file write (see DATA_CONTRACT.md Section 2.3).
   - Manifest & Stats: The archives manifest `archives/index.json` and `stats.json` must be regenerated to reflect correct totals and timestamps. To strictly respect the policy that unaffected historical archive files are not read during incremental runs, the runner must derive all manifest and statistics counts by performing SQL aggregation queries directly over the SQLite canonical tables (`publish_record` and `publish_language_status`). It must not load, parse, or scan historical monthly archive files from disk to compute these metrics.
 - **Full Rebuild (`rebuild` command)**:
   - The runner must clear or recreate the export directory.
@@ -89,6 +89,14 @@ The `rebuild` command must treat `data/publish_export/` as disposable output.
   - It must regenerate all item files, the latest index, the archive manifest, and **all** historical monthly archive files from scratch.
   - It must keep withdrawn items absent from all rebuilt outputs.
   - The rebuild command must not fabricate new slugs for source items that already have `publish_record` rows.
+  - Because every active archive file is rewritten, every `publish_archive_metadata` row is refreshed with the rebuild run's logical clock, and rows for months with no active items are removed.
+
+### 6.2 Configured Language-Set Changes
+
+Changing `target_languages` is not a display-only setting: the next `run` or `rebuild` reconciles public artifacts against the new configured set under the active coverage policy.
+
+- Shrinking the language set withdraws the `publish_language_status` rows of the removed languages and removes **all** of their public artifacts from the export tree — item JSON files, the latest `index.json`, monthly archive files and the archives manifest — together with their `publish_archive_metadata` rows; artifacts, archive metadata and publish timestamps of the remaining languages are left unchanged. A top-level directory outside the configured set is reconciled this way only when its name still has publish-owned state (`publish_language_status` rows, which persist as withdrawn). Directory names and generic subdirectory shapes are **not** ownership evidence: directories without publish state are never touched, so artifacts left behind after a canonical database reset must be cleared by wiping the derived export tree before the next run rather than by heuristic sweeps. The cleanup never follows symlinks or junctions: a removed-language directory, or either of its publish artifact subdirectories, that links outside the export tree is skipped with a warning so the link target's files are never moved or deleted; such directories must be reconciled manually.
+- Expanding the language set applies `strict_match` against the enlarged set: items lacking a completed current-fingerprint translation for a newly required language are withdrawn in all languages until coverage is complete; items already fully translated gain the new language's artifact while their existing languages remain published with unchanged timestamps.
 
 ---
 
@@ -116,7 +124,7 @@ Before exporting an individual language artifact, the runner should validate at 
 - `translation_output.source_fingerprint = approved_content_record.content_fingerprint`
 - upstream `curate_status = 'approved'`
 - required route components (`language_code`, `slug`) are available
-- `author_metadata` is required and must be present as a well-formed JSON string that parses to a JSON object containing at least `source_module` and `writer_type`. Under the conditional schema rule, if `writer_type` is `'human'` or `'hybrid'`, it must also contain a non-empty `editor` field. If the value is `NULL` in the database, invalid JSON, not an object, missing required keys, or violates this conditional rule, the runner must abort compilation for this item and raise a validation error.
+- `author_metadata` is required and must be present as a well-formed JSON string that parses to a JSON object containing at least `source_module` and `writer_type`. `source_module` must be a string that remains non-empty after trimming whitespace. Under the conditional schema rule, if `writer_type` is `'human'` or `'hybrid'`, it must also contain an `editor` field under the same trim-non-empty string rule; neither field may be coerced from another JSON type. If the value is `NULL` in the database, invalid JSON, not an object, missing required keys, or violates these type or conditional rules, the runner must abort compilation for this item and raise a validation error.
 
 If any of these fail, the artifact must not be exported.
 
