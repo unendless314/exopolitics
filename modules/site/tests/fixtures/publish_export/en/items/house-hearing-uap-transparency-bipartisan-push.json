@@ -1,0 +1,23 @@
+{
+  "source_item_id": 301,
+  "language_code": "en",
+  "slug": "house-hearing-uap-transparency-bipartisan-push",
+  "display_title": "House Hearing on UAP Transparency Draws Bipartisan Push",
+  "summary_short": "A House subcommittee hearing on UAP transparency ended with bipartisan agreement to expand whistleblower protections and to require timely disclosure of recovered material analysis, marking the strongest congressional push for declassification since 2023.",
+  "bullets": {
+    "key_claim": "Lawmakers from both parties agreed to advance legislation expanding UAP whistleblower protections.",
+    "evidence_level": "Multiple witnesses with active security clearances testified, but no publicly verifiable physical evidence was presented.",
+    "objective_impact": "If enacted, defense contractors would be required to deliver recovered-material analyses to Congress within a fixed deadline."
+  },
+  "canonical_url": "https://example.com/house-hearing-uap-transparency",
+  "source_published_at": "2026-07-20T14:30:00Z",
+  "approved_at": "2026-07-21T09:05:00Z",
+  "published_at": "2026-07-22T03:00:00Z",
+  "downstream_action": "publish_summary",
+  "disclosure_note": "This item is AI-assisted and human-curated.",
+  "author_metadata": {
+    "source_module": "edit",
+    "writer_type": "human",
+    "editor": "john_doe"
+  }
+}

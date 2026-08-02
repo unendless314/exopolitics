@@ -1,0 +1,18 @@
+{
+  "source_item_id": 302,
+  "language_code": "ja",
+  "slug": "aaro-new-uap-case-resolution-portal",
+  "display_title": "米国防総省AARO、新しいUAP事例解決ポータルを公開",
+  "summary_short": "米国防総省の全領域異常解決局（AARO）は、解決済みのUAP事例を記録した新しい公開ポータルを公開し、各事例の処分ごとに動画の静止画と手法メモを掲載している。",
+  "bullets": null,
+  "canonical_url": "https://example.com/aaro-case-resolution-portal",
+  "source_published_at": "2026-07-18T17:45:00Z",
+  "approved_at": "2026-07-19T08:20:00Z",
+  "published_at": "2026-07-22T03:00:00Z",
+  "downstream_action": "publish_link",
+  "disclosure_note": "This item is AI-generated.",
+  "author_metadata": {
+    "source_module": "curate",
+    "writer_type": "machine"
+  }
+}

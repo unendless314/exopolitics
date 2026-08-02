@@ -1,9 +1,8 @@
 ---
-import fs from "node:fs";
-import path from "node:path";
 import Base from "../../layouts/Base.astro";
 import { formatAbsoluteDateTime, useTranslations, localeProfiles } from "../../utils/i18n";
 import { publishExportDir } from "../../utils/paths";
+import { loadStats } from "../../utils/exportData";
 
 export function getStaticPaths() {
   return Object.keys(localeProfiles).map((lang) => ({ params: { lang } }));
@@ -12,9 +11,9 @@ export function getStaticPaths() {
 const { lang = "zh" } = Astro.params;
 const t = useTranslations(lang);
 
-// Read stats.json dynamically
-const statsFile = path.join(publishExportDir, "stats.json");
-const stats = JSON.parse(fs.readFileSync(statsFile, "utf8"));
+// Read stats.json via the shared loader/validator: missing file, schema
+// violations, or a configured locale absent from the stats maps hard-fail.
+const stats = loadStats(publishExportDir, Object.keys(localeProfiles));
 const lastRun = stats.last_export_run_timestamp;
 
 const pageTitle = `UAP Aggregator - ${t('nav.stats')}`;

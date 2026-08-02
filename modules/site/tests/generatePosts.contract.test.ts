@@ -4,18 +4,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { localeProfiles } from '../src/utils/i18n';
+import { makeTempDir } from './helpers/tempDir';
 
 /**
- * Phase 1 contract tests for the site adapter rework
- * (known_issues/resolved/TRANSLATION_LABEL_LEAKAGE_REFACTOR_PLAN.md, plan section 7.1 "site adapter" row).
- *
- * These tests target the Phase 4 adapter API, which does not exist yet:
+ * Contract tests for the build-time JSON-to-Markdown adapter.
  *
  *   Module: modules/site/scripts/lib/post_adapter.js (plain Node ESM, no deps)
  *   - loadPostLabels(labelsPath?) => { [locale]: { key_claim, evidence_level, objective_impact } }
  *       Reads src/config/post_labels.json by default. Throws on missing/invalid file.
  *   - validateItem(item) => void
- *       Throws unless: slug/display_title are non-empty strings,
+ *       Throws unless: slug is a non-empty string matching the handoff slug
+ *       contract (^[a-z0-9][a-z0-9-]*$, rejected never sanitized),
+ *       display_title and language_code are non-empty strings,
  *       source_published_at parses as a date, summary_short is a non-empty
  *       string after trimming, and bullets is either null or an object with
  *       exactly the three known keys whose values are non-empty strings.
@@ -29,10 +29,6 @@ import { localeProfiles } from '../src/utils/i18n';
  *   - getAdapterLanguages(labels) => string[]
  *       Object.keys(labels); replaces the hardcoded ['en', 'ja', 'zh'] in
  *       generate-posts.js.
- *
- * Every test that touches the adapter module or src/config/post_labels.json
- * is EXPECTED TO FAIL until Phase 4 lands. They must fail because the target
- * module/data file is missing, not because of test-code errors.
  */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -41,11 +37,10 @@ const postLabelsPath = path.resolve(__dirname, '..', 'src', 'config', 'post_labe
 
 const ADAPTER_MODULE = '../scripts/lib/post_adapter.js';
 
-const EXPECTED_LABELS: Record<string, { key_claim: string; evidence_level: string; objective_impact: string }> = {
-  en: { key_claim: 'Key Claim', evidence_level: 'Evidence Level', objective_impact: 'Objective Impact' },
-  zh: { key_claim: '關鍵主張', evidence_level: '證據等級', objective_impact: '客觀影響' },
-  ja: { key_claim: '主要主張', evidence_level: '証拠レベル', objective_impact: '客観的影響' },
-};
+// One explicit locale rendering assertion, kept so the shipped label wording
+// itself is pinned by a test; expectations for the other locales are derived
+// from the actual label config to avoid maintaining two copies of the text.
+const EXPECTED_ZH_LABELS = { key_claim: '關鍵主張', evidence_level: '證據等級', objective_impact: '客觀影響' };
 
 function loadFixture(name: string): any {
   return JSON.parse(fs.readFileSync(path.join(fixturesDir, name), 'utf8'));
@@ -62,14 +57,16 @@ function extractBody(markdown: string): string {
   return match[1];
 }
 
-describe('generate-posts adapter contract (Phase 4 target)', () => {
+describe('generate-posts adapter contract', () => {
   describe('assembleMarkdown: localized post labels', () => {
     for (const locale of ['en', 'zh', 'ja'] as const) {
       it(`assembles ${locale} markdown with ${locale} labels`, async () => {
         const { loadPostLabels, assembleMarkdown } = await loadAdapter();
         const item = loadFixture(`item_publish_summary_${locale}.json`);
         const labels = loadPostLabels();
-        const expected = EXPECTED_LABELS[locale];
+        // zh expectations are pinned above; other locales derive from the
+        // loaded label config so wording lives in exactly one place.
+        const expected = locale === 'zh' ? EXPECTED_ZH_LABELS : labels[locale];
 
         const markdown = assembleMarkdown(item, locale, labels);
 
@@ -151,6 +148,136 @@ describe('generate-posts adapter contract (Phase 4 target)', () => {
     }
   });
 
+  describe('validateItem: slug handoff contract (^[a-z0-9][a-z0-9-]*$)', () => {
+    // The site rejects non-conforming slugs at the filesystem boundary so a
+    // bad value can never escape the generated output directory. Values are
+    // rejected verbatim — never sanitized or rewritten.
+    const unsafeSlugs: Array<[string, string]> = [
+      ['a path traversal segment', '../escape'],
+      ['an embedded forward slash', 'a/b'],
+      ['an embedded backslash', 'a\\b'],
+      ['a dot segment', '..'],
+      ['a single dot', '.'],
+      ['an absolute posix path', '/etc/passwd'],
+      ['an absolute windows path', 'C:\\temp\\x'],
+      ['leading whitespace', ' slug'],
+      ['trailing whitespace', 'slug '],
+      ['uppercase characters', 'Slug'],
+      ['a leading hyphen', '-slug'],
+      ['a trailing dot', 'slug.'],
+      ['a non-ASCII character', 'slüg'],
+    ];
+    for (const [caseName, slug] of unsafeSlugs) {
+      it(`rejects a slug with ${caseName}`, async () => {
+        const { validateItem } = await loadAdapter();
+        const item = loadFixture('item_publish_summary_en.json');
+        item.slug = slug;
+        expect(() => validateItem(item)).toThrow(/slug format/);
+      });
+    }
+
+    it('accepts the publish empty-after-normalization fallbacks (item, item-N)', async () => {
+      const { validateItem } = await loadAdapter();
+      for (const slug of ['item', 'item-2', '2026', 'a']) {
+        const item = loadFixture('item_publish_summary_en.json');
+        item.slug = slug;
+        expect(() => validateItem(item), slug).not.toThrow();
+      }
+    });
+  });
+
+  describe('validateItem: language_code', () => {
+    const languageCodeCases: Array<[string, unknown]> = [
+      ['missing', undefined],
+      ['null', null],
+      ['a non-string', 123],
+      ['blank', '   '],
+    ];
+    for (const [caseName, value] of languageCodeCases) {
+      it(`rejects an item with ${caseName} language_code`, async () => {
+        const { loadPostLabels, assembleMarkdown } = await loadAdapter();
+        const item = loadFixture('item_publish_summary_en.json');
+        if (value === undefined) delete item.language_code;
+        else item.language_code = value;
+        const labels = loadPostLabels();
+        expect(() => assembleMarkdown(item, 'en', labels)).toThrow(/language_code/);
+      });
+    }
+  });
+
+  describe('loadPostLabels: error surface', () => {
+    function withLabelsFile(content: string | null, run: (labelsPath: string) => void) {
+      const tmp = makeTempDir();
+      try {
+        const labelsPath = path.join(tmp.dir, 'post_labels.json');
+        if (content !== null) fs.writeFileSync(labelsPath, content, 'utf8');
+        run(labelsPath);
+      } finally {
+        tmp.cleanup();
+      }
+    }
+
+    it('throws when the labels file is missing', async () => {
+      const { loadPostLabels } = await loadAdapter();
+      withLabelsFile(null, (labelsPath) => {
+        expect(() => loadPostLabels(labelsPath)).toThrow(/Failed to read/);
+      });
+    });
+
+    it('throws when the labels file is not parseable JSON', async () => {
+      const { loadPostLabels } = await loadAdapter();
+      withLabelsFile('{ nope', (labelsPath) => {
+        expect(() => loadPostLabels(labelsPath)).toThrow(/Failed to parse/);
+      });
+    });
+
+    it('throws when the labels map is empty', async () => {
+      const { loadPostLabels } = await loadAdapter();
+      withLabelsFile('{}', (labelsPath) => {
+        expect(() => loadPostLabels(labelsPath)).toThrow(/no locales/);
+      });
+    });
+
+    it('throws when the top-level value is not an object keyed by locale', async () => {
+      const { loadPostLabels } = await loadAdapter();
+      withLabelsFile('["en"]', (labelsPath) => {
+        expect(() => loadPostLabels(labelsPath)).toThrow(/keyed by locale/);
+      });
+    });
+
+    it('throws when a locale is missing a label key', async () => {
+      const { loadPostLabels } = await loadAdapter();
+      withLabelsFile(
+        JSON.stringify({ en: { key_claim: 'Key Claim', evidence_level: 'Evidence Level' } }),
+        (labelsPath) => {
+          expect(() => loadPostLabels(labelsPath)).toThrow(/exactly the keys/);
+        },
+      );
+    });
+
+    it('throws when a locale has an extra unknown label key', async () => {
+      const { loadPostLabels } = await loadAdapter();
+      withLabelsFile(
+        JSON.stringify({
+          en: { key_claim: 'K', evidence_level: 'E', objective_impact: 'O', bonus: 'B' },
+        }),
+        (labelsPath) => {
+          expect(() => loadPostLabels(labelsPath)).toThrow(/exactly the keys/);
+        },
+      );
+    });
+
+    it('throws when a label value is blank', async () => {
+      const { loadPostLabels } = await loadAdapter();
+      withLabelsFile(
+        JSON.stringify({ en: { key_claim: 'K', evidence_level: '  ', objective_impact: 'O' } }),
+        (labelsPath) => {
+          expect(() => loadPostLabels(labelsPath)).toThrow(/non-empty string/);
+        },
+      );
+    });
+  });
+
   describe('assembleMarkdown: locale handling', () => {
     it('throws for an unknown locale', async () => {
       const { loadPostLabels, assembleMarkdown } = await loadAdapter();
@@ -185,8 +312,6 @@ describe('generate-posts adapter contract (Phase 4 target)', () => {
 
   describe('post label locale parity (src/config/post_labels.json)', () => {
     it('post_labels.json locale key set matches localeProfiles', () => {
-      // Points at the real path; the file is created in Phase 4, so this
-      // fails with ENOENT until then — that failure is the contract.
       const labels = JSON.parse(fs.readFileSync(postLabelsPath, 'utf8'));
       expect(Object.keys(labels).sort()).toEqual(Object.keys(localeProfiles).sort());
     });
@@ -224,10 +349,48 @@ describe('generate-posts adapter contract (Phase 4 target)', () => {
       expect(markdown).toContain(`authorMetadata: ${JSON.stringify(item.author_metadata)}`);
     });
 
-    it('adapter API takes no summaryMap parameter (summaryMap removal is structural)', async () => {
-      const { validateItem, assembleMarkdown } = await loadAdapter();
-      expect(validateItem.length).toBe(1);
-      expect(assembleMarkdown.length).toBe(3);
+    it('ignores conflicting legacy summary/body fields: only summary_short is used', async () => {
+      const { loadPostLabels, assembleMarkdown } = await loadAdapter();
+      const item = loadFixture('item_publish_summary_en.json');
+      // Simulate historical payload shapes that carried pre-spliced content or
+      // per-catalog summaries. The removed fallback cascade consulted these;
+      // the current adapter must not.
+      item.content = 'LEGACY PRE-SPLICED BODY THAT MUST NOT LEAK';
+      item.summary = 'LEGACY CATALOG SUMMARY THAT MUST NOT LEAK';
+      const labels = loadPostLabels();
+
+      const markdown = assembleMarkdown(item, 'en', labels);
+
+      expect(markdown).not.toContain('MUST NOT LEAK');
+      expect(markdown).toContain(`description: ${JSON.stringify(item.summary_short)}`);
+      expect(extractBody(markdown)).toContain(item.summary_short);
+    });
+
+    it('emits canonicalUrl, disclosureNote, and authorMetadata as JSON-encoded frontmatter', async () => {
+      const { loadPostLabels, assembleMarkdown } = await loadAdapter();
+      const item = loadFixture('item_publish_link_en.json');
+      const labels = loadPostLabels();
+
+      const markdown = assembleMarkdown(item, 'en', labels);
+
+      expect(markdown).toContain(`canonicalUrl: ${JSON.stringify(item.canonical_url)}`);
+      expect(markdown).toContain(`disclosureNote: ${JSON.stringify(item.disclosure_note)}`);
+      expect(markdown).toContain(`authorMetadata: ${JSON.stringify(item.author_metadata)}`);
+    });
+
+    it('emits explicit null/empty metadata when optional fields are absent', async () => {
+      const { loadPostLabels, assembleMarkdown } = await loadAdapter();
+      const item = loadFixture('item_publish_link_en.json');
+      delete item.canonical_url;
+      delete item.disclosure_note;
+      delete item.author_metadata;
+      const labels = loadPostLabels();
+
+      const markdown = assembleMarkdown(item, 'en', labels);
+
+      expect(markdown).toContain('canonicalUrl: null');
+      expect(markdown).toContain('disclosureNote: null');
+      expect(markdown).toContain('authorMetadata: {}');
     });
   });
 });

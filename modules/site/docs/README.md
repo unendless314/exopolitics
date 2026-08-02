@@ -34,6 +34,14 @@ In the current architecture:
 
 ---
 
+## 2.1 Local Development Modes
+
+- `npm run dev` / `npm run build` read the default production export root (`data/publish_export/`) and **hard-fail** when any expected export file is missing or invalid — bad data is never rendered as empty pages or guessed content.
+- `npm run dev:fixture` starts the dev server against the committed minimal fixture at `tests/fixtures/publish_export/` for UI work without a production export. The fixture passes the same validation as production data and is never an implicit input to production builds.
+- Details: [BUILD_AND_ROUTING_POLICY.md](./BUILD_AND_ROUTING_POLICY.md) section 4.
+
+---
+
 ## 3. Boundary Rules
 
 - `site` must remain a downstream-only consumer. It does not perform writes or state transitions on canonical data.

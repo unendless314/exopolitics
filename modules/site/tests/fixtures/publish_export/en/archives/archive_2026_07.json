@@ -1,0 +1,20 @@
+[
+  {
+    "slug": "house-hearing-uap-transparency-bipartisan-push",
+    "display_title": "House Hearing on UAP Transparency Draws Bipartisan Push",
+    "summary_short": "A House subcommittee hearing on UAP transparency ended with bipartisan agreement to expand whistleblower protections and to require timely disclosure of recovered material analysis, marking the strongest congressional push for declassification since 2023.",
+    "canonical_url": "https://example.com/house-hearing-uap-transparency",
+    "source_published_at": "2026-07-20T14:30:00Z",
+    "approved_at": "2026-07-21T09:05:00Z",
+    "published_at": "2026-07-22T03:00:00Z"
+  },
+  {
+    "slug": "aaro-new-uap-case-resolution-portal",
+    "display_title": "Pentagon AARO Releases New UAP Case Resolution Portal",
+    "summary_short": "The Pentagon's All-domain Anomaly Resolution Office published a new public portal documenting resolved UAP cases, including video stills and methodological notes for each disposition.",
+    "canonical_url": "https://example.com/aaro-case-resolution-portal",
+    "source_published_at": "2026-07-18T17:45:00Z",
+    "approved_at": "2026-07-19T08:20:00Z",
+    "published_at": "2026-07-22T03:00:00Z"
+  }
+]

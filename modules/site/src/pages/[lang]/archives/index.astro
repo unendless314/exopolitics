@@ -1,9 +1,8 @@
 ---
-import fs from "node:fs";
-import path from "node:path";
 import Base from "../../../layouts/Base.astro";
 import { useTranslations, localeProfiles } from "../../../utils/i18n";
 import { publishExportDir } from "../../../utils/paths";
+import { loadArchiveManifest } from "../../../utils/exportData";
 
 export function getStaticPaths() {
   return Object.keys(localeProfiles).map((lang) => ({ params: { lang } }));
@@ -12,18 +11,8 @@ export function getStaticPaths() {
 const { lang = "zh" } = Astro.params;
 const t = useTranslations(lang);
 
-interface ArchiveEntry {
-  archive_month: string;
-  file_name: string;
-  item_count: number;
-  updated_at: string;
-}
-
-const archivesIndexFile = path.join(publishExportDir, lang, 'archives', 'index.json');
-let archives: ArchiveEntry[] = [];
-if (fs.existsSync(archivesIndexFile)) {
-  archives = JSON.parse(fs.readFileSync(archivesIndexFile, "utf8"));
-}
+// Missing or invalid archive manifests hard-fail the build via the shared loader.
+const archives = loadArchiveManifest(publishExportDir, lang);
 
 const pageTitle = `UAP Aggregator - ${t('archive.title')}`;
 const pageDesc = t('meta.archivesDesc');
@@ -41,7 +30,7 @@ const pageDesc = t('meta.archivesDesc');
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
-      {archives.map((archive: ArchiveEntry) => {
+      {archives.map((archive) => {
         const monthUrl = `/${lang}/archives/${archive.archive_month}/`;
         return (
           <a

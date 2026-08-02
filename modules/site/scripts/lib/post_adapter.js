@@ -10,6 +10,12 @@ const DEFAULT_LABELS_PATH = path.resolve(__dirname, '..', '..', 'src', 'config',
 // Fixed semantic bullet keys, in the only order the adapter renders them.
 const BULLET_KEYS = ['key_claim', 'evidence_level', 'objective_impact'];
 
+// Handoff slug contract (docs/DATA_HANDOFF_CONTRACT.md section 1.6): publish
+// owns slug generation; the site only rejects non-conforming values so a bad
+// slug can never escape the generated output directory (path traversal,
+// absolute paths, `.`/`..` segments, whitespace).
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+
 /**
  * Load the locale -> post label map. Defaults to src/config/post_labels.json,
  * the single source of truth for post label text. Throws when the file is
@@ -63,8 +69,12 @@ export function loadPostLabels(labelsPath = DEFAULT_LABELS_PATH) {
 
 /**
  * Hard-fail validation for a publish_export item JSON payload. Throws unless:
- * - slug and display_title are non-empty strings,
- * - source_published_at parses as a date,
+ * - slug is a non-empty string matching the handoff slug contract
+ *   (^[a-z0-9][a-z0-9-]*$); the value is rejected, never sanitized,
+ * - display_title is a non-empty string,
+ * - language_code is a non-empty string,
+ * - source_published_at parses as a date (Date.parse rule; strict UTC
+ *   ISO-8601 enforcement is deferred until the publish contract settles),
  * - summary_short is a non-empty string after trimming,
  * - bullets is either null or an object with exactly the three known keys
  *   whose values are all non-empty strings.
@@ -77,8 +87,16 @@ export function validateItem(item) {
   if (typeof item.slug !== 'string' || item.slug.trim().length === 0) {
     throw new Error('Item is missing a valid slug.');
   }
+  if (!SLUG_PATTERN.test(item.slug)) {
+    throw new Error(
+      `Item slug "${item.slug}" violates the handoff slug format (^[a-z0-9][a-z0-9-]*$).`,
+    );
+  }
   if (typeof item.display_title !== 'string' || item.display_title.trim().length === 0) {
     throw new Error(`Item ${item.slug} is missing a valid display_title.`);
+  }
+  if (typeof item.language_code !== 'string' || item.language_code.trim().length === 0) {
+    throw new Error(`Item ${item.slug} is missing a valid language_code.`);
   }
   if (!item.source_published_at || isNaN(Date.parse(item.source_published_at))) {
     throw new Error(`Item ${item.slug} has missing or invalid source_published_at.`);

@@ -1,0 +1,18 @@
+{
+  "source_item_id": 302,
+  "language_code": "zh",
+  "slug": "aaro-new-uap-case-resolution-portal",
+  "display_title": "五角大廈 AARO 推出新版 UAP 案例解析入口網站",
+  "summary_short": "五角大廈全域異常解析辦公室（AARO）發布新的公開入口網站，記錄已結案的 UAP 案例，並附上每個案例處置方式的影像截圖與方法論說明。",
+  "bullets": null,
+  "canonical_url": "https://example.com/aaro-case-resolution-portal",
+  "source_published_at": "2026-07-18T17:45:00Z",
+  "approved_at": "2026-07-19T08:20:00Z",
+  "published_at": "2026-07-22T03:00:00Z",
+  "downstream_action": "publish_link",
+  "disclosure_note": "This item is AI-generated.",
+  "author_metadata": {
+    "source_module": "curate",
+    "writer_type": "machine"
+  }
+}

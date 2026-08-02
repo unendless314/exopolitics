@@ -1,9 +1,12 @@
 ---
-import { useTranslations, formatAbsoluteDateTime } from "../utils/i18n";
-import stats from "../../../../data/publish_export/stats.json";
+import { useTranslations, formatAbsoluteDateTime, localeProfiles } from "../utils/i18n";
+import { publishExportDir } from "../utils/paths";
+import { loadStats } from "../utils/exportData";
 
 const lang = Astro.currentLocale || "zh";
 const t = useTranslations(lang);
+// Same loader/validator as the stats page: missing or invalid stats hard-fail.
+const stats = loadStats(publishExportDir, Object.keys(localeProfiles));
 const lastRun = stats.last_export_run_timestamp;
 ---
 

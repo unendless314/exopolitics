@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { calculateReadingTime } from '../src/utils/readingTime';
 
 describe('calculateReadingTime', () => {
-  it('should handle empty or null content', () => {
+  it('should handle empty content', () => {
     expect(calculateReadingTime('')).toBe(1);
   });
 
@@ -37,10 +37,14 @@ describe('calculateReadingTime', () => {
   });
 
   it('should strip markdown and html tags before counting', () => {
-    const textWithMarkdown = '# Header\nThis is **bold** and [a link](https://example.com). <p>Paragraph tag</p>';
-    // Word count should ignore markdown syntax and html tags
-    // "Header This is bold and a link Paragraph tag" -> 9 words.
-    // 9 / 200 is small, should round up to 1 minute.
-    expect(calculateReadingTime(textWithMarkdown)).toBe(1);
+    // Boundary fixture: 192 words once markup is removed. If html tags were
+    // counted as words, the same text would exceed 200 words and round up to
+    // 2 minutes, so this only passes when tags are actually stripped.
+    const plainWords = Array(190).fill('word');
+    const tags = Array(12).fill('<em>').concat(Array(12).fill('</em>'));
+    const textWithMarkup = [...plainWords, '**bold**', '_italic_', ...tags].join(' ');
+    // Sanity check the boundary: naive whitespace count would be 216 words.
+    expect(textWithMarkup.split(/\s+/).length).toBe(216);
+    expect(calculateReadingTime(textWithMarkup)).toBe(1);
   });
 });

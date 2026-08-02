@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/generate-posts.js && astro dev",
+    "dev:fixture": "node scripts/dev-fixture.js",
     "build": "node scripts/generate-posts.js && astro build",
     "preview": "astro preview",
     "test": "vitest run",

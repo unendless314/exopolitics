@@ -1,11 +1,10 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolveExportRoot, workspaceRoot } from './export_root.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+export { workspaceRoot };
 
-/** Absolute path to the monorepo workspace root. */
-export const workspaceRoot = path.resolve(__dirname, '..', '..', '..', '..');
-
-/** Absolute path to the publish_export data directory. */
-export const publishExportDir = path.join(workspaceRoot, 'data', 'publish_export');
+/**
+ * Absolute path to the publish_export data directory, resolved through the
+ * shared export-root policy (src/utils/export_root.js). Honors the
+ * SITE_PUBLISH_EXPORT_DIR override; otherwise the workspace default.
+ */
+export const publishExportDir = resolveExportRoot();

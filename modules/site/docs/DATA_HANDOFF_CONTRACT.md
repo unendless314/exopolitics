@@ -14,7 +14,7 @@ All data inputs are located under `data/publish_export/` in the workspace root. 
 - **Path**: `data/publish_export/<language_code>/index.json`
 - **Purpose**: Provides the latest published items sorted by date.
 - **Fields**:
-  - `slug` (string): Stable route identifier.
+  - `slug` (string): Stable route identifier. Must match the slug format contract in Section 1.6.
   - `display_title` (string): Title of the post.
   - `summary_short` (string): Short preview text.
   - `canonical_url` (string): Original source URL.
@@ -59,6 +59,18 @@ All data inputs are located under `data/publish_export/` in the workspace root. 
 - **Path**: `data/publish_export/stats.json`
 - **Purpose**: Aggregate statistics.
 - **Fields**: Maps of active/withdrawn items, oldest archives, and last run timestamp.
+
+### 1.6 Slug Format Contract
+- **Ownership**: Canonical slug generation is owned by `publish` (`slugify()` / `generate_slug()`). The `site` module never recomputes, sanitizes, or rewrites slug values — it only rejects non-conforming ones.
+- **Format**: Every `slug` field (catalog items and detail item JSONs) must match:
+
+  ```text
+  ^[a-z0-9][a-z0-9-]*$
+  ```
+
+  ASCII lower-case alphanumerics and hyphens, never starting with a hyphen. This keeps slugs safe as route parameters and as generated-Markdown file names (no path separators, no `.`/`..` segments, no absolute paths).
+- **Empty-After-Normalization Fallback**: When a title yields no ASCII characters after normalization (e.g. a purely CJK title), `publish` falls back to `item` (or `item-N` when deduplication requires a suffix). These fallback values conform to the same format rule above.
+- **Site-Side Enforcement**: The site adapter (`scripts/lib/post_adapter.js`) validates every item slug against this rule at the filesystem boundary and hard-fails the build on any violation.
 
 ---
 

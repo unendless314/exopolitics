@@ -1,13 +1,10 @@
 ---
-import fs from "node:fs";
-import path from "node:path";
 import Base from "../../layouts/Base.astro";
 import Timeline from "../../components/Timeline.astro";
 import { useTranslations, localeProfiles } from "../../utils/i18n";
 import { publishExportDir } from "../../utils/paths";
 import type { TimelinePost } from "../../components/Timeline.astro";
-import { validateCatalogItem } from "../../utils/validation";
-import type { CatalogItem } from "../../utils/validation";
+import { loadLanguageIndex } from "../../utils/exportData";
 
 export function getStaticPaths() {
   return Object.keys(localeProfiles).map((lang) => ({ params: { lang } }));
@@ -16,31 +13,21 @@ export function getStaticPaths() {
 const { lang = "zh" } = Astro.params;
 const t = useTranslations(lang);
 
-// 1. Directly read index.json from publish_export for metadata-only Ingestion
-const indexFile = path.join(publishExportDir, lang, 'index.json');
-let rawItems: CatalogItem[] = [];
-if (fs.existsSync(indexFile)) {
-  try {
-    rawItems = JSON.parse(fs.readFileSync(indexFile, "utf8"));
-  } catch (err) {
-    console.error(`Error parsing index.json for ${lang}:`, err);
-    throw new Error(`Failed to parse index.json for ${lang}: ${err instanceof Error ? err.message : String(err)}`);
-  }
-}
+// 1. Metadata-only ingestion: read the pre-sorted index.json via the shared
+// loader. Missing or invalid export files hard-fail the build.
+const rawItems = loadLanguageIndex(publishExportDir, lang);
 
 // 2. Limit to latest 300 posts
 const displayItems = rawItems.slice(0, 300);
 
-// 3. Fail-fast validation and mapping to TimelinePost interface
-const displayPosts: TimelinePost[] = displayItems.map((item) => {
-  const validated = validateCatalogItem(item, `index.json (${lang})`);
-  return {
-    slug: validated.slug,
-    title: validated.display_title,
-    publishDate: new Date(validated.source_published_at),
-    description: validated.summary_short || validated.display_title,
-  };
-});
+// 3. Map validated catalog items to the TimelinePost interface. There is no
+// display_title fallback: summary_short is a required handoff field.
+const displayPosts: TimelinePost[] = displayItems.map((item) => ({
+  slug: item.slug,
+  title: item.display_title,
+  publishDate: new Date(item.source_published_at),
+  description: item.summary_short,
+}));
 
 const pageTitle = `UAP Aggregator - ${t('nav.timeline')}`;
 const pageDesc = t('meta.homeDesc');

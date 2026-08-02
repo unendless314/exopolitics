@@ -1,0 +1,28 @@
+{
+  "total_active_published_items_by_language": {
+    "zh": 2,
+    "en": 2,
+    "ja": 2
+  },
+  "total_withdrawn_items_by_language": {
+    "zh": 0,
+    "en": 0,
+    "ja": 0
+  },
+  "latest_index_count_by_language": {
+    "zh": 2,
+    "en": 2,
+    "ja": 2
+  },
+  "archive_month_count_by_language": {
+    "zh": 1,
+    "en": 1,
+    "ja": 1
+  },
+  "oldest_archive_month_by_language": {
+    "zh": "2026-07",
+    "en": "2026-07",
+    "ja": "2026-07"
+  },
+  "last_export_run_timestamp": "2026-07-22T03:00:00Z"
+}

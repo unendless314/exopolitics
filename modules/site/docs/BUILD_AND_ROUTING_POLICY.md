@@ -76,11 +76,31 @@ To prevent build-time artifacts from cluttering the codebase, the following rule
 
 ---
 
-## 4. Timestamp Precision and Display Policy
+## 4. Export Root Resolution, Hard-Fail Policy, and Fixture Mode
+
+### 4.1 Single Export-Root Resolution Policy
+- **Resolver**: `src/utils/export_root.js` (plain dependency-free ESM) is the only policy that decides where `publish_export` lives. `scripts/generate-posts.js`, `src/utils/paths.ts` (re-exported for Astro pages), and every loader in `src/utils/exportData.ts` must consume the root through it — no ad-hoc path assembly.
+- **Default Root**: When `SITE_PUBLISH_EXPORT_DIR` is not set, the root is `<workspace>/data/publish_export/`.
+- **Explicit Override**: When `SITE_PUBLISH_EXPORT_DIR` is set, it is resolved to an absolute path and must point to an existing directory; an invalid override is a clear error, never a silent fallback to the default root. The override exists for development fixture mode and tests only — production builds must not set it.
+
+### 4.2 Hard-Fail on Missing or Invalid Export Data
+- **No Silent Empty Pages**: `npm run build` and `npm run dev` against the default production root must fail the build when any expected export file (`<lang>/index.json`, `<lang>/archives/index.json`, monthly archive files, `<lang>/items/*.json`, `stats.json`) is missing, unparseable, or fails schema validation. A missing language export is an export completeness failure, not "a language with no posts".
+- **No Content Guessing**: `summary_short` is a required handoff field. Pages must not fall back to `display_title` (or any other field) when it is missing; that is an input contract violation.
+- **Consistent Error Surface**: Pages, components (including the Footer), and the generator must obtain validated data via the shared loaders/validators in `src/utils/exportData.ts` / `src/utils/validation.ts`, so every failure carries the same `[Data Integrity Validation Failed]` error channel instead of route-specific behavior.
+- **Deployment Ordering**: Because missing exports now hard-fail, the deployment service/scheduler must only trigger the site build after a successful publish export, matching the repo `pipeline.sh` order (publish, then site-build). Any change to that order requires a same-batch update of the deployment configuration and this policy.
+
+### 4.3 Development Fixture Mode
+- **Committed Fixture**: A minimal export fixture lives at `tests/fixtures/publish_export/` (per-locale index, archives, items, and stats). It represents the handoff contract — not a copy of production data — and is itself continuously validated by the test suite against the same loaders/validators.
+- **Entry Point**: `npm run dev:fixture` (a cross-platform Node wrapper, `scripts/dev-fixture.js`) sets `SITE_PUBLISH_EXPORT_DIR` to the fixture root and then starts the normal `npm run dev` flow. It is the only supported way to run the UI without a production export.
+- **No Implicit Fixture**: Fixture mode is never applied to the default production root and never skips validation; the fixture goes through the exact same validation as production data.
+
+---
+
+## 5. Timestamp Precision and Display Policy
 
 Timestamps are critical for providing a real-time, high-urgency aesthetic for news alerts.
 
-### 4.1 Display Precision
+### 5.1 Display Precision
 - **Absolute Precision**: The site displays publication timestamps accurate to the minute (e.g. `2026-06-25 16:07` or `Jun 25, 2026, 16:07`).
 - **Standard Layout**: Renders the absolute local timezone date and time.
 - **Astro Component Syntax**:
@@ -90,6 +110,6 @@ Timestamps are critical for providing a real-time, high-urgency aesthetic for ne
   </time>
   ```
 
-### 4.2 Hydration Rationale
+### 5.2 Hydration Rationale
 - **Static First**: To maintain a pure Static Site Generation (SSG) architecture with a 100/100 performance score, **no relative time calculations (e.g., "5 minutes ago") requiring client-side hydration scripts will be used**.
 - **Performance**: High-precision absolute dates are computed at build time, ensuring zero client-side JavaScript execution overhead for date displays.
