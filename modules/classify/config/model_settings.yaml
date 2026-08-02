@@ -23,7 +23,7 @@ providers:
   openai:
     api_type: openai
     api_key_env: OPENAI_API_KEY
-    model_name: gpt-5.4-mini
+    model_name: gpt-5.6-luna
     supports_structured_output: true
 
   openai_compatible_example:
@@ -37,6 +37,6 @@ providers:
     api_type: openai_compatible
     api_base: https://mini-proxy.noeticseeker.com/v1
     api_key_env: MINI_API_KEY
-    model_name: gpt-5.4-mini
+    model_name: gpt-5.6-luna
     supports_structured_output: false
 
