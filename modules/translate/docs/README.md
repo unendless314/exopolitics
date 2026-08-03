@@ -28,6 +28,14 @@ The translation pipeline occurs after editorial curation and editing:
 - **Fingerprinting & Invalidation**: Tracks the canonical fingerprint of the upstream approved mother-draft to automatically invalidate translations if the draft is edited.
 - **State Machine management**: Manages states (`pending`, `completed`, `failed`, `stale`) for each target language.
 
+## Configuration Notes
+
+`config/model_settings.yaml` defines the active provider, prompt template,
+request defaults, and execution policy. Within `request_defaults`, `top_p`
+is an optional float (0.0–1.0, default `null`); when unset, the `top_p`
+key is omitted from outbound request payloads (some provider routes reject
+the parameter outright).
+
 ## Document Directory
 
 - [DATA_CONTRACT.md](./DATA_CONTRACT.md): Database schemas, fingerprint formulas, and storage expectations.

@@ -7,6 +7,7 @@ import yaml
 from click.testing import CliRunner
 
 from modules.curate.src.cli import cli
+from modules.curate.src.config import validate_and_load_config
 from modules.curate.src.database import get_connection, run_migrations
 from modules.curate.tests.support import (
     CURATE_MIGRATIONS_DIR,
@@ -185,6 +186,25 @@ class TestCliContract(unittest.TestCase):
         result = self._invoke(["validate"])
         self.assertEqual(result.exit_code, 1)
         self.assertIn("CONFIG VALIDATION FAILED", result.output)
+
+    def test_validate_top_p_null_loads_as_none(self):
+        null_top_p_settings = dict(
+            VALID_SETTINGS,
+            request_defaults={"temperature": 1.0, "top_p": None, "max_output_tokens": 512},
+        )
+        self._write_config(self.config_dir, null_top_p_settings, VALID_TEMPLATES)
+        result = self._invoke(["validate"])
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertIn("Configuration validated successfully", result.output)
+
+        config = validate_and_load_config(self.config_dir)
+        self.assertIsNone(config.request_defaults.top_p)
+
+    def test_active_config_pins_top_p_incident_baseline(self):
+        active_config_dir = pathlib.Path(__file__).resolve().parent.parent / "config"
+        config = validate_and_load_config(active_config_dir)
+        self.assertEqual(config.request_defaults.temperature, 1.0)
+        self.assertIsNone(config.request_defaults.top_p)
 
     # --- migrate ---
 

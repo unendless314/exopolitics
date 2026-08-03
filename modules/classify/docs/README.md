@@ -53,6 +53,9 @@ In this rewrite, `classify` is decoupled from text cleanup and raw data parsing:
   Stores the active prompt template registry used by the classify module.
 * `config/model_settings.yaml`  
   Stores provider selection, request defaults, and execution defaults.
+  Within `request_defaults`, `top_p` is an optional float (0.0–1.0,
+  default `null`); when unset, the `top_p` key is omitted from outbound
+  request payloads.
 
 ---
 

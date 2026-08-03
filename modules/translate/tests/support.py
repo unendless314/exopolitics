@@ -139,6 +139,7 @@ def write_config_dir(
     *,
     content_ratio_limit: float,
     supports_structured_output: bool,
+    top_p: Optional[float] = 0.95,
     target_languages: Optional[Dict[str, Dict[str, Any]]] = None,
     retry_attempts: int = 3,
     backoff_factor: float = 0.1,
@@ -166,7 +167,7 @@ def write_config_dir(
         "active_prompt_template": prompt_version,
         "request_defaults": {
             "temperature": 0.3,
-            "top_p": 0.95,
+            "top_p": top_p,
             "max_output_tokens": 4096,
         },
         "target_languages": target_languages,
@@ -485,6 +486,7 @@ def build_mock_config(
     target_languages: Dict[str, Any],
     supports_structured_output: bool,
     content_ratio_limit: float,
+    top_p: Optional[float] = 0.95,
     retry_attempts: int = 3,
     backoff_factor: float = 0.1,
     batch_size: int = 20,
@@ -531,7 +533,7 @@ def build_mock_config(
 
     config.request_defaults = MagicMock()
     config.request_defaults.temperature = 0.3
-    config.request_defaults.top_p = 0.95
+    config.request_defaults.top_p = top_p
     config.request_defaults.max_output_tokens = 4096
 
     config.target_languages = target_languages

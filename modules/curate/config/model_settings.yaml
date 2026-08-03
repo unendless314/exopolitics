@@ -4,8 +4,11 @@ active_prompt_template: curator_v1
 
 # Request behavior shared across providers.
 request_defaults:
-  temperature: 0.7
-  top_p: 0.95
+  temperature: 1.0
+  # top_p intentionally null: the active mini-proxy route (gpt-5.6-luna)
+  # rejects this parameter with HTTP 400. Set a numeric value only for
+  # providers that support top-p sampling.
+  top_p: null
   max_output_tokens: 2048
 
 # Execution controls owned by the curate module.

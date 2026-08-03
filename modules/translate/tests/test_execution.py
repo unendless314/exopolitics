@@ -306,6 +306,11 @@ class TestBuildRequestPayload(unittest.TestCase):
         self.assertEqual(payload["top_p"], 0.95)
         self.assertEqual(payload["max_tokens"], 4096)
 
+    def test_top_p_omitted_when_unset(self) -> None:
+        config = _zh_only_config(top_p=None)
+        payload = _build_request_payload(config, _payload_item(), "zh")
+        self.assertNotIn("top_p", payload)
+
     def test_json_object_fallback_when_structured_output_unsupported(self) -> None:
         config = _zh_only_config(supports_structured_output=False)
         payload = _build_request_payload(config, _payload_item(), "zh")

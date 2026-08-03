@@ -98,6 +98,13 @@ class TestBuildRequestPayload(unittest.TestCase):
         self.assertEqual(payload["response_format"], {"type": "json_object"})
         self.assertNotIn("json_schema", payload)
 
+    def test_top_p_omitted_when_unset(self):
+        config = build_test_config(supports_structured_output=False, top_p=None)
+        payload = _build_request_payload(config, ITEM)
+        self.assertNotIn("top_p", payload)
+        self.assertEqual(payload["temperature"], config.request_defaults.temperature)
+        self.assertEqual(payload["max_tokens"], config.request_defaults.max_output_tokens)
+
 
 class TestParseResponseContent(unittest.TestCase):
     def _response_with(self, json_data):

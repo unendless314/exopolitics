@@ -106,9 +106,13 @@ def _build_request_payload(config: ClassifyConfig, title: str, sanitized_text: s
             {"role": "user", "content": messages["user_prompt"]},
         ],
         "temperature": defaults.temperature,
-        "top_p": defaults.top_p,
         "max_tokens": defaults.max_output_tokens,
     }
+
+    # Send top_p only when configured; some provider routes reject the
+    # parameter outright (see known_issues/GPT_5_6_LUNA_PARAMETER_COMPATIBILITY_RISKS.md).
+    if defaults.top_p is not None:
+        payload["top_p"] = defaults.top_p
 
     if provider.supports_structured_output:
         payload["response_format"] = {

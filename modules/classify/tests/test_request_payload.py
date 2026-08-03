@@ -59,6 +59,11 @@ class TestFallbackPayload(unittest.TestCase):
         self.assertIn("My Title", payload["messages"][1]["content"])
         self.assertIn("My Text", payload["messages"][1]["content"])
 
+    def test_top_p_omitted_when_unset(self) -> None:
+        config = make_config(supports_structured_output=False, top_p=None)
+        payload = _build_request_payload(config, title="t", sanitized_text="x")
+        self.assertNotIn("top_p", payload)
+
 
 class TestStructuredOutputGuard(unittest.TestCase):
     """Switch guard for the strict structured-output path: it is inactive

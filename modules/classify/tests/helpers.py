@@ -162,7 +162,7 @@ def make_config(
     api_base: str = "https://api.test.com/v1",
     api_key_env: str = "TEST_API_KEY",
     temperature: float = 0.1,
-    top_p: float = 0.95,
+    top_p: Optional[float] = 0.95,
     max_output_tokens: int = 1024,
     batch_size: int = 20,
     max_concurrent_requests: int = 3,

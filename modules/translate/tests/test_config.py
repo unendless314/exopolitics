@@ -130,6 +130,29 @@ class TestYamlRatioLimitFlowsIntoFetch(unittest.TestCase):
         self.assertEqual(len(client.requests), 1)
 
 
+class TestTopPOptionalConfig(unittest.TestCase):
+    """top_p is an optional request parameter (GPT_5_6_LUNA_TOP_P_PATCH_PLAN):
+    YAML `null` loads as None, and the shipped active config pins the
+    incident baseline (temperature 1.0, top_p unset)."""
+
+    def test_null_top_p_in_yaml_loads_as_none(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config_dir = support.write_config_dir(
+                pathlib.Path(tmp) / "config",
+                content_ratio_limit=5.0,
+                supports_structured_output=False,
+                top_p=None,
+            )
+            config = validate_and_load_config(config_dir)
+
+        self.assertIsNone(config.request_defaults.top_p)
+
+    def test_active_config_top_p_is_unset_and_temperature_is_1_0(self) -> None:
+        config = support.load_active_config()
+        self.assertEqual(config.request_defaults.temperature, 1.0)
+        self.assertIsNone(config.request_defaults.top_p)
+
+
 class TestBatchSizePositiveIntegerConfig(unittest.TestCase):
     """Code-review P1 (2026-08-01): execution_policy.batch_size must be a
     positive integer. Non-positive YAML values are rejected at config

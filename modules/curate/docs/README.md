@@ -62,7 +62,7 @@ The `curate` module uses typed YAML configurations parsed into Pydantic models a
 | :--- | :--- | :--- | :--- |
 | `active_provider` | `string` | **Yes** | Identifier of the active LLM provider in the `providers` map. |
 | `active_prompt_template` | `string` | **Yes** | Identifier of the active template in `prompt_templates.yaml`. |
-| `request_defaults` | `object` | **Yes** | Default settings: `temperature` (float, 0.0-2.0, default 0.2), `top_p` (float, 0.0-1.0, default 0.95), and `max_output_tokens` (integer, default 2048). |
+| `request_defaults` | `object` | **Yes** | Default settings: `temperature` (float, 0.0-2.0, default 0.2), `top_p` (float, 0.0-1.0, optional, default `null`; the key is omitted from request payloads when unset), and `max_output_tokens` (integer, default 2048). |
 | `execution_policy` | `object` | **Yes** | Runner settings: `batch_size` (int, default 20), `max_concurrent_requests` (int, default 3), `rate_limit_per_minute` (int, default 60), `request_timeout_seconds` (float, default 60.0), `retry_attempts` (int, default 3), and `backoff_factor` (float, default 2.0). |
 | `providers` | `map` | **Yes** | Map of provider key to settings: `api_type` (openai/openai_compatible), `api_key_env` (env var name), `model_name` (string), `supports_structured_output` (bool, default false), `api_base` (optional URL). |
 

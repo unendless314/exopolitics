@@ -131,7 +131,7 @@ def build_test_config(
         "Topic: {topic_class}, Gov: {governmental_involvement}"
     ),
     temperature: float = 0.2,
-    top_p: float = 0.95,
+    top_p: Optional[float] = 0.95,
     max_output_tokens: int = 2048,
     batch_size: int = 20,
     max_concurrent_requests: int = 3,

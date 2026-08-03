@@ -176,6 +176,47 @@ templates:
         with self.assertRaises(ValueError):
             validate_and_load_config(self.config_dir)
 
+    def test_null_top_p_loads_as_none(self) -> None:
+        self.write_settings_yaml("""
+active_provider: mini-proxy
+active_prompt_template: single_item_v4
+request_defaults:
+  temperature: 0.1
+  top_p: null
+  max_output_tokens: 1024
+execution_policy:
+  batch_size: 20
+  max_concurrent_requests: 3
+  rate_limit_per_minute: 60
+  request_timeout_seconds: 45.0
+  retry_attempts: 3
+  backoff_factor: 2.0
+providers:
+  mini-proxy:
+    api_type: openai_compatible
+    api_key_env: MINI_API_KEY
+    model_name: gpt-5.4-mini
+
+""")
+        self.write_templates_yaml("""
+templates:
+  single_item_v4:
+    version: v4.0
+    system_instruction: You are a classifier.
+    user_prompt_template: "Title: {title}, Text: {sanitized_text}"
+""")
+        config = validate_and_load_config(self.config_dir)
+        self.assertIsNone(config.request_defaults.top_p)
+
+    def test_active_config_pins_incident_baseline(self) -> None:
+        # Pins the shipped config so a YAML revert to temperature 0.7 /
+        # top_p 0.95 cannot pass while unit tests stay green (gpt-5.6-luna
+        # rejects top_p with HTTP 400).
+        active_config_dir = pathlib.Path(__file__).resolve().parent.parent / "config"
+        config = validate_and_load_config(active_config_dir)
+        self.assertEqual(config.request_defaults.temperature, 1.0)
+        self.assertIsNone(config.request_defaults.top_p)
+
 
 
 class TestPromptAndPolicy(unittest.TestCase):

@@ -5,7 +5,7 @@ from pydantic import BaseModel, field_validator
 
 class RequestDefaults(BaseModel):
     temperature: float = 0.1
-    top_p: float = 0.95
+    top_p: Optional[float] = None
     max_output_tokens: int = 1024
 
     @field_validator("temperature")
