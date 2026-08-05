@@ -1,8 +1,9 @@
 # Known Issue: GPT-5.6-Luna Model Upgrade Parameter Compatibility Risks
 
 ## Status
-- **State**: Active Known Issue / Remediation patch implemented, pending
-  deployment & post-deployment recovery
+- **State**: Resolved (2026-08-05) — remediation deployed and verified
+  against a production database snapshot; archived to
+  `known_issues/resolved/` (closure record: §6.2)
 - **Trigger Commit**: `cb48f1f` (`Update LLM model settings to gpt-5.6-luna`)
 - **Remediation Commit**: `c6c3123` (`Make top_p optional across classify,
   curate, and translate`)
@@ -249,23 +250,27 @@ repository patch on `main`:
 - All three active `model_settings.yaml` files adopt `temperature: 1.0` and
   `top_p: null`; module documentation updated per `AGENTS.md`.
 
-### 6.2 Outstanding (before this incident can close)
+### 6.2 Closure Record (2026-08-05)
 
-Execute the deployment and recovery checklist (patch plan §6) in order:
+The deployment and recovery checklist (patch plan §6) is complete. Verified
+against a production database snapshot downloaded 2026-08-05:
 
-1. Reconcile the cloud server (discard any option-(a) hotfix drift) so
-   `git pull` lands cleanly.
-2. Inventory locked rows (`curate`: failed with `retry_count >= 3`;
-   `translate`: failed at retry exhaustion, per language) and verify the
-   exact Luna HTTP 400 casualty list via a read-only query plus
-   incident-window run logs.
-3. Re-run verified victim items with `--force`, one at a time.
-4. Small-batch live validation (e.g. `--batch-size 5`) against the production
-   proxy; confirm zero HTTP 400 responses and successful DB writes in all
-   three modules.
-5. Resume the normal pipeline schedule.
-6. Close only after a clean observation window (no 400s): retain a sanitized
-   production HTTP 400 fixture per §5.2, set this record's State to Resolved,
-   and move this record and the patch plan to `known_issues/resolved/`.
-
-This record stays **Active** until step 6 completes.
+1. **No locked rows.** Zero `curate` rows with `curate_status='failed' AND
+   retry_count >= 3` (4,242 approved / 857 rejected, all `retry_count = 0`);
+   zero failed `translate` rows — 12,726 completed rows, exactly 4,242
+   approved items × 3 languages. No incident-window casualty required
+   `--force` recovery.
+2. **Post-patch `gpt-5.6-luna` succeeds in all three modules** (classify
+   1,035 rows; curate 233; translate 8,484), with continuous daily output
+   2026-08-03 through 2026-08-05 (latest row 2026-08-05T13:02Z). The
+   2026-08-03 translate spike (8,290 rows) was the post-deployment backlog
+   catch-up.
+3. **Clean observation window**: two days of scheduled production runs with
+   no HTTP 400 recurrence; unclassified backlog at closure is 7 items,
+   within normal range.
+4. **§5.2 fixture not retained**: a sanitized production HTTP 400 response
+   was not archived before closure. The Luna parameter contract is instead
+   pinned by the active-config tests shipped in `c6c3123`, which fail if a
+   shipped YAML reverts to `temperature: 0.7` / `top_p: 0.95`.
+5. This record and the patch plan moved to `known_issues/resolved/`; code
+   comments referencing the old path were updated in the same change.

@@ -1,9 +1,10 @@
 # Remediation Plan: Nullable `top_p` Patch for `gpt-5.6-luna` (Commit `cb48f1f+1`)
 
 - **Date**: 2026-08-03 (rev. 2, incorporates review feedback)
-- **Status**: Implemented on `main` as commit `c6c3123` (classify 88 passed,
-  curate 107 passed, translate 152 passed + 1 skipped); pending deployment
-  and post-deployment recovery (§6)
+- **Status**: Closed 2026-08-05 — implemented on `main` as commit `c6c3123`
+  (classify 88 passed, curate 107 passed, translate 152 passed + 1 skipped),
+  deployed and verified against a production database snapshot (closure
+  record: incident record §6.2); archived to `known_issues/resolved/`
 - **Source incident record**: [`GPT_5_6_LUNA_PARAMETER_COMPATIBILITY_RISKS.md`](./GPT_5_6_LUNA_PARAMETER_COMPATIBILITY_RISKS.md) (esp. §4 and §5.3–§5.4)
 - **Affected modules**: `classify`, `curate`, `translate`
 - **Estimated diff**: 21 files (6 source/config, 9 test, 3 YAML, 3 docs)

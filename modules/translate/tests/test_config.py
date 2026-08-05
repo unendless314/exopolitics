@@ -131,9 +131,10 @@ class TestYamlRatioLimitFlowsIntoFetch(unittest.TestCase):
 
 
 class TestTopPOptionalConfig(unittest.TestCase):
-    """top_p is an optional request parameter (GPT_5_6_LUNA_TOP_P_PATCH_PLAN):
-    YAML `null` loads as None, and the shipped active config pins the
-    incident baseline (temperature 1.0, top_p unset)."""
+    """top_p is an optional request parameter (see known_issues/resolved/
+    GPT_5_6_LUNA_TOP_P_PATCH_PLAN.md): YAML `null` loads as None, and the
+    shipped active config pins the incident baseline (temperature 1.0,
+    top_p unset)."""
 
     def test_null_top_p_in_yaml_loads_as_none(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

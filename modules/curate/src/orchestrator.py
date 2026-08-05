@@ -250,7 +250,7 @@ def _build_request_payload(config: CurateConfig, item: sqlite3.Row) -> Dict[str,
         "max_tokens": defaults.max_output_tokens,
     }
     # Send top_p only when configured; some provider routes reject the
-    # parameter outright (see known_issues/GPT_5_6_LUNA_PARAMETER_COMPATIBILITY_RISKS.md).
+    # parameter outright (see known_issues/resolved/GPT_5_6_LUNA_PARAMETER_COMPATIBILITY_RISKS.md).
     if defaults.top_p is not None:
         payload["top_p"] = defaults.top_p
 
