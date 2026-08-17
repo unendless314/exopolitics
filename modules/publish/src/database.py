@@ -317,3 +317,142 @@ class PublishRepository:
         cursor.execute(query, (source_item_id, language_code))
         return cursor.fetchone()
 
+    # --- Aggregate query helpers ---
+    # Read-only queries behind the index/archive/manifest/stats aggregate
+    # artifacts. Extracted from orchestrator.py as part of the Phase A
+    # surviving-code split
+    # (known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md):
+    # pure move, zero behavior change.
+
+    def get_published_item_rows(self) -> List[sqlite3.Row]:
+        """
+        All currently published (source_item_id, language_code, slug, published_at)
+        rows, used by a full rebuild to re-emit every item file.
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT pr.source_item_id, pls.language_code, pr.slug, pls.published_at
+            FROM publish_record pr
+            JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
+            WHERE pls.publish_status = 'published'
+        """)
+        return cursor.fetchall()
+
+    def get_active_archive_months(self, language_code: str) -> List[str]:
+        """
+        Distinct YYYY-MM months that have at least one active published item
+        in the language. May contain None/empty entries when
+        source_item.published_at is unset; callers filter those.
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT DISTINCT SUBSTR(s.published_at, 1, 7)
+            FROM publish_record pr
+            JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
+            JOIN source_item s ON s.source_item_id = pr.source_item_id
+            WHERE pls.language_code = ? AND pls.publish_status = 'published'
+        """, (language_code,))
+        return [row[0] for row in cursor.fetchall()]
+
+    def get_source_item_published_at(self, source_item_id: int) -> Optional[str]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT published_at FROM source_item WHERE source_item_id = ?", (source_item_id,))
+        res = cursor.fetchone()
+        return res[0] if res else None
+
+    def fetch_latest_index_batch(self, language_code: str, limit: int, offset: int) -> List[sqlite3.Row]:
+        """
+        One page of the latest-items index, ordered by source_published_at
+        DESC with slug ASC tiebreak.
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT
+                pr.slug,
+                t.display_title,
+                t.summary_short,
+                s.canonical_url,
+                s.published_at AS source_published_at,
+                a.approved_at,
+                pls.published_at
+            FROM publish_record pr
+            JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
+            JOIN approved_content_record a ON a.source_item_id = pr.source_item_id
+            JOIN translation_output t ON t.parent_content_id = a.parent_content_id AND t.source_fingerprint = a.content_fingerprint AND t.language_code = pls.language_code
+            JOIN source_item s ON s.source_item_id = pr.source_item_id
+            WHERE pls.language_code = ? AND pls.publish_status = 'published'
+            ORDER BY source_published_at DESC, pr.slug ASC
+            LIMIT ? OFFSET ?
+        """, (language_code, limit, offset))
+        return cursor.fetchall()
+
+    def fetch_archive_month_batch(self, language_code: str, archive_month: str, limit: int, offset: int) -> List[sqlite3.Row]:
+        """
+        One page of one monthly archive, ordered by source_published_at DESC
+        with slug ASC tiebreak.
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT
+                pr.slug,
+                t.display_title,
+                t.summary_short,
+                s.canonical_url,
+                s.published_at AS source_published_at,
+                a.approved_at,
+                pls.published_at
+            FROM publish_record pr
+            JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
+            JOIN approved_content_record a ON a.source_item_id = pr.source_item_id
+            JOIN translation_output t ON t.parent_content_id = a.parent_content_id AND t.source_fingerprint = a.content_fingerprint AND t.language_code = pls.language_code
+            JOIN source_item s ON s.source_item_id = pr.source_item_id
+            WHERE pls.language_code = ? AND pls.publish_status = 'published' AND SUBSTR(s.published_at, 1, 7) = ?
+            ORDER BY source_published_at DESC, pr.slug ASC
+            LIMIT ? OFFSET ?
+        """, (language_code, archive_month, limit, offset))
+        return cursor.fetchall()
+
+    def get_archive_month_item_counts(self, language_code: str) -> List[sqlite3.Row]:
+        """
+        (archive_month, item_count) rows for every month with active published
+        items, ordered by month DESC; backs the archives manifest.
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT
+                SUBSTR(s.published_at, 1, 7) AS archive_month,
+                COUNT(*) AS item_count
+            FROM publish_record pr
+            JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
+            JOIN source_item s ON s.source_item_id = pr.source_item_id
+            WHERE pls.language_code = ? AND pls.publish_status = 'published'
+            GROUP BY archive_month
+            ORDER BY archive_month DESC;
+        """, (language_code,))
+        return cursor.fetchall()
+
+    def count_publish_language_statuses(self, publish_status: str) -> Dict[str, int]:
+        """Per-language row counts for one publish status, for stats.json."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT language_code, COUNT(*) FROM publish_language_status WHERE publish_status = ? GROUP BY language_code",
+            (publish_status,),
+        )
+        return {row[0]: row[1] for row in cursor.fetchall()}
+
+    def get_archive_month_stats(self, language_code: str) -> Tuple[int, Optional[str]]:
+        """
+        (distinct active archive month count, oldest active archive month)
+        for one language, for stats.json.
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT COUNT(DISTINCT SUBSTR(s.published_at, 1, 7)), MIN(SUBSTR(s.published_at, 1, 7))
+            FROM publish_record pr
+            JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
+            JOIN source_item s ON s.source_item_id = pr.source_item_id
+            WHERE pls.language_code = ? AND pls.publish_status = 'published'
+        """, (language_code,))
+        res = cursor.fetchone()
+        return (res[0] if res else 0), (res[1] if (res and res[1]) else None)
+

@@ -1,6 +1,6 @@
 # Publish Export 世代化與原子指標重構計畫
 
-**狀態：** 提案 v7。第七輪複審（v6 審查）的 4 項 P1 已採納：(1) `rebuild` 強制建版例外——fingerprint 閘門僅適用於 `run`；(2) fingerprint 改以 **deterministic generation plan 的計畫態**計算（本次將寫入的 archive `updated_at` 先納入 plan 再算 hash），消除「舊值算 fingerprint → 寫檔後 DB 與 pointer 不一致 → 下一 run 誤建版」的迴圈；(3) 遷移前驗證平面 artifacts 與 DB plan 一致，否則以 DB plan 建立首個完整世代；(4) cursor 在任何 generation 切換後皆過期，包含 fingerprint 不變的強制 rebuild。Phase A「倖存程式碼拆分」**維持已批准**（驗收條件已補強）；Phase B1／B2 文件設計送最終確認中
+**狀態：** 提案 v7，已通過最終審查。第七輪複審（v6 審查）的 4 項 P1 已採納：(1) `rebuild` 強制建版例外——fingerprint 閘門僅適用於 `run`；(2) fingerprint 改以 **deterministic generation plan 的計畫態**計算（本次將寫入的 archive `updated_at` 先納入 plan 再算 hash），消除「舊值算 fingerprint → 寫檔後 DB 與 pointer 不一致 → 下一 run 誤建版」的迴圈；(3) 遷移前驗證平面 artifacts 與 DB plan 一致，否則以 DB plan 建立首個完整世代；(4) cursor 在任何 generation 切換後皆過期，包含 fingerprint 不變的強制 rebuild。**Phase A「倖存程式碼拆分」已完成並通過獨立程式碼複審（2026-08-17）**（驗收結果見文末「Phase A 實作紀錄」）；**Phase B1 gate 解除，可開始實作**；Phase B2 待 B1 完成後獨立送審
 **日期：** 2026-08-17
 **來源：** 深度閱讀策略討論與 `api` 模組提案的七輪外部審查（見 `modules/api/docs/` 修訂歷史）；站主決策：api 模組停留文件階段，待本重構完成後再實作
 
@@ -258,3 +258,22 @@ B1 的「無變更不建版」已消除無變更 run 的檔案成本；B2 進一
 - **v5 補充（2026-08-17）：** 最終文件複審採納 1 項 P1——保留 `resolveExportRoot(): string`，以獨立 context resolver 提供 pointer，避免既有 site caller 將物件當作路徑使用；並同步 API 契約的 v5 前置條件引用。Phase B 文件設計獲批准，但實作仍須等待 Phase A 完成並通過獨立程式碼複審
 - **v6（2026-08-17）：** 第七輪審查採納——(1) Phase A 縮為「倖存程式碼拆分」（只抽出 validation、純 reconciliation diff、aggregate query helpers；不搬移 promotion/rollback、DB compensation、增量 emission），驗收補強 facade re-export 清單與 FakeClock patch 相容兩條；(2) 建版觸發從 mutation event 改為完整 export-state `content_fingerprint` 狀態比對，修復「DB 已提交但建版失敗後，mutation event 遺失導致舊世代永久卡住」的漏洞，並使 API cursor 僅在內容變更時過期；(3) fingerprint 範圍與版本化明文化（完整 export-state／deterministic artifact bytes，排除 wall-clock）；(4) 失敗模型改為「讀方零副作用、DB 可短暫超前、下次成功 run 收斂」，與刪除 DB compensation 綁定；(5) Windows pointer sharing violation 與 retention 失敗策略補強；(6) archive `updated_at` 維持現行語意（內容變更才前進）；(7) Phase B 拆分為 B1（主重構）與 B2（hardlink 重用最佳化，獨立批次）；(8) 新增單寫者 lock。文件漂移修正：`orchestrator.py` 行數 880 → 1,077（與測試基線 95 passed／583 subtests 同經實測確認）
 - **v7（2026-08-17）：** 第七輪複審（v6 審查）4 項 P1 採納——(1) **rebuild 強制建版例外**：原規則「僅 fingerprint 改變才建版」與「rebuild 強制實體重寫並刷新全部 archive timestamp」互相衝突；修正為 fingerprint 閘門僅適用於 `run`，rebuild 一律建版，並以全部刷新後的計畫態計算寫入 fingerprint，使 rebuild 後的無變更 `run` 不誤判再建版。(2) **fingerprint 計算時點**：archive `updated_at` 為本次 run 產物，以建版前舊值計算 fingerprint 會使 pointer 記錄與建版後 DB 狀態不一致、下一無變更 run 誤觸發建版；修正為建立單一 deterministic generation plan（先決定各月份 stamping，再以計畫態算 hash，metadata 更新、檔案寫出、pointer 寫入皆依同一 plan；metadata 更新移至世代建構完成後、pointer 切換前）。(3) **遷移驗證**：舊 runner 可在 DB 提交後、平面 promotion 前中止，遷移不得以 DB fingerprint 靜默認可該平面 tree；逐 artifact 驗證失敗時，改以 DB plan 建立首個完整世代。(4) **cursor 與強制 rebuild**：cursor 綁定 generation，強制 rebuild 即使內容 fingerprint 未變仍切換 generation，故仍須回 `cursor_expired`。非阻擋項併入文件清單：`API_CONTRACT.md`／`MODULE_PROPOSAL.md` 的 v5 前提引用於實作同批更新
+
+## Phase A 實作紀錄（2026-08-17）
+
+**狀態：** ✅ 已通過獨立程式碼複審（2026-08-17）。審查確認：拆分範圍符合批准內容（未提前抽取 B1 將重寫的 promotion／rollback／compensation／emission）；facade re-export 與 FakeClock 相容性保持；`conn.close()` 位於 `finally`，覆蓋成功與失敗路徑，屬合理且必要的資源生命週期修正；文件紀錄與程式碼一致；實測 95 passed／583 subtests passed。**Phase B1 gate 解除。**
+
+**拆分結果（純搬移）：**
+
+- 新增 `modules/publish/src/validation.py`（207 行）：`ValidationError`、`slugify`、`generate_slug`、`UI_LABELS`／`_UI_LABEL_PREFIX_RE`、`BULLET_KEY_MAP`、`has_ui_label_prefix`、`validate_item_payload`、`get_disclosure_note`、`assemble_item_payload`。
+- 新增 `modules/publish/src/reconciliation.py`（91 行）：`compute_reconciliation_diff` 純函式（reconciliation candidates × active publish statuses × configured languages → publish-or-update／withdraw 清單與 `candidates_by_item`），無 clock、DB、檔案存取。
+- `modules/publish/src/database.py` +139 行（純新增，無刪改）：index／archive 批次查詢、active archive months、item `published_at` 查詢、manifest 月份聚合、stats 狀態計數與月份統計，共 8 個唯讀 aggregate query helpers 移入 `PublishRepository`（SQL 文字逐字搬移；stats 狀態計數改為參數化 `publish_status`，語意相同）。
+- `modules/publish/src/orchestrator.py`：1,077 → 776 行。保留 run 脊樑、promotion／rollback、DB compensation（`rollback_db_state`）、增量 emission 與 symlink 檢查；facade re-export 完整保留（`orchestrate_run`、`ValidationError`、`slugify`、`generate_slug`、`validate_item_payload`、`get_disclosure_note` 等），logger 名稱 `publish.orchestrator` 不變。
+
+**驗收結果：**
+
+1. `py -3 -m pytest modules/publish/tests -q` → **95 passed，583 subtests passed**；測試零修改，未改寫為從新模組 import，coverage map 不變。
+2. 以 `data/canonical.db` 複本＋凍結時鐘（patch 點與 FakeClock 相同）跑 rebuild：拆分前後 export 樹 13,228 個檔案 **byte-identical**，`publish_record`／`publish_language_status`／`publish_archive_metadata` 三表 DB 狀態一致；CLI 行為不變（`cli.py` 未修改）。
+3. FakeClock 與 promotion failure 注入測試全數沿用通過；新模組均不綁定 `get_utc_now_iso8601`（無任何 clock 使用），FakeClock 兩個 patch 點不受影響。
+
+**唯一刻意偏差（提請複審確認）：** `orchestrate_run` 的 `finally` 區塊新增 `conn.close()`。Python 3.12 的 `sqlite3.Connection` 與其內部 statement cache 存在循環參照，連線檔案控制代碼原本依賴 cyclic GC 的觸發時機釋放；拆分改變了配置（allocation）計數，使 Windows 測試在 teardown 刪除暫存 DB 時確定性觸發 `PermissionError`（55 項失敗，可穩定重現；舊程式碼僅因 GC 時序巧合而未觸發，最小重現證實任何連線皆有此循環）。顯式關閉讓釋放時機確定；上述三項驗收均為加入此修正後的結果，對 export bytes、DB 狀態、CLI 行為無可觀察影響。

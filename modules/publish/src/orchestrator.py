@@ -3,12 +3,29 @@ import os
 import pathlib
 import shutil
 import sqlite3
-import re
 import logging
-from typing import Dict, Any, List, Set, Tuple, Optional
+from typing import Dict, Any, List, Set, Tuple
 
 from .config import PublishConfig
 from .database import PublishRepository, get_connection, transaction, get_utc_now_iso8601
+from .reconciliation import compute_reconciliation_diff
+from .validation import (
+    ValidationError,
+    slugify,
+    generate_slug,
+    validate_item_payload,
+    get_disclosure_note,
+    assemble_item_payload,
+)
+
+# Facade re-exports (Phase A surviving-code split,
+# known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md):
+# validation.py now owns payload validation, slug generation, UI label
+# checks and payload assembly, and reconciliation.py owns the pure
+# reconciliation diff. Existing callers and tests reference the validation
+# symbols through this module's namespace, so the re-exports above must be
+# kept (at least orchestrate_run, ValidationError, slugify, generate_slug,
+# validate_item_payload and get_disclosure_note).
 
 logger = logging.getLogger("publish.orchestrator")
 
@@ -26,206 +43,13 @@ def _is_symlink_or_reparse_point(path: pathlib.Path) -> bool:
     except FileNotFoundError:
         return False
 
-class ValidationError(Exception):
-    """Custom exception raised when artifact validation fails."""
-    pass
-
-def slugify(text: str) -> str:
-    """
-    Generate a URL-safe, lowercase slug from a string.
-    """
-    import unicodedata
-    # Normalize unicode to ASCII representation
-    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
-    text = text.lower()
-    # Replace non-alphanumeric character sequences with hyphens
-    text = re.sub(r'[^a-z0-9\-]+', '-', text)
-    # Collapse consecutive hyphens
-    text = re.sub(r'-+', '-', text)
-    # Strip leading and trailing hyphens
-    text = text.strip('-')
-    return text
-
-def generate_slug(title: str, existing_slugs: Set[str]) -> str:
-    """
-    Generate a unique slug deterministically by appending a counter suffix on collision.
-    """
-    base_slug = slugify(title)
-    if not base_slug:
-        base_slug = "item"
-    
-    slug = base_slug
-    counter = 2
-    while slug in existing_slugs:
-        slug = f"{base_slug}-{counter}"
-        counter += 1
-    return slug
-
-# Presentation labels that must never leak into exported content values:
-# the three English labels plus every zh/ja variant observed in
-# known_issues/resolved/TRANSLATION_LABEL_LEAKAGE.md section 4.2.
-UI_LABELS = (
-    "Key Claim",
-    "Evidence Level",
-    "Objective Impact",
-    # zh variants (section 4.2)
-    "主要主張",
-    "關鍵主張",
-    "核心主張",
-    "證據層級",
-    "證據等級",
-    "客觀影響",
-    "實際影響",
-    # ja variants (section 4.2)
-    "主要な主張",
-    "主張の要点",
-    "証拠の水準",
-    "証拠レベル",
-    "証拠水準",
-    "エビデンスレベル",
-    "客観的な影響",
-    "客観的影響",
-    "目的上の影響",
-)
-
-_UI_LABEL_PREFIX_RE = re.compile(
-    r"^[\s*_-]*(" + "|".join(UI_LABELS) + r")[\s*_]*[:：]"
-)
-
-# Semantic bullets key mapping, established exactly once here in publish.
-# No other module assigns these keys.
-BULLET_KEY_MAP = (
-    ("bullet_1", "key_claim"),
-    ("bullet_2", "evidence_level"),
-    ("bullet_3", "objective_impact"),
-)
-
-def has_ui_label_prefix(value: str) -> bool:
-    """True when a content value starts with one of the presentation UI labels."""
-    return bool(_UI_LABEL_PREFIX_RE.match(value))
-
-def validate_item_payload(payload: Dict[str, Any]) -> None:
-    """
-    Validates that an assembled export item payload conforms to the publish
-    data contract. Aborts execution by raising ValidationError if any rule
-    is violated.
-    """
-    display_title = payload.get("display_title")
-    language_code = payload.get("language_code")
-    slug = payload.get("slug")
-    summary_short = payload.get("summary_short")
-    downstream_action = payload.get("downstream_action")
-    author_metadata = payload.get("author_metadata")
-
-    if not display_title or not display_title.strip():
-        raise ValidationError("display_title must be non-empty")
-    if not language_code or not language_code.strip():
-        raise ValidationError("language_code must be present")
-    if not slug or not slug.strip():
-        raise ValidationError("slug must be present")
-
-    if not isinstance(summary_short, str) or not summary_short.strip():
-        raise ValidationError("summary_short must be a string that remains non-empty after trimming")
-    if has_ui_label_prefix(summary_short):
-        raise ValidationError("summary_short must not start with a presentation UI label prefix")
-
-    if downstream_action not in ("publish_summary", "publish_link"):
-        raise ValidationError(f"invalid downstream_action: '{downstream_action}'")
-
-    if "bullets" not in payload:
-        raise ValidationError("bullets is required and must never be omitted")
-    bullets = payload["bullets"]
-    if downstream_action == "publish_link":
-        if bullets is not None:
-            raise ValidationError("bullets must be null when downstream_action is 'publish_link'")
-    else:
-        if not isinstance(bullets, dict):
-            raise ValidationError("bullets must be an object when downstream_action is 'publish_summary'")
-        expected_bullet_keys = {"key_claim", "evidence_level", "objective_impact"}
-        if set(bullets.keys()) != expected_bullet_keys:
-            raise ValidationError("bullets must contain exactly the keys 'key_claim', 'evidence_level', and 'objective_impact'")
-        for key in sorted(expected_bullet_keys):
-            value = bullets[key]
-            if not isinstance(value, str) or not value.strip():
-                raise ValidationError(f"bullets.{key} must be a string that remains non-empty after trimming")
-            if has_ui_label_prefix(value):
-                raise ValidationError(f"bullets.{key} must not start with a presentation UI label prefix")
-
-    # Author metadata validation (already parsed from JSON at assembly time)
-    if not isinstance(author_metadata, dict):
-        raise ValidationError("author_metadata must parse to a JSON object")
-
-    if "source_module" not in author_metadata:
-        raise ValidationError("author_metadata is missing required key: 'source_module'")
-    if "writer_type" not in author_metadata:
-        raise ValidationError("author_metadata is missing required key: 'writer_type'")
-
-    source_module = author_metadata.get("source_module")
-    if not isinstance(source_module, str) or not source_module.strip():
-        raise ValidationError("author_metadata.source_module must be a string that remains non-empty after trimming")
-
-    writer_type = author_metadata.get("writer_type")
-    if writer_type in ("human", "hybrid"):
-        editor = author_metadata.get("editor")
-        if not isinstance(editor, str) or not editor.strip():
-            raise ValidationError(f"editor field is required and must be non-empty when writer_type is '{writer_type}'")
-    elif writer_type not in ("AI", "machine"):
-        raise ValidationError(f"invalid writer_type: '{writer_type}'")
-
-def get_disclosure_note(author_metadata: Dict[str, Any]) -> str:
-    """
-    Get the disclosure note based on writer_type from parsed author_metadata.
-    Malformed metadata falls back to the AI-generated note; validate_item_payload
-    rejects such payloads separately.
-    """
-    writer_type = author_metadata.get("writer_type") if isinstance(author_metadata, dict) else None
-    if writer_type in ("human", "hybrid"):
-        return "This item is AI-assisted and human-curated."
-    else:
-        return "This item is AI-generated."
-
-def assemble_item_payload(payload_row: Dict[str, Any], slug: str, published_at: Optional[str]) -> Dict[str, Any]:
-    """
-    Assemble the export item payload from a canonical upstream row.
-    Parses author_metadata and establishes the semantic bullets key mapping
-    exactly once, here in publish; no other module assigns these keys.
-    """
-    author_metadata_str = payload_row.get("author_metadata")
-    if author_metadata_str is None:
-        raise ValidationError("author_metadata is required and cannot be NULL")
-    try:
-        author_metadata = json.loads(author_metadata_str)
-    except Exception as e:
-        raise ValidationError(f"author_metadata is invalid JSON: {str(e)}")
-
-    downstream_action = payload_row.get("downstream_action")
-    if downstream_action == "publish_summary":
-        bullets = {key: payload_row.get(column) for column, key in BULLET_KEY_MAP}
-    else:
-        bullets = None
-
-    return {
-        "source_item_id": payload_row["source_item_id"],
-        "language_code": payload_row["language_code"],
-        "slug": slug,
-        "display_title": payload_row["display_title"],
-        "summary_short": payload_row["summary_short"],
-        "bullets": bullets,
-        "canonical_url": payload_row["canonical_url"],
-        "source_published_at": payload_row["source_published_at"],
-        "approved_at": payload_row["approved_at"],
-        "published_at": published_at,
-        "downstream_action": downstream_action,
-        "disclosure_note": get_disclosure_note(author_metadata),
-        "author_metadata": author_metadata
-    }
 def rollback_db_state(conn: sqlite3.Connection, db_compensations: List[Dict[str, Any]]) -> None:
     repo = PublishRepository(conn)
     # We rollback in reverse order of modifications
     for comp in reversed(db_compensations):
         item_id = comp.get("source_item_id")
         lang = comp["language_code"]
-        
+
         with transaction(conn, commit=True):
             if comp["type"] == "publish":
                 # Rollback publish
@@ -247,14 +71,14 @@ def rollback_db_state(conn: sqlite3.Connection, db_compensations: List[Dict[str,
                     else:
                         pub_rec = repo.get_publish_record_by_source_item_id(item_id)
                         pub_rec_id = pub_rec["publish_record_id"] if pub_rec else None
-                        
+
                     if pub_rec_id is not None:
                         cursor = conn.cursor()
                         cursor.execute(
                             "DELETE FROM publish_language_status WHERE publish_record_id = ? AND language_code = ?",
                             (pub_rec_id, lang)
                         )
-                
+
                 # Restore publish_record updated_at
                 if comp["had_pub_rec"] and comp["pub_rec"]:
                     repo.update_publish_record_updated_at(
@@ -265,7 +89,7 @@ def rollback_db_state(conn: sqlite3.Connection, db_compensations: List[Dict[str,
                     # Delete newly created publish record
                     cursor = conn.cursor()
                     cursor.execute("DELETE FROM publish_record WHERE source_item_id = ?", (item_id,))
-            
+
             elif comp["type"] == "withdraw":
                 # Rollback withdraw
                 if comp["had_lang_status"]:
@@ -314,19 +138,19 @@ async def orchestrate_run(
     conn = get_connection(db_path)
     staging_dir = export_dir / ".staging"
     db_compensations = []
-    
+
     try:
         repo = PublishRepository(conn)
-        
+
         # 1. Target Language Existence Validation (Section 7.1)
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='translation_output'")
         if not cursor.fetchone():
             raise RuntimeError("Database tables do not exist yet. Run migrate first.")
-            
+
         cursor.execute("SELECT DISTINCT language_code FROM translation_output WHERE translation_status = 'completed'")
         completed_languages = {row[0] for row in cursor.fetchall()}
-        
+
         emitted_warnings = set()
         for lang in config.target_languages:
             if lang not in completed_languages:
@@ -334,68 +158,24 @@ async def orchestrate_run(
                     logger.warning(f"Target language '{lang}' has zero completed translations in the database.")
                     emitted_warnings.add(lang)
 
-        # 2. Reconciliation Candidate Selection
+        # 2. Reconciliation Candidate Selection & Diff
         candidates = repo.get_reconciliation_candidates()
-        
-        # Group candidates by source_item_id
-        candidates_by_item: Dict[int, Dict[str, sqlite3.Row]] = {}
-        for row in candidates:
-            item_id = row["source_item_id"]
-            if item_id not in candidates_by_item:
-                candidates_by_item[item_id] = {}
-            candidates_by_item[item_id][row["language_code"]] = row
-
-        # Apply coverage policy (strict_match)
-        configured_langs = set(config.target_languages.keys())
-        eligible_source_item_ids = set()
-        
-        for item_id, lang_map in candidates_by_item.items():
-            # For strict match, all configured target languages must be present
-            has_all_languages = True
-            for lang in configured_langs:
-                if lang not in lang_map:
-                    has_all_languages = False
-                    break
-            if has_all_languages:
-                eligible_source_item_ids.add(item_id)
-
-        # Build set of eligible (item_id, language_code) pairs
-        eligible_pairs = set()
-        for item_id in eligible_source_item_ids:
-            for lang in configured_langs:
-                eligible_pairs.add((item_id, lang))
-
-        # Query active publish statuses
         active_statuses = repo.get_active_publish_statuses()
-        currently_published_pairs = {}
-        for row in active_statuses:
-            if row["publish_status"] == 'published':
-                currently_published_pairs[(row["source_item_id"], row["language_code"])] = row
-
-        # Identify items to publish or update
-        items_to_publish_or_update: List[Tuple[int, str, str]] = []  # (source_item_id, language_code, content_fingerprint)
-        for (item_id, lang) in eligible_pairs:
-            candidate_row = candidates_by_item[item_id][lang]
-            fingerprint = candidate_row["content_fingerprint"]
-            
-            pub_row = currently_published_pairs.get((item_id, lang))
-            if not pub_row:
-                items_to_publish_or_update.append((item_id, lang, fingerprint))
-            elif pub_row["source_fingerprint"] != fingerprint:
-                items_to_publish_or_update.append((item_id, lang, fingerprint))
-
-        # Identify items to withdraw
-        items_to_withdraw: List[Tuple[int, str, str, str]] = []  # (source_item_id, language_code, slug, fingerprint)
-        for (item_id, lang), pub_row in currently_published_pairs.items():
-            if (item_id, lang) not in eligible_pairs:
-                items_to_withdraw.append((item_id, lang, pub_row["slug"], pub_row["source_fingerprint"]))
+        reconciliation_diff = compute_reconciliation_diff(
+            candidates,
+            active_statuses,
+            set(config.target_languages.keys()),
+        )
+        candidates_by_item = reconciliation_diff.candidates_by_item
+        items_to_publish_or_update = reconciliation_diff.items_to_publish_or_update
+        items_to_withdraw = reconciliation_diff.items_to_withdraw
 
         # 3. Slug Assignment & DB updates
         existing_slugs = repo.get_all_frozen_slugs()
-        
+
         # We track which items and languages were mutated in this run
         mutated_pairs: Set[Tuple[int, str]] = set()
-        
+
         published_count = 0
         withdrawn_count = 0
 
@@ -409,7 +189,7 @@ async def orchestrate_run(
             if pub_rec:
                 prior_lang_status = repo.get_publish_language_status(pub_rec["publish_record_id"], lang)
             had_lang_status = prior_lang_status is not None
-            
+
             if not pub_rec:
                 title_src = ""
                 lang_map = candidates_by_item[item_id]
@@ -475,7 +255,7 @@ async def orchestrate_run(
             prior_lang_status = None
             if pub_rec:
                 prior_lang_status = repo.get_publish_language_status(pub_rec["publish_record_id"], lang)
-            
+
             db_compensations.append({
                 "type": "withdraw",
                 "source_item_id": item_id,
@@ -528,13 +308,7 @@ async def orchestrate_run(
         # --- B. File Emission Phase into Staging ---
         if rebuild:
             # Re-fetch all published status records from DB to rebuild all eligible files
-            cursor.execute("""
-                SELECT pr.source_item_id, pls.language_code, pr.slug, pls.published_at
-                FROM publish_record pr
-                JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
-                WHERE pls.publish_status = 'published'
-            """)
-            published_rows = cursor.fetchall()
+            published_rows = repo.get_published_item_rows()
         else:
             # Incremental run: only write the new/updated items to staging
             # Reconstruct the fields for newly published/updated items
@@ -551,7 +325,7 @@ async def orchestrate_run(
 
         for row in published_rows:
             item_id, lang, slug, published_at = row["source_item_id"], row["language_code"], row["slug"], row["published_at"]
-            
+
             payload_row = repo.fetch_canonical_item_payload(item_id, lang)
             if not payload_row:
                 raise ValidationError(f"Canonical data missing for published item {item_id} lang {lang}")
@@ -562,7 +336,7 @@ async def orchestrate_run(
             item_file_dir = staging_dir / lang / "items"
             item_file_dir.mkdir(parents=True, exist_ok=True)
             item_file_path = item_file_dir / f"{slug}.json"
-            
+
             with open(item_file_path, "w", encoding="utf-8") as f:
                 json.dump(item_json, f, indent=2, ensure_ascii=False)
             published_count += 1
@@ -570,18 +344,11 @@ async def orchestrate_run(
         # 4. Rebuilding Aggregate Files into Staging
         # Compute affected months
         affected_months_by_lang: Dict[str, Set[str]] = {lang: set() for lang in config.target_languages}
-        
+
         if rebuild:
             # Find all months for active published items in DB
             for lang in config.target_languages:
-                cursor.execute("""
-                    SELECT DISTINCT SUBSTR(s.published_at, 1, 7)
-                    FROM publish_record pr
-                    JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
-                    JOIN source_item s ON s.source_item_id = pr.source_item_id
-                    WHERE pls.language_code = ? AND pls.publish_status = 'published'
-                """, (lang,))
-                affected_months_by_lang[lang] = {r[0] for r in cursor.fetchall() if r[0]}
+                affected_months_by_lang[lang] = {m for m in repo.get_active_archive_months(lang) if m}
         else:
             # Find months for mutated items. Pairs whose language is no
             # longer configured (language-set shrink) have their item
@@ -589,10 +356,9 @@ async def orchestrate_run(
             for item_id, lang in mutated_pairs:
                 if lang not in affected_months_by_lang:
                     continue
-                cursor.execute("SELECT published_at FROM source_item WHERE source_item_id = ?", (item_id,))
-                res = cursor.fetchone()
-                if res and res[0]:
-                    month = res[0][:7]  # YYYY-MM
+                published_at = repo.get_source_item_published_at(item_id)
+                if published_at:
+                    month = published_at[:7]  # YYYY-MM
                     affected_months_by_lang[lang].add(month)
 
         batch_size = config.execution_policy.batch_size
@@ -605,30 +371,10 @@ async def orchestrate_run(
             while len(index_items) < latest_limit:
                 # Query in batches to respect Section 9.3 memory scalability
                 query_limit = min(batch_size, latest_limit - len(index_items))
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT
-                        pr.slug,
-                        t.display_title,
-                        t.summary_short,
-                        s.canonical_url,
-                        s.published_at AS source_published_at,
-                        a.approved_at,
-                        pls.published_at
-                    FROM publish_record pr
-                    JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
-                    JOIN approved_content_record a ON a.source_item_id = pr.source_item_id
-                    JOIN translation_output t ON t.parent_content_id = a.parent_content_id AND t.source_fingerprint = a.content_fingerprint AND t.language_code = pls.language_code
-                    JOIN source_item s ON s.source_item_id = pr.source_item_id
-                    WHERE pls.language_code = ? AND pls.publish_status = 'published'
-                    ORDER BY source_published_at DESC, pr.slug ASC
-                    LIMIT ? OFFSET ?
-                """, (lang, query_limit, offset))
-                
-                rows = cursor.fetchall()
+                rows = repo.fetch_latest_index_batch(lang, query_limit, offset)
                 if not rows:
                     break
-                
+
                 for row in rows:
                     index_items.append({
                         "slug": row["slug"],
@@ -639,7 +385,7 @@ async def orchestrate_run(
                         "approved_at": row["approved_at"],
                         "published_at": row["published_at"]
                     })
-                
+
                 offset += len(rows)
 
             lang_dir = staging_dir / lang
@@ -656,16 +402,7 @@ async def orchestrate_run(
             # (DATA_CONTRACT.md section 2.3). A full rebuild already rewrites
             # every active month, so no healing is needed there.
             if not rebuild:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT DISTINCT SUBSTR(s.published_at, 1, 7)
-                    FROM publish_record pr
-                    JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
-                    JOIN source_item s ON s.source_item_id = pr.source_item_id
-                    WHERE pls.language_code = ? AND pls.publish_status = 'published'
-                """, (lang,))
-                for heal_row in cursor.fetchall():
-                    heal_month = heal_row[0]
+                for heal_month in repo.get_active_archive_months(lang):
                     if not heal_month or heal_month in affected_months_by_lang[lang]:
                         continue
                     if repo.get_archive_metadata(lang, heal_month) is None:
@@ -683,27 +420,7 @@ async def orchestrate_run(
                 archive_items = []
                 offset = 0
                 while True:
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        SELECT
-                            pr.slug,
-                            t.display_title,
-                            t.summary_short,
-                            s.canonical_url,
-                            s.published_at AS source_published_at,
-                            a.approved_at,
-                            pls.published_at
-                        FROM publish_record pr
-                        JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
-                        JOIN approved_content_record a ON a.source_item_id = pr.source_item_id
-                        JOIN translation_output t ON t.parent_content_id = a.parent_content_id AND t.source_fingerprint = a.content_fingerprint AND t.language_code = pls.language_code
-                        JOIN source_item s ON s.source_item_id = pr.source_item_id
-                        WHERE pls.language_code = ? AND pls.publish_status = 'published' AND SUBSTR(s.published_at, 1, 7) = ?
-                        ORDER BY source_published_at DESC, pr.slug ASC
-                        LIMIT ? OFFSET ?
-                    """, (lang, month, batch_size, offset))
-
-                    rows = cursor.fetchall()
+                    rows = repo.fetch_archive_month_batch(lang, month, batch_size, offset)
                     if not rows:
                         break
 
@@ -769,20 +486,7 @@ async def orchestrate_run(
                             repo.delete_archive_metadata(lang, stale_month)
 
             # --- 4.3 Rebuild Archives Manifest ---
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT
-                    SUBSTR(s.published_at, 1, 7) AS archive_month,
-                    COUNT(*) AS item_count
-                FROM publish_record pr
-                JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
-                JOIN source_item s ON s.source_item_id = pr.source_item_id
-                WHERE pls.language_code = ? AND pls.publish_status = 'published'
-                GROUP BY archive_month
-                ORDER BY archive_month DESC;
-            """, (lang,))
-
-            manifest_rows = cursor.fetchall()
+            manifest_rows = repo.get_archive_month_item_counts(lang)
             manifest_json = []
             for row in manifest_rows:
                 m_month = row["archive_month"]
@@ -812,18 +516,15 @@ async def orchestrate_run(
 
         # --- 5. Rebuild Global Stats.json into Staging ---
         stats_json = {}
-        
+
         # 5.1 total_active_published_items_by_language
-        cursor = conn.cursor()
-        cursor.execute("SELECT language_code, COUNT(*) FROM publish_language_status WHERE publish_status = 'published' GROUP BY language_code")
-        stats_json["total_active_published_items_by_language"] = {row[0]: row[1] for row in cursor.fetchall()}
+        stats_json["total_active_published_items_by_language"] = repo.count_publish_language_statuses("published")
         for lang in config.target_languages:
             if lang not in stats_json["total_active_published_items_by_language"]:
                 stats_json["total_active_published_items_by_language"][lang] = 0
 
         # 5.2 total_withdrawn_items_by_language
-        cursor.execute("SELECT language_code, COUNT(*) FROM publish_language_status WHERE publish_status = 'withdrawn' GROUP BY language_code")
-        stats_json["total_withdrawn_items_by_language"] = {row[0]: row[1] for row in cursor.fetchall()}
+        stats_json["total_withdrawn_items_by_language"] = repo.count_publish_language_statuses("withdrawn")
         for lang in config.target_languages:
             if lang not in stats_json["total_withdrawn_items_by_language"]:
                 stats_json["total_withdrawn_items_by_language"][lang] = 0
@@ -839,16 +540,9 @@ async def orchestrate_run(
         # 5.5 oldest_archive_month_by_language
         stats_json["oldest_archive_month_by_language"] = {}
         for lang in config.target_languages:
-            cursor.execute("""
-                SELECT COUNT(DISTINCT SUBSTR(s.published_at, 1, 7)), MIN(SUBSTR(s.published_at, 1, 7))
-                FROM publish_record pr
-                JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
-                JOIN source_item s ON s.source_item_id = pr.source_item_id
-                WHERE pls.language_code = ? AND pls.publish_status = 'published'
-            """, (lang,))
-            res = cursor.fetchone()
-            stats_json["archive_month_count_by_language"][lang] = res[0] if res else 0
-            stats_json["oldest_archive_month_by_language"][lang] = res[1] if (res and res[1]) else None
+            month_count, oldest_month = repo.get_archive_month_stats(lang)
+            stats_json["archive_month_count_by_language"][lang] = month_count
+            stats_json["oldest_archive_month_by_language"][lang] = oldest_month
 
         stats_json["last_export_run_timestamp"] = get_utc_now_iso8601()
 
@@ -862,7 +556,7 @@ async def orchestrate_run(
         if backup_dir.exists():
             shutil.rmtree(backup_dir)
         backup_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Collect staging relative file paths
         staging_files = set()
         for root, dirs, files in os.walk(staging_dir):
@@ -878,7 +572,7 @@ async def orchestrate_run(
             for rel_path in sorted(staging_files):
                 src_path = staging_dir / rel_path
                 dest_path = export_dir / rel_path
-                
+
                 if dest_path.exists():
                     # Backup existing file
                     backup_path = backup_dir / rel_path
@@ -887,7 +581,7 @@ async def orchestrate_run(
                     promoted_actions.append({"type": "replace", "rel_path": rel_path, "had_existing": True})
                 else:
                     promoted_actions.append({"type": "replace", "rel_path": rel_path, "had_existing": False})
-                
+
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(src_path, dest_path)
 
@@ -904,7 +598,7 @@ async def orchestrate_run(
                                 backup_path.parent.mkdir(parents=True, exist_ok=True)
                                 os.replace(p, backup_path)
                                 promoted_actions.append({"type": "delete", "rel_path": rel_p})
-                    
+
                     archives_dir = export_dir / lang / "archives"
                     if archives_dir.exists():
                         for p in archives_dir.glob("*.json"):
@@ -914,7 +608,7 @@ async def orchestrate_run(
                                 backup_path.parent.mkdir(parents=True, exist_ok=True)
                                 os.replace(p, backup_path)
                                 promoted_actions.append({"type": "delete", "rel_path": rel_p})
-                                
+
                     manifest_path = export_dir / lang / "archives" / "index.json"
                     if manifest_path.exists() and (pathlib.Path(lang) / "archives" / "index.json") not in staging_files:
                         rel_p = manifest_path.relative_to(export_dir)
@@ -949,7 +643,7 @@ async def orchestrate_run(
                         backup_path.parent.mkdir(parents=True, exist_ok=True)
                         os.replace(item_file_path, backup_path)
                         promoted_actions.append({"type": "delete", "rel_path": rel_p})
-                    
+
                 # 2. Clean up any monthly archives that are no longer present in staging but were affected
                 for lang in config.target_languages:
                     for month in affected_months_by_lang[lang]:
@@ -961,7 +655,7 @@ async def orchestrate_run(
                                 backup_path.parent.mkdir(parents=True, exist_ok=True)
                                 os.replace(archive_path, backup_path)
                                 promoted_actions.append({"type": "delete", "rel_path": archive_rel_path})
-                    
+
                     # Check archives/index.json (manifest)
                     manifest_rel_path = pathlib.Path(lang) / "archives" / "index.json"
                     if manifest_rel_path not in staging_files:
@@ -1031,7 +725,7 @@ async def orchestrate_run(
                 rel_path = action["rel_path"]
                 dest_path = export_dir / rel_path
                 backup_path = backup_dir / rel_path
-                
+
                 if action["type"] == "replace":
                     if action["had_existing"]:
                         # Restore original from backup
@@ -1046,7 +740,7 @@ async def orchestrate_run(
                     if backup_path.exists():
                         dest_path.parent.mkdir(parents=True, exist_ok=True)
                         os.replace(backup_path, dest_path)
-            
+
             # Clean up backup_dir
             if backup_dir.exists():
                 try:
@@ -1066,7 +760,7 @@ async def orchestrate_run(
         # DB rollback state
         rollback_db_state(conn, db_compensations)
         raise
-        
+
     finally:
         # Always clean up staging directory
         if staging_dir.exists():
@@ -1074,4 +768,9 @@ async def orchestrate_run(
                 shutil.rmtree(staging_dir)
             except Exception:
                 pass
+        # Close the connection this run opened. sqlite3's internal statement
+        # cache forms a reference cycle with the connection, so without an
+        # explicit close the file handle is released only at the whim of the
+        # cyclic GC (on Windows the locked database file then fails test
+        # teardown with PermissionError).
         conn.close()
