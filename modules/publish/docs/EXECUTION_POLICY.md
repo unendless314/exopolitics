@@ -1,7 +1,7 @@
 # Publish Execution Policy
 
-**Document version:** v1.0  
-**Updated:** 2026-06-24  
+**Document version:** v2.4
+**Updated:** 2026-08-19
 **Status:** Active rewrite draft
 
 ---
@@ -27,33 +27,45 @@ The runner must reconcile these sets to produce both new exports and cleanup act
 
 For a normal `run`, the orchestrator should execute in this order:
 
-1. Load publish configuration, including required public languages and coverage policy.
-2. Query the current eligible export set.
-3. Group rows by `source_item_id` and apply the language coverage policy.
-4. Ensure a stable `publish_record.slug` exists for each exportable item.
-5. Upsert `publish_language_status` rows for exportable language artifacts.
-6. Write or overwrite item JSON files.
-7. Detect previously published rows that are no longer exportable.
-8. Remove obsolete item JSON files and mark those language rows as `withdrawn`.
-9. Rebuild `index.json`, `stats.json`, the archives index (`archives/index.json`), and the monthly archive files (`archives/archive_YYYY_MM.json`) that are affected by this run (see Section 6 for incremental vs. full rebuild rules) from the final active published set.
+1. Acquire the single-writer process lock (see Section 4) and take the run's single logical timestamp; every timestamp written by the run uses this value.
+2. Load publish configuration, including required public languages and coverage policy.
+3. Query the current eligible export set.
+4. Group rows by `source_item_id` and apply the language coverage policy.
+5. Ensure a stable `publish_record.slug` exists for each exportable item.
+6. Upsert `publish_language_status` rows for exportable language artifacts in short transactions.
+7. Detect previously published rows that are no longer exportable and mark those language rows as `withdrawn` in short transactions.
+8. Delete `publish_archive_metadata` rows of languages no longer configured (unconditional, during reconciliation).
+9. Open one held database snapshot transaction (`BEGIN IMMEDIATE`, reserving the writer slot for the whole phase) and, inside it, build the deterministic generation plan from the post-sync database state and compare its `content_fingerprint` against `current.json` (see Section 6 for the build trigger rules). The snapshot covers the whole generation phase — plan build, fingerprint pass, migration verification and write pass — so every artifact in a generation comes from exactly one database state.
+10. If a build is triggered: build the complete new generation in staging and move it into `generations/`, sync `publish_archive_metadata` to the plan (the writes join the snapshot transaction, which commits before the pointer switch), atomically switch `current.json` (the commit point), then sweep retired generations.
+11. If no build is triggered: atomically refresh the pointer's `last_successful_run_at` only.
 
-This sequencing ensures aggregate files are built from the post-sync state rather than a stale intermediate snapshot.
+This sequencing ensures aggregate files are built from the post-sync state rather than a stale intermediate snapshot, and that the pointer always records the fingerprint of the state it points at.
 
 ---
 
-## 4. Database Transactions And File Writes
+## 4. Database Transactions, File Writes, And Failure Model
 
-- Long file-system work must not hold open SQLite write transactions.
+- Long file-system work must not hold open SQLite write transactions. The one deliberate exception is the generation-phase read snapshot below: it holds a read (shared) lock, never a write lock, while files are written.
 - Network calls are not expected in this module under the current design.
-- Short transactions should wrap only the row mutations needed for slug creation and publish status updates.
-- If an item file write fails after a publish row was updated, the runner should surface the error and avoid finalizing aggregate files from a partially successful in-memory state.
+- Short transactions wrap only the row mutations needed for slug creation and publish status updates; the `publish_archive_metadata` sync after a completed generation build joins the held snapshot transaction and commits before the pointer switch.
+- The generation phase (pointer read, plan build, fingerprint pass, migration verification, write pass) runs inside one explicit SQLite transaction, so every artifact in a generation reflects exactly one database snapshot. The transaction is opened with `BEGIN IMMEDIATE` to reserve the writer slot up front: a concurrent upstream writer (curate/translate) fails at its own `BEGIN IMMEDIATE` with `SQLITE_BUSY`, instead of starting writes that would interleave into the snapshot or doom the metadata commit's shared-to-writer lock upgrade. Readers are unaffected (shared locks remain compatible), and the pipeline runs modules sequentially, so this never contends in normal operation.
+- The whole run is serialized through a single-writer process lock at `publish_runner.lock` in the database file's directory (curate/translate precedent): non-blocking acquire, `RuntimeError` on contention. Release unlocks and closes the handle but deliberately leaves the lock file in place — deleting the path after unlocking would allow an inode-reuse race where two processes hold locks on different inodes of the same path. A stale lock file is harmless: the lock state lives on the inode, not the path.
+
+Failure model (fail-stop):
+
+- The pointer switch is the single commit point of a run. Readers see either the complete old generation or the complete new one, never partial output.
+- A failure at any stage stops the run and leaves the live pointer untouched. There is no database compensation and no file-system rollback: the pre-generation `rollback_db_state`, per-file `.backup` copies, and per-file promotion machinery are deleted.
+- After a failure the database may run ahead of the live generation (for example, publish rows committed, or archive metadata synced, before a build or pointer-switch failure). The next successful run converges by state comparison: its plan fingerprint differs from the pointer's, so it builds and switches.
+- A corrupt `current.json`, or a missing or corrupt `meta.json` on the live generation, is a manual-intervention state: the run fails stop instead of silently rebuilding.
+- Retention runs only after a successful pointer switch and never fails an otherwise successful run (see Section 6.3).
 
 Recommended safety model:
 
 1. Compute export decisions using lightweight metadata only, in memory or in bounded batches.
 2. Perform short database upserts for the affected item or language row.
-3. Write the concrete file artifact.
-4. If a write fails, stop the run, report the failure, and avoid silently marking success for aggregate outputs.
+3. Build the deterministic generation plan from the committed snapshot and compare fingerprints.
+4. Build the complete generation in staging; only then sync archive metadata and switch the pointer.
+5. If any step fails, stop the run, report the failure, and rely on the next successful run to converge.
 
 ---
 
@@ -67,7 +79,7 @@ Expected properties:
 - no duplicate `publish_language_status` rows
 - no slug regeneration for already-published items
 - no reappearance of withdrawn items in indexes
-- optional avoidance of rewriting unchanged files when content bytes are identical
+- a run against unchanged upstream state builds no new generation: every artifact of the live generation stays byte-identical (including `stats.json`, whose `last_export_run_timestamp` is frozen at the generation's build time), and only the pointer's `last_successful_run_at` advances
 
 Idempotency matters more than micro-optimizing file writes in the current phase.
 
@@ -75,28 +87,40 @@ Idempotency matters more than micro-optimizing file writes in the current phase.
 
 ## 6. Rebuild Policy
 
-The `rebuild` command must treat `data/publish_export/` as disposable output.
+Both `run` and `rebuild` treat `data/publish_export/` as disposable output that is always rebuildable from canonical database state.
 
-### 6.1 Rebuild vs. Incremental Run Granularity
+### 6.1 Build Trigger And Generation Granularity
 - **Incremental Run (`run` command)**:
-  - Latest Index: The runner always rebuilds `index.json` (containing the latest $N$ items).
-  - Monthly Archives: To avoid unnecessary disk I/O, the runner must compute the calendar months affected by items newly published, updated, or withdrawn in the current execution run. It must only overwrite or create those specific `archive_YYYY_MM.json` files. Other historical month archives must not be read or written. The single exception is the one-time self-heal of active months whose `publish_archive_metadata` row is missing (databases created before that table existed): those archives are rewritten once so the metadata records a real file write (see DATA_CONTRACT.md Section 2.3).
-  - Manifest & Stats: The archives manifest `archives/index.json` and `stats.json` must be regenerated to reflect correct totals and timestamps. To strictly respect the policy that unaffected historical archive files are not read during incremental runs, the runner must derive all manifest and statistics counts by performing SQL aggregation queries directly over the SQLite canonical tables (`publish_record` and `publish_language_status`). It must not load, parse, or scan historical monthly archive files from disk to compute these metrics.
+  - After reconciliation commits the database state, the runner builds a deterministic generation plan from the post-sync snapshot and compares its `content_fingerprint` against `current.json`. A new generation is built only when the fingerprint differs, when no pointer exists (bootstrap — the first successful run always builds a complete, possibly empty, generation), or when a flat-tree migration verification failed (see Section 6.4).
+  - A no-change run builds nothing and only refreshes the pointer's `last_successful_run_at` atomically.
+  - When a build does happen it is always a complete generation — every item JSON, the latest `index.json`, the archives manifest (`archives/index.json`, always written, empty as `[]`), all monthly archive files, `stats.json`, and `meta.json` — built from the full active published set. There is no affected-months-only file emission.
+  - Manifest and statistics counts must still be derived from SQL aggregation queries directly over the SQLite canonical tables (`publish_record` and `publish_language_status`); the runner must not load, parse, or scan historical monthly archive files from disk to compute these metrics. Archive `updated_at` stamping consults the live generation's `meta.json` hashes, falling back to a byte-compare against the fallback root, without scanning the whole tree (see DATA_CONTRACT.md Section 2.3).
 - **Full Rebuild (`rebuild` command)**:
-  - The runner must clear or recreate the export directory.
+  - `rebuild` always builds a complete new generation, regardless of the fingerprint comparison, and switches the pointer to it. Old generations are reclaimed by retention (see Section 6.3), not by clearing the export directory.
   - It must reload canonical publish eligibility from the database.
   - It must reuse existing frozen slugs from `publish_record`.
-  - It must regenerate all item files, the latest index, the archive manifest, and **all** historical monthly archive files from scratch.
   - It must keep withdrawn items absent from all rebuilt outputs.
   - The rebuild command must not fabricate new slugs for source items that already have `publish_record` rows.
-  - Because every active archive file is rewritten, every `publish_archive_metadata` row is refreshed with the rebuild run's logical clock, and rows for months with no active items are removed.
+  - Every active month's archive metadata is restamped with the rebuild run's logical clock, and rows for months with no active items are removed. The pointer records the fingerprint of the restamped plan, so the next no-change `run` does not build again.
 
 ### 6.2 Configured Language-Set Changes
 
 Changing `target_languages` is not a display-only setting: the next `run` or `rebuild` reconciles public artifacts against the new configured set under the active coverage policy.
 
-- Shrinking the language set withdraws the `publish_language_status` rows of the removed languages and removes **all** of their public artifacts from the export tree — item JSON files, the latest `index.json`, monthly archive files and the archives manifest — together with their `publish_archive_metadata` rows; artifacts, archive metadata and publish timestamps of the remaining languages are left unchanged. A top-level directory outside the configured set is reconciled this way only when its name still has publish-owned state (`publish_language_status` rows, which persist as withdrawn). Directory names and generic subdirectory shapes are **not** ownership evidence: directories without publish state are never touched, so artifacts left behind after a canonical database reset must be cleared by wiping the derived export tree before the next run rather than by heuristic sweeps. The cleanup never follows symlinks or junctions: a removed-language directory, or either of its publish artifact subdirectories, that links outside the export tree is skipped with a warning so the link target's files are never moved or deleted; such directories must be reconciled manually.
+- Shrinking the language set withdraws the `publish_language_status` rows of the removed languages and deletes their `publish_archive_metadata` rows unconditionally during reconciliation; the next generation simply contains no artifacts for the removed languages — no item JSON files, no latest `index.json`, no monthly archive files, no archives manifest — and the pointer's `languages` list shrinks with it. Artifacts, archive metadata and publish timestamps of the remaining languages are left unchanged. Directory names and generic subdirectory shapes are **not** ownership evidence: a leftover language-named directory at the export root is inert — runs never clean it or let it leak into a generation — so artifacts left behind after a canonical database reset must be cleared by wiping the derived export tree before the next run rather than by heuristic sweeps. Symlink/junction safety applies to retention's deletion of old generations (see Section 6.3).
 - Expanding the language set applies `strict_match` against the enlarged set: items lacking a completed current-fingerprint translation for a newly required language are withdrawn in all languages until coverage is complete; items already fully translated gain the new language's artifact while their existing languages remain published with unchanged timestamps.
+
+### 6.3 Generation Retention
+
+`generations/` keeps the newest 5 generation directories and always protects the generation the live pointer references, even in pathological orderings. "Newest" is chronological: the timestamp portion sorts lexicographically (ISO zero-padding is chronological) and the same-second `-rN` collision suffix sorts numerically — a plain string sort would order `-r10` before `-r2`. Symmetrically, same-second suffixes are allocated after the highest surviving suffix, never refilling gaps left by retention, so a fresh build's id always sorts newest and a later sweep cannot mistake it for an old one. Retention runs only after a successful pointer switch. A generation that is, or contains, a symlink or junction is skipped with a warning (deletion never follows links), and deletion failures (for example files held open by a reader) are warn-only and retried on a future run — retention never fails an otherwise successful run.
+
+### 6.4 Bootstrap And One-Time Flat-Layout Migration
+
+- **Bootstrap**: when no pointer exists, the first successful run always builds a complete, possibly empty, generation and establishes the pointer (see DATA_CONTRACT.md Section 6 for the empty-generation layout).
+- **One-time migration**: when the pointer is missing but a pre-pointer flat export tree exists (recognized by a root `stats.json`), the runner verifies the flat tree byte-exactly against the deterministic plan built from the post-reconciliation database state: every planned artifact must exist with identical bytes (`stats.json` is compared as parsed dicts without `last_export_run_timestamp`), and the flat `*.json` set under the configured language directories must equal the plan's artifact set. An invalid or absent flat `last_export_run_timestamp` counts as verification failure.
+  - On a full match, the configured language directories and `stats.json` move into `generations/<id>`, where the id derives from the flat stats' `last_export_run_timestamp`; `meta.json` hashes are computed from the actual moved bytes, and the pointer is written with `export_completed_at` set to the flat stats timestamp and `last_successful_run_at` set to the run's logical clock.
+  - On any mismatch, the runner warns and builds the first complete generation from the database plan instead, leaving the untrusted flat tree in place.
+  - Only publish-owned artifacts move; non-configured top-level directories (for example a residual language directory or `assets/`) always stay at the export root untouched.
 
 ---
 
@@ -160,7 +184,9 @@ To support high volume data growth (e.g. 100k+ source items) while reducing the 
 ### 9.2 Chunked/Streaming File Emission
 - When writing item JSON files to disk (especially during a full `rebuild` command), the runner **must not** load the entire dataset of item payloads into memory at once.
 - The runner must process records in chunks (e.g., using paginated SQL queries or SQLite cursors with `fetchmany(1000)`). The memory footprint during file emission must be bounded by the chunk size and aggregate writer buffers, and must not scale linearly with the total number of published items.
+- The same chunked streaming applies to the export-state fingerprint pass that precedes every build decision: planned artifacts are read and hashed in bounded batches without being written to disk, so state comparison does not change these bounds.
 
 ### 9.3 Lightweight Index Compilation
 - `summary_short` is a short upstream field read directly from `translation_output.summary_short`; no summary is extracted or derived from a larger body field, and no body-derived fallback exists. Aggregate compilation for `index.json` and monthly `archive_YYYY_MM.json` files therefore reads only lightweight fields, and must still process rows in bounded batches (e.g. chunked SQLite queries) rather than loading the full result set at once.
 - The primary language index (`index.json`) must remain lightweight by containing only metadata and short summaries. To avoid browser performance degradation when the total dataset size grows extremely large, the system adopts a dual-track indexing strategy (Latest N items `index.json` + Monthly Archive `archive_YYYY_MM.json`). This replaces quantity-based index sharding or pagination. Memory footprint during aggregate index/archive compilation must be bounded by batch size and must not scale linearly with total records.
+

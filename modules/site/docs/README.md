@@ -1,7 +1,7 @@
 # Site Module
 
-**Document version:** v1.0  
-**Updated:** 2026-06-25  
+**Document version:** v1.1
+**Updated:** 2026-08-18
 **Status:** Active draft
 
 ---
@@ -12,7 +12,7 @@
 
 `ingest -> classify -> curate -> edit (when needed) -> translate -> publish -> site`
 
-The module reads static, pre-compiled JSON files written by the `publish` module and compiles them into a static web application using Astro.
+The module reads static, pre-compiled JSON files written by the `publish` module — the live versioned generation under `data/publish_export/generations/`, selected through the atomic `current.json` pointer — and compiles them into a static web application using Astro.
 
 In the current architecture:
 - `site` does not read from canonical operational database tables directly.
@@ -24,7 +24,7 @@ In the current architecture:
 
 ## 2. Key Responsibilities
 
-1. Read static JSON export catalogs, item entries, archives, and statistics from `data/publish_export/`.
+1. Read static JSON export catalogs, item entries, archives, and statistics from the live generation under `data/publish_export/` (resolved through the `current.json` pointer).
 2. Manage internationalization (i18n) routing patterns using Astro's native routing features (referencing designs in `references/astro-i18n-starter/` and `references/astro-paper-i18n/`).
 3. Render a highly optimized, responsive timeline UI (based on the `astro-sienna` design in `references/astro-sienna/`) to present articles chronologically.
 4. Calculate and display estimated reading time for mixed English and CJK text.
@@ -36,8 +36,8 @@ In the current architecture:
 
 ## 2.1 Local Development Modes
 
-- `npm run dev` / `npm run build` read the default production export root (`data/publish_export/`) and **hard-fail** when any expected export file is missing or invalid — bad data is never rendered as empty pages or guessed content.
-- `npm run dev:fixture` starts the dev server against the committed minimal fixture at `tests/fixtures/publish_export/` for UI work without a production export. The fixture passes the same validation as production data and is never an implicit input to production builds.
+- `npm run dev` / `npm run build` read the default production export root (`data/publish_export/`), resolve the live generation through its `current.json` pointer, and **hard-fail** when the pointer is missing/invalid or any expected export file within the generation is missing or invalid — bad data is never rendered as empty pages or guessed content.
+- `npm run dev:fixture` starts the dev server against the committed minimal fixture at `tests/fixtures/publish_export/` — in the publish generation layout (`current.json` plus `generations/2026-07-22T03-00-00Z/`) — for UI work without a production export. The fixture passes the same validation as production data and is never an implicit input to production builds.
 - Details: [BUILD_AND_ROUTING_POLICY.md](./BUILD_AND_ROUTING_POLICY.md) section 4.
 
 ---

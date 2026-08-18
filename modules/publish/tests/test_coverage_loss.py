@@ -4,9 +4,11 @@ Strict-match coverage-loss tests for already-published items (plan section
 
 If any configured language loses its completed current-fingerprint
 translation after publication, every public language artifact of the item
-must be withdrawn, and restoring coverage must republish under the same
-frozen slug. Configured language-set shrink/expand changes reconcile on the
-next run (EXECUTION_POLICY.md section 6.2).
+must be withdrawn from the live generation, and restoring coverage must
+republish under the same frozen slug. Configured language-set shrink/expand
+changes reconcile on the next run (EXECUTION_POLICY.md section 6.2): the new
+live generation simply omits the removed language, and retired generations
+are reclaimed by retention — never by following symlinks or junctions.
 """
 
 import pathlib
@@ -53,9 +55,10 @@ class TestCoverageLossWithdrawal(unittest.TestCase):
         return repo.get_publish_language_status(publish_record_id, lang)
 
     def assert_fully_withdrawn(self, slug: str, published_at_by_lang: dict) -> None:
+        live = support.live_root(self.export_dir)
         for lang in ("zh", "en", "ja"):
             with self.subTest(language=lang):
-                item_file = self.export_dir / lang / "items" / f"{slug}.json"
+                item_file = live / lang / "items" / f"{slug}.json"
                 self.assertFalse(item_file.exists(), f"{item_file} must be removed")
 
                 index = support.read_index(self.export_dir, lang)
@@ -73,14 +76,13 @@ class TestCoverageLossWithdrawal(unittest.TestCase):
                 self.assertEqual(published_at_by_lang[lang], status["published_at"])
         conn.close()
 
-        # The only archive month became empty: the file, the manifest entry
-        # and the manifest itself must be gone.
+        # The only archive month became empty: the archive file is gone and
+        # the manifest is now an empty list (the manifest file itself is
+        # always written, Phase B1 contract).
         for lang in ("zh", "en", "ja"):
             with self.subTest(language=lang):
-                archive_path = self.export_dir / lang / "archives" / "archive_2026_06.json"
-                self.assertFalse(archive_path.exists())
-                manifest_path = self.export_dir / lang / "archives" / "index.json"
-                self.assertFalse(manifest_path.exists())
+                self.assertFalse((live / lang / "archives" / "archive_2026_06.json").exists())
+                self.assertEqual([], support.read_manifest(self.export_dir, lang))
 
         stats = support.read_stats(self.export_dir)
         for lang in ("zh", "en", "ja"):
@@ -159,13 +161,14 @@ class TestCoverageLossWithdrawal(unittest.TestCase):
         repo = PublishRepository(conn)
         pub_rec = repo.get_publish_record_by_source_item_id(1)
         self.assertEqual(slug, pub_rec["slug"])
+        live = support.live_root(self.export_dir)
         for lang in ("zh", "en", "ja"):
             with self.subTest(language=lang):
                 status = self.get_status(repo, pub_rec["publish_record_id"], lang)
                 self.assertEqual("published", status["publish_status"])
                 # withdrawn_at is retained as audit history after republication.
                 self.assertIsNotNone(status["withdrawn_at"])
-                self.assertTrue((self.export_dir / lang / "items" / f"{slug}.json").exists())
+                self.assertTrue((live / lang / "items" / f"{slug}.json").exists())
         conn.close()
 
     def test_withdrawal_after_language_fails(self) -> None:
@@ -207,8 +210,9 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
         self.assertEqual(summary["published_count"], 3)
 
         slug = "en-shrink-item"
-        zh_bytes_before = (self.export_dir / "zh" / "items" / f"{slug}.json").read_bytes()
-        en_bytes_before = (self.export_dir / "en" / "items" / f"{slug}.json").read_bytes()
+        live = support.live_root(self.export_dir)
+        zh_bytes_before = (live / "zh" / "items" / f"{slug}.json").read_bytes()
+        en_bytes_before = (live / "en" / "items" / f"{slug}.json").read_bytes()
 
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
@@ -233,9 +237,10 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
         self.assertEqual(summary2["published_count"], 0)
         self.assertEqual(summary2["withdrawn_count"], 1)
 
-        self.assertFalse((self.export_dir / "ja" / "items" / f"{slug}.json").exists())
-        self.assertEqual(zh_bytes_before, (self.export_dir / "zh" / "items" / f"{slug}.json").read_bytes())
-        self.assertEqual(en_bytes_before, (self.export_dir / "en" / "items" / f"{slug}.json").read_bytes())
+        live = support.live_root(self.export_dir)
+        self.assertFalse((live / "ja").exists())
+        self.assertEqual(zh_bytes_before, (live / "zh" / "items" / f"{slug}.json").read_bytes())
+        self.assertEqual(en_bytes_before, (live / "en" / "items" / f"{slug}.json").read_bytes())
 
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
@@ -272,19 +277,16 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
                 self.assertEqual(meta_before[(lang, "2026-06")], meta_after[(lang, "2026-06")])
 
     def assert_removed_language_artifacts_gone(self, removed_lang: str) -> None:
-        """A shrunk-away language must not keep serving public artifacts:
-        item files, the latest index, monthly archives and the archives
-        manifest are all removed, and its publish_archive_metadata rows are
-        deleted along with them.
+        """A shrunk-away language must not keep serving public artifacts: the
+        live generation contains no directory for it, the pointer's language
+        list excludes it, and its publish_archive_metadata rows are deleted.
         """
-        for rel_path in (
-            f"{removed_lang}/index.json",
-            f"{removed_lang}/archives/index.json",
-            f"{removed_lang}/archives/archive_2026_06.json",
-            f"{removed_lang}/items/en-shrink-item.json",
-        ):
-            with self.subTest(removed_artifact=rel_path):
-                self.assertFalse((self.export_dir / rel_path).exists())
+        live = support.live_root(self.export_dir)
+        self.assertFalse(
+            (live / removed_lang).exists(),
+            f"live generation must not contain '{removed_lang}'",
+        )
+        self.assertNotIn(removed_lang, support.read_pointer(self.export_dir)["languages"])
 
         conn = get_connection(self.db_path)
         stale_rows = conn.execute(
@@ -347,62 +349,11 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
             with self.subTest(preserved_file=rel_path):
                 self.assertTrue((self.export_dir / rel_path).exists())
 
-    def test_removed_language_junction_is_not_followed(self) -> None:
-        # A removed-language directory that is a junction/symlink to a
-        # location outside the export tree must be skipped with a warning:
-        # following it would move the link target's files into .backup.
-        import os
-        import subprocess
-
-        support.seed_item(
-            self.db_path, 1, "Shrink Item", "2026-06-15T12:00:00Z",
-            translations={"zh": {}, "en": {}, "ja": {}},
-        )
-        support.run_publish(self.make_config(THREE_LANGUAGES), self.db_path, self.export_dir)
-
-        # Replace export_dir/ja with a link to a target outside the export tree.
-        link_path = self.export_dir / "ja"
-        target_path = pathlib.Path(self.temp_dir.name) / "ja_target"
-        os.rename(link_path, target_path)
-        try:
-            if os.name == "nt":
-                subprocess.run(
-                    ["cmd", "/c", "mklink", "/J", str(link_path), str(target_path)],
-                    check=True, capture_output=True,
-                )
-            else:
-                os.symlink(target_path, link_path, target_is_directory=True)
-        except (OSError, subprocess.CalledProcessError) as exc:
-            self.skipTest(f"cannot create directory link on this platform: {exc}")
-
-        target_files = {p.relative_to(target_path): p.read_bytes() for p in sorted(target_path.rglob("*.json"))}
-        self.assertEqual(4, len(target_files))
-
-        with self.assertLogs("publish.orchestrator", level="WARNING") as logged:
-            support.run_publish(self.make_config(TWO_LANGUAGES), self.db_path, self.export_dir)
-        self.assertTrue(any("ja" in message and ("junction" in message.lower() or "symlink" in message.lower()) for message in logged.output))
-
-        # The link target is untouched and nothing was moved into .backup.
-        for rel_path, content in target_files.items():
-            with self.subTest(target_file=str(rel_path)):
-                self.assertEqual(content, (target_path / rel_path).read_bytes())
-        self.assertTrue(link_path.exists())
-        self.assertFalse((self.export_dir / ".backup").exists())
-
-        # The database side still reconciles: ja is withdrawn and its
-        # archive metadata rows are gone; only the filesystem sweep skips
-        # the linked directory.
-        conn = get_connection(self.db_path)
-        repo = PublishRepository(conn)
-        pub_rec = repo.get_publish_record_by_source_item_id(1)
-        self.assertEqual("withdrawn", repo.get_publish_language_status(pub_rec["publish_record_id"], "ja")["publish_status"])
-        self.assertEqual([], repo.get_archive_metadata_for_language("ja"))
-        conn.close()
-
     def test_shrink_allows_missing_removed_language_directory(self) -> None:
-        """An operator may remove an obsolete export directory before the
-        configured language set shrinks. The database reconciliation must
-        still complete instead of failing while checking that absent path.
+        """An operator may remove an obsolete language directory from the live
+        generation before the configured language set shrinks. The database
+        reconciliation must still complete instead of failing while checking
+        that absent path.
         """
         import shutil
 
@@ -411,7 +362,7 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
             translations={"zh": {}, "en": {}, "ja": {}},
         )
         support.run_publish(self.make_config(THREE_LANGUAGES), self.db_path, self.export_dir)
-        shutil.rmtree(self.export_dir / "ja")
+        shutil.rmtree(support.live_root(self.export_dir) / "ja")
 
         summary = support.run_publish(self.make_config(TWO_LANGUAGES), self.db_path, self.export_dir)
         self.assertEqual(1, summary["withdrawn_count"])
@@ -420,53 +371,6 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
         repo = PublishRepository(conn)
         pub_rec = repo.get_publish_record_by_source_item_id(1)
         self.assertEqual("withdrawn", repo.get_publish_language_status(pub_rec["publish_record_id"], "ja")["publish_status"])
-        conn.close()
-
-    def test_removed_language_nested_junction_is_not_followed(self) -> None:
-        """A regular removed-language directory can still contain a linked
-        items directory. Neither the withdrawn-item cleanup nor the later
-        sweep may traverse it to delete files outside the export tree.
-        """
-        import os
-        import subprocess
-
-        support.seed_item(
-            self.db_path, 1, "Shrink Item", "2026-06-15T12:00:00Z",
-            translations={"zh": {}, "en": {}, "ja": {}},
-        )
-        support.run_publish(self.make_config(THREE_LANGUAGES), self.db_path, self.export_dir)
-
-        items_link = self.export_dir / "ja" / "items"
-        target_path = pathlib.Path(self.temp_dir.name) / "ja_items_target"
-        os.rename(items_link, target_path)
-        try:
-            if os.name == "nt":
-                subprocess.run(
-                    ["cmd", "/c", "mklink", "/J", str(items_link), str(target_path)],
-                    check=True, capture_output=True,
-                )
-            else:
-                os.symlink(target_path, items_link, target_is_directory=True)
-        except (OSError, subprocess.CalledProcessError) as exc:
-            self.skipTest(f"cannot create directory link on this platform: {exc}")
-
-        target_files = {
-            p.relative_to(target_path): p.read_bytes()
-            for p in sorted(target_path.rglob("*.json"))
-        }
-        with self.assertLogs("publish.orchestrator", level="WARNING") as logged:
-            support.run_publish(self.make_config(TWO_LANGUAGES), self.db_path, self.export_dir)
-
-        self.assertTrue(any("items subdirectory" in message for message in logged.output))
-        for rel_path, content in target_files.items():
-            with self.subTest(target_file=str(rel_path)):
-                self.assertEqual(content, (target_path / rel_path).read_bytes())
-
-        conn = get_connection(self.db_path)
-        repo = PublishRepository(conn)
-        pub_rec = repo.get_publish_record_by_source_item_id(1)
-        self.assertEqual("withdrawn", repo.get_publish_language_status(pub_rec["publish_record_id"], "ja")["publish_status"])
-        self.assertEqual([], repo.get_archive_metadata_for_language("ja"))
         conn.close()
 
     def test_unrelated_directory_is_left_alone(self) -> None:
@@ -484,11 +388,12 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
             with self.subTest(preserved_file=rel_path):
                 self.assertTrue((self.export_dir / rel_path).exists())
 
-    def test_removed_language_lone_index_cleaned_via_publish_state(self) -> None:
-        # After a shrink, publish_language_status rows are the durable
-        # evidence that a directory belongs to a removed language: a lone
-        # leftover index.json (no items/ or archives/ subdirectories) is
-        # still reconciled away on the next run.
+    def test_leftover_language_directory_at_export_root_is_inert(self) -> None:
+        # A leftover language-named directory at the export root (outside
+        # generations/) is inert: runs neither clean it nor let it leak into
+        # the live generation. Root directory names are not ownership
+        # evidence (EXECUTION_POLICY.md 6.2); retired generations are
+        # reclaimed by retention, not by heuristic sweeps.
         support.seed_item(
             self.db_path, 1, "Shrink Item", "2026-06-15T12:00:00Z",
             translations={"zh": {}, "en": {}, "ja": {}},
@@ -496,17 +401,23 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
         support.run_publish(self.make_config(THREE_LANGUAGES), self.db_path, self.export_dir)
         support.run_publish(self.make_config(TWO_LANGUAGES), self.db_path, self.export_dir)
 
-        # Simulate a partially cleaned tree: only ja/index.json came back.
-        (self.export_dir / "ja" / "index.json").write_text("[]", encoding="utf-8")
+        self.assertFalse((support.live_root(self.export_dir) / "ja").exists())
+
+        # The stray directory reappears at the export root (operator litter).
+        stray = self.export_dir / "ja"
+        stray.mkdir()
+        (stray / "index.json").write_text("[]", encoding="utf-8")
 
         support.run_publish(self.make_config(TWO_LANGUAGES), self.db_path, self.export_dir)
-        self.assertFalse((self.export_dir / "ja" / "index.json").exists())
+        self.assertTrue((self.export_dir / "ja" / "index.json").exists())
+        self.assertFalse((support.live_root(self.export_dir) / "ja").exists())
+        self.assertNotIn("ja", support.read_pointer(self.export_dir)["languages"])
 
-    def test_shrink_rolls_back_on_promotion_failure(self) -> None:
-        """A promotion failure mid-shrink must restore the removed
-        language's files and its publish_archive_metadata rows, and roll the
-        ja publish status back to published."""
-        import os
+    def test_shrink_converges_after_build_failure(self) -> None:
+        """A generation-build failure mid-shrink leaves the DB ahead (ja
+        withdrawn, its archive metadata deleted) while the pre-shrink
+        generation stays live byte-identically; the next successful run
+        converges and the new live generation has no ja artifacts."""
         from unittest.mock import patch
 
         support.seed_item(
@@ -515,55 +426,44 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
         )
         support.run_publish(self.make_config(THREE_LANGUAGES), self.db_path, self.export_dir)
 
-        slug = "en-shrink-item"
+        live = support.live_root(self.export_dir)
         ja_bytes_before = {
-            p.relative_to(self.export_dir): p.read_bytes()
-            for p in sorted((self.export_dir / "ja").rglob("*.json"))
+            p.relative_to(live): p.read_bytes()
+            for p in sorted((live / "ja").rglob("*.json"))
         }
-        zh_index_before = (self.export_dir / "zh" / "index.json").read_bytes()
+        zh_index_before = (live / "zh" / "index.json").read_bytes()
         self.assertEqual(4, len(ja_bytes_before))
+        pointer_before = support.read_pointer(self.export_dir)
 
-        conn = get_connection(self.db_path)
-        meta_before = conn.execute(
-            "SELECT language_code, archive_month, updated_at, created_at FROM publish_archive_metadata ORDER BY language_code, archive_month"
-        ).fetchall()
-        conn.close()
-
-        # Fail on the second removal of a ja artifact, so the first removal
-        # (the withdrawn item file) must be undone by the rollback.
-        orig_replace = os.replace
-        backup_dir = self.export_dir / ".backup"
-        removal_count = {"n": 0}
-
-        def fail_on_second_ja_removal(src, dst):
-            dst_path = pathlib.Path(dst)
-            if dst_path.is_relative_to(backup_dir) and "ja" in dst_path.relative_to(backup_dir).parts:
-                removal_count["n"] += 1
-                if removal_count["n"] == 2:
-                    raise OSError("Simulated shrink cleanup failure")
-            return orig_replace(src, dst)
-
-        with patch("os.replace", side_effect=fail_on_second_ja_removal):
+        with patch(
+            "modules.publish.src.generation_store.write_generation_to_staging",
+            side_effect=OSError("Simulated shrink build failure"),
+        ):
             with self.assertRaises(OSError):
                 support.run_publish(self.make_config(TWO_LANGUAGES), self.db_path, self.export_dir)
 
-        # Every ja artifact is back with its original bytes, and the zh
-        # aggregate replaced during the failed run is restored too.
-        for rel_path, content in ja_bytes_before.items():
-            with self.subTest(restored_artifact=str(rel_path)):
-                self.assertEqual(content, (self.export_dir / rel_path).read_bytes())
-        self.assertEqual(zh_index_before, (self.export_dir / "zh" / "index.json").read_bytes())
-
+        # The DB is ahead and NOT rolled back: ja is withdrawn and its
+        # metadata rows are gone.
         conn = get_connection(self.db_path)
-        meta_after = conn.execute(
-            "SELECT language_code, archive_month, updated_at, created_at FROM publish_archive_metadata ORDER BY language_code, archive_month"
-        ).fetchall()
-        self.assertEqual(meta_before, meta_after)
         repo = PublishRepository(conn)
         pub_rec = repo.get_publish_record_by_source_item_id(1)
         ja_status = repo.get_publish_language_status(pub_rec["publish_record_id"], "ja")
-        self.assertEqual("published", ja_status["publish_status"])
+        self.assertEqual("withdrawn", ja_status["publish_status"])
+        self.assertEqual([], repo.get_archive_metadata_for_language("ja"))
         conn.close()
+
+        # The pre-shrink generation is still live, byte-identical.
+        self.assertEqual(pointer_before, support.read_pointer(self.export_dir))
+        live_after = support.live_root(self.export_dir)
+        for rel_path, content in ja_bytes_before.items():
+            with self.subTest(live_artifact=str(rel_path)):
+                self.assertEqual(content, (live_after / rel_path).read_bytes())
+        self.assertEqual(zh_index_before, (live_after / "zh" / "index.json").read_bytes())
+
+        # The next successful run converges: no ja anywhere in the new live
+        # generation.
+        support.run_publish(self.make_config(TWO_LANGUAGES), self.db_path, self.export_dir)
+        self.assert_removed_language_artifacts_gone("ja")
 
     def test_expand_with_incomplete_new_language_withdraws_item(self) -> None:
         # Start fully published under zh/en, with no ja translation at all.
@@ -577,8 +477,9 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
         self.assertEqual(summary2["withdrawn_count"], 2)
 
         slug = "en-expand-item"
-        self.assertFalse((self.export_dir / "zh" / "items" / f"{slug}.json").exists())
-        self.assertFalse((self.export_dir / "en" / "items" / f"{slug}.json").exists())
+        live = support.live_root(self.export_dir)
+        self.assertFalse((live / "zh" / "items" / f"{slug}.json").exists())
+        self.assertFalse((live / "en" / "items" / f"{slug}.json").exists())
 
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
@@ -595,7 +496,7 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
         self.assertEqual(summary["published_count"], 2)
 
         slug = "en-expand-item"
-        zh_bytes_before = (self.export_dir / "zh" / "items" / f"{slug}.json").read_bytes()
+        zh_bytes_before = (support.live_root(self.export_dir) / "zh" / "items" / f"{slug}.json").read_bytes()
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
         pub_rec = repo.get_publish_record_by_source_item_id(1)
@@ -625,9 +526,10 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
         self.assertEqual(summary2["published_count"], 1)
         self.assertEqual(summary2["withdrawn_count"], 0)
 
-        self.assertTrue((self.export_dir / "ja" / "items" / f"{slug}.json").exists())
+        live = support.live_root(self.export_dir)
+        self.assertTrue((live / "ja" / "items" / f"{slug}.json").exists())
         # Existing languages keep their artifacts and publish timestamps.
-        self.assertEqual(zh_bytes_before, (self.export_dir / "zh" / "items" / f"{slug}.json").read_bytes())
+        self.assertEqual(zh_bytes_before, (live / "zh" / "items" / f"{slug}.json").read_bytes())
 
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
@@ -638,6 +540,106 @@ class TestConfiguredLanguageSetChanges(unittest.TestCase):
         ja_status = repo.get_publish_language_status(pub_rec["publish_record_id"], "ja")
         self.assertEqual("published", ja_status["publish_status"])
         conn.close()
+
+
+class TestRetentionLinkSafety(unittest.TestCase):
+    """Retention must never delete through a symlink or junction, whether the
+    retired generation directory itself is a link or it contains one."""
+
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.export_dir = pathlib.Path(self.temp_dir.name) / "publish_export"
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def seed_generations(self, count: int) -> list:
+        names = [f"2026-07-{day:02d}T00-00-00Z" for day in range(1, count + 1)]
+        for name in names:
+            generation_dir = self.export_dir / "generations" / name
+            generation_dir.mkdir(parents=True)
+            (generation_dir / "stats.json").write_text("{}", encoding="utf-8")
+        return names
+
+    def make_dir_link(self, link_path: pathlib.Path, target_path: pathlib.Path) -> None:
+        import os
+        import subprocess
+
+        if os.name == "nt":
+            subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(link_path), str(target_path)],
+                check=True, capture_output=True,
+            )
+        else:
+            os.symlink(target_path, link_path, target_is_directory=True)
+
+    def test_retention_skips_junction_generation(self) -> None:
+        """A retired-generation directory that is itself a junction/symlink
+        to a location outside the export tree is skipped with a warning."""
+        from modules.publish.src import generation_store
+
+        names = self.seed_generations(7)
+
+        # Replace the oldest generation with a link to an outside target.
+        oldest = self.export_dir / "generations" / names[0]
+        target_path = pathlib.Path(self.temp_dir.name) / "junction_target"
+        import os
+        os.rename(oldest, target_path)
+        try:
+            self.make_dir_link(oldest, target_path)
+        except Exception as exc:
+            self.skipTest(f"cannot create directory link on this platform: {exc}")
+
+        with self.assertLogs("publish.generation_store", level="WARNING") as logged:
+            generation_store.sweep_retired_generations(
+                self.export_dir, keep=5, protected_generation=names[-1]
+            )
+
+        self.assertTrue(
+            any("junction" in m.lower() or "symlink" in m.lower() for m in logged.output),
+            logged.output,
+        )
+        # The link target is untouched and the link itself still exists.
+        self.assertEqual("{}", (target_path / "stats.json").read_text(encoding="utf-8"))
+        self.assertTrue(oldest.exists())
+        # The other retiree (second-oldest) was deleted normally; the five
+        # newest stay.
+        self.assertFalse((self.export_dir / "generations" / names[1]).exists())
+        for name in names[2:]:
+            self.assertTrue((self.export_dir / "generations" / name).exists(), name)
+
+    def test_retention_skips_generation_containing_junction(self) -> None:
+        """A retired generation that contains a linked subdirectory is
+        skipped with a warning as well."""
+        from modules.publish.src import generation_store
+
+        names = self.seed_generations(7)
+
+        # The oldest generation is a real directory whose items/ subdir is a
+        # link to an outside target.
+        oldest = self.export_dir / "generations" / names[0]
+        items_link = oldest / "items"
+        target_path = pathlib.Path(self.temp_dir.name) / "nested_junction_target"
+        target_path.mkdir()
+        (target_path / "payload.json").write_text("{}", encoding="utf-8")
+        try:
+            self.make_dir_link(items_link, target_path)
+        except Exception as exc:
+            self.skipTest(f"cannot create directory link on this platform: {exc}")
+
+        with self.assertLogs("publish.generation_store", level="WARNING") as logged:
+            generation_store.sweep_retired_generations(
+                self.export_dir, keep=5, protected_generation=names[-1]
+            )
+
+        self.assertTrue(
+            any("junction" in m.lower() or "symlink" in m.lower() for m in logged.output),
+            logged.output,
+        )
+        # The link target is untouched and the generation was not deleted.
+        self.assertEqual("{}", (target_path / "payload.json").read_text(encoding="utf-8"))
+        self.assertTrue(oldest.exists())
+        self.assertFalse((self.export_dir / "generations" / names[1]).exists())
 
 
 if __name__ == "__main__":

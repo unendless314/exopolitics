@@ -5,8 +5,10 @@ EXECUTION_POLICY.md section 5).
 Two consecutive incremental runs against identical upstream state must leave
 every immutable observation unchanged: publish timestamps, publish record
 ``updated_at``, language status timestamps, frozen slugs, and the bytes of
-every artifact except ``stats.json`` (whose ``last_export_run_timestamp`` is
-a volatile per-run field by contract).
+every artifact of the live generation — including ``stats.json``, whose
+``last_export_run_timestamp`` is frozen at the generation's build time
+(Phase B1: a no-change run builds nothing). The only signal that advances is
+the pointer's ``last_successful_run_at``.
 """
 
 import pathlib
@@ -58,12 +60,9 @@ class TestUnchangedRerunIdempotency(unittest.TestCase):
         finally:
             conn.close()
 
-    def snapshot_artifact_bytes(self):
-        return {
-            p.relative_to(self.export_dir): p.read_bytes()
-            for p in self.export_dir.rglob("*.json")
-            if p.name != "stats.json"
-        }
+    def snapshot_live_generation_bytes(self):
+        live = support.live_root(self.export_dir)
+        return {p.relative_to(live): p.read_bytes() for p in live.rglob("*.json")}
 
     def test_unchanged_rerun_preserves_state_and_bytes(self) -> None:
         clock = support.FakeClock("2026-07-01T00:00:00Z")
@@ -76,9 +75,12 @@ class TestUnchangedRerunIdempotency(unittest.TestCase):
             first_run_timestamp = clock.now_iso
 
             records_before, statuses_before = self.snapshot_publish_db_state()
-            bytes_before = self.snapshot_artifact_bytes()
+            bytes_before = self.snapshot_live_generation_bytes()
+            pointer_before = support.read_pointer(self.export_dir)
             stats_before = support.read_stats(self.export_dir)
             self.assertEqual(stats_before["last_export_run_timestamp"], first_run_timestamp)
+            self.assertEqual(pointer_before["export_completed_at"], first_run_timestamp)
+            self.assertEqual(pointer_before["last_successful_run_at"], first_run_timestamp)
 
             # Second run against unchanged upstream state, one hour later.
             clock.advance(hours=1)
@@ -93,17 +95,20 @@ class TestUnchangedRerunIdempotency(unittest.TestCase):
             self.assertEqual(records_before, records_after)
             self.assertEqual(statuses_before, statuses_after)
 
-            # Every artifact except volatile stats.json is byte-identical.
-            self.assertEqual(bytes_before, self.snapshot_artifact_bytes())
+            # No new generation is built: every artifact byte, stats.json
+            # included, is identical and the generation id is unchanged.
+            self.assertEqual(bytes_before, self.snapshot_live_generation_bytes())
+            pointer_after = support.read_pointer(self.export_dir)
+            self.assertEqual(pointer_before["generation"], pointer_after["generation"])
+            self.assertEqual(pointer_before["export_completed_at"], pointer_after["export_completed_at"])
+            self.assertEqual(pointer_before["content_fingerprint"], pointer_after["content_fingerprint"])
 
-            # stats.json: only last_export_run_timestamp may change; it must
-            # track the second run exactly and stay ISO-8601 UTC.
+            # stats.json stays frozen at the generation's build time; the run
+            # freshness signal lives on the pointer instead (Phase B1).
             stats_after = support.read_stats(self.export_dir)
-            self.assertEqual(stats_after["last_export_run_timestamp"], second_run_timestamp)
-            self.assertRegex(stats_after["last_export_run_timestamp"], ISO_8601_UTC_RE)
-            for key in stats_before:
-                if key != "last_export_run_timestamp":
-                    self.assertEqual(stats_before[key], stats_after[key], key)
+            self.assertEqual(stats_after["last_export_run_timestamp"], first_run_timestamp)
+            self.assertEqual(pointer_after["last_successful_run_at"], second_run_timestamp)
+            self.assertRegex(pointer_after["last_successful_run_at"], ISO_8601_UTC_RE)
 
             # The frozen publish timestamp inside item JSON still reflects the
             # first run, never the rerun.

@@ -4,9 +4,9 @@ EXECUTION_POLICY.md sections 6.1 and 9).
 
 Index and archive compilation must stay complete, duplicate-free and
 correctly ordered when the dataset spans multiple query batches, and an
-incremental run must not rewrite monthly archives it did not affect. All
-assertions observe only exported output and bytes, never internal offsets
-or SQL call counts.
+incremental run must keep byte-identical the monthly archives it did not
+affect (their manifest timestamps do not advance). All assertions observe
+only exported output and bytes, never internal offsets or SQL call counts.
 """
 
 import pathlib
@@ -103,7 +103,7 @@ class TestIncrementalArchiveScope(unittest.TestCase):
         support.seed_item(self.db_path, 2, "June Item", "2026-06-15T12:00:00Z")
 
     def may_archive_bytes(self, lang: str) -> bytes:
-        return (self.export_dir / lang / "archives" / "archive_2026_05.json").read_bytes()
+        return (support.live_root(self.export_dir) / lang / "archives" / "archive_2026_05.json").read_bytes()
 
     def test_unaffected_archive_kept_after_update_in_other_month(self) -> None:
         self.seed_two_months()
@@ -139,8 +139,9 @@ class TestIncrementalArchiveScope(unittest.TestCase):
         for lang in ("zh", "en"):
             with self.subTest(language=lang):
                 self.assertEqual(may_bytes[lang], self.may_archive_bytes(lang))
-                # Sanity: the June archive was affected and is now gone.
-                self.assertFalse((self.export_dir / lang / "archives" / "archive_2026_06.json").exists())
+                # Sanity: the June archive was affected and is absent from
+                # the new live generation.
+                self.assertFalse((support.live_root(self.export_dir) / lang / "archives" / "archive_2026_06.json").exists())
 
 
 if __name__ == "__main__":

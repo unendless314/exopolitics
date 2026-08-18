@@ -1,7 +1,7 @@
 # Data Lifecycle
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-07-24
+**Updated:** 2026-08-18
 
 ---
 
@@ -206,6 +206,20 @@ Publish output should:
 - source index and archive summaries directly from `summary_short`, without reverse-deriving summaries from a body field
 - remain rebuildable if needed
 - synchronize exported assets by removing public outputs when items are withdrawn upstream
+
+### 9.1 Versioned Generation Emission
+
+Publish does not promote files in place. Instead:
+
+- each content-changing run builds a complete, immutable **generation directory** at `data/publish_export/generations/<generation-id>/` (id format `YYYY-MM-DDTHH-MM-SSZ`, with a `-rN` suffix on same-second collisions), containing `stats.json`, `meta.json`, and every configured language's `index.json`, `items/`, and `archives/` (all present even when empty)
+- a generation is planned and written inside one held SQLite snapshot transaction (opened with `BEGIN IMMEDIATE`, reserving the writer slot up front), so its artifacts always reflect exactly one post-reconciliation database state — concurrent upstream writers are rejected at their own `BEGIN IMMEDIATE` rather than silently interleaved
+- the run commits by atomically switching the **`current.json`** pointer (`{generation, export_completed_at, last_successful_run_at, languages, content_fingerprint}`) at the export root; this pointer switch is the only commit point, and readers enter exclusively through it — readers never see partial output (fail-stop failure model)
+- whether a new generation is built is decided by comparing the run's export-state `content_fingerprint` (`sha256-exportstate-v1:<64 hex>`) against the pointer; a successful no-change run only atomically refreshes the pointer's `last_successful_run_at` (the in-generation `stats.json.last_export_run_timestamp` stays frozen at the generation's build time); `rebuild` always builds a new generation
+- generation lifecycle: retention keeps the newest 5 generations plus the live generation, which is always protected; generations that are symlinks/junctions are skipped with a warning
+
+### 9.2 One-Time Migration From the Flat Layout
+
+On the first run where `current.json` is absent and a pre-refactor flat tree exists (root `stats.json`), the runner moves the flat tree into `generations/` only if every artifact is byte-exact with the DB-derived plan (stats compared with `last_export_run_timestamp` excluded); otherwise it bootstraps the first generation from the DB. Non-publish-owned top-level directories (e.g. `assets/`) stay at the export root.
 
 The site must consume publish output, not canonical operational tables directly.
 

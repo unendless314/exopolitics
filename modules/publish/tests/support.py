@@ -18,7 +18,9 @@ provides:
   summary/bullets, translation status and fingerprint, curate status,
   downstream action, author metadata); special one-off rows stay in the
   individual test cases.
-- artifact readers for the exported JSON tree.
+- artifact readers for the exported JSON tree. All of them resolve the
+  live generation through the ``current.json`` pointer (``live_root`` /
+  ``read_pointer``), so tests assert against the same layout readers see.
 - ``FakeClock``: a deterministic clock patching the publish-owned UTC
   clock in both the ``database`` and ``orchestrator`` namespaces, so
   timestamp-sensitive assertions never depend on wall time or same-second
@@ -313,24 +315,35 @@ def read_json(path: pathlib.Path) -> Any:
         return json.load(f)
 
 
+def read_pointer(export_dir: pathlib.Path) -> Dict[str, Any]:
+    """Read and parse the export root's ``current.json`` pointer (Phase B1)."""
+    return read_json(export_dir / "current.json")
+
+
+def live_root(export_dir: pathlib.Path) -> pathlib.Path:
+    """Resolve the live generation directory via the ``current.json`` pointer."""
+    pointer = read_pointer(export_dir)
+    return export_dir / "generations" / pointer["generation"]
+
+
 def read_item(export_dir: pathlib.Path, lang: str, slug: str) -> Dict[str, Any]:
-    return read_json(export_dir / lang / "items" / f"{slug}.json")
+    return read_json(live_root(export_dir) / lang / "items" / f"{slug}.json")
 
 
 def read_index(export_dir: pathlib.Path, lang: str) -> Any:
-    return read_json(export_dir / lang / "index.json")
+    return read_json(live_root(export_dir) / lang / "index.json")
 
 
 def read_archive(export_dir: pathlib.Path, lang: str, month: str) -> Any:
-    return read_json(export_dir / lang / "archives" / f"archive_{month.replace('-', '_')}.json")
+    return read_json(live_root(export_dir) / lang / "archives" / f"archive_{month.replace('-', '_')}.json")
 
 
 def read_manifest(export_dir: pathlib.Path, lang: str) -> Any:
-    return read_json(export_dir / lang / "archives" / "index.json")
+    return read_json(live_root(export_dir) / lang / "archives" / "index.json")
 
 
 def read_stats(export_dir: pathlib.Path) -> Dict[str, Any]:
-    return read_json(export_dir / "stats.json")
+    return read_json(live_root(export_dir) / "stats.json")
 
 
 class FakeClock:

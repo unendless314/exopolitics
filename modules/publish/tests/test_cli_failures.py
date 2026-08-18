@@ -119,7 +119,7 @@ class TestCliFailureSurface(unittest.TestCase):
         repo = PublishRepository(conn)
         self.assertIsNone(repo.get_publish_record_by_source_item_id(1))
         conn.close()
-        self.assertFalse((self.export_dir / "zh" / "items" / "en-two-language-item.json").exists())
+        self.assertFalse((support.live_root(self.export_dir) / "zh" / "items" / "en-two-language-item.json").exists())
 
     def test_rebuild_warns_but_succeeds_with_missing_language(self) -> None:
         self.write_config(CONFIG_ZH_EN_JA)

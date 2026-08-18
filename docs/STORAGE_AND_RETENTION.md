@@ -1,7 +1,7 @@
 # Storage And Retention
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-06-05
+**Updated:** 2026-08-18
 
 ---
 
@@ -67,6 +67,9 @@ Properties:
 - rebuildable
 - human-readable when practical
 - not the sole historical system record
+- organized as immutable, versioned generation directories under `data/publish_export/generations/<generation-id>/`, with an atomic `current.json` pointer at the export root as the single commit point and only reader entry
+- new generations are assembled in a `.staging/` directory at the export root and moved into `generations/` only when complete; leftover staging is discarded best-effort at run teardown
+- concurrent runs are serialized by a `publish_runner.lock` file placed next to the canonical DB (default `data/publish_runner.lock`), held for the whole run; release unlocks the handle but deliberately leaves the file in place, since unlinking the path after unlocking would allow an inode-reuse race between lock holders
 
 ### 3.4 Derived Reports Storage
 
@@ -117,7 +120,8 @@ This document does not hard-lock exact durations yet, but it locks the policy sh
 - raw input: bounded retention window
 - sanitized working text: long-term retention
 - classification and curation outcomes: long-term retention
-- publish exports: rebuildable retention layer
+- publish exports: rebuildable retention layer with explicit generation cleanup — retention keeps the newest 5 generations under `generations/` and always protects the live generation referenced by `current.json`; generations that are symlinks/junctions are skipped with a warning instead of being followed; deletion failures are warn-only and retried on a later run
+- publish export root files that are **kept** (not subject to generation cleanup): `current.json`, non-publish-owned top-level directories (e.g. `assets/`), and the `publish_runner.lock` file next to the DB; leftover `.staging/` content is discarded, not retained
 
 Suggested early-production raw retention windows to evaluate:
 
@@ -191,3 +195,4 @@ These metrics often have more long-term value than permanent storage of every ra
 - exception retention must exist for special cases
 - translation outputs are stored long-term to prevent costly and redundant LLM API calls
 - reports/analysis/ outputs are derived artifacts managed separately from the canonical retention policy
+- publish export generations are a bounded, rebuildable layer: newest 5 generations retained, the live generation always protected

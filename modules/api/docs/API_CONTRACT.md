@@ -1,7 +1,7 @@
 # `api` Module — v1 Contract Draft
 
-**Status:** Draft v1.7 — fifth external review incorporated (no-change-run freshness rule, generation-bound cursor, proposal doc drift fix). Implementation is **blocked on** `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v5 by owner decision (publish refactor first, api second). Not implemented.
-**Updated:** 2026-08-17
+**Status:** Draft v1.8 — Phase B1 of the publish refactor has landed (2026-08-18): the publish export is now generation + `current.json` pointer based, and the site consumes it through the pointer. Refactor basis: `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7. The api module itself remains at documentation stage and is **not implemented**.
+**Updated:** 2026-08-18
 
 **Scope:** v1 serves the deep-reader agent only. It is deliberately not designed as a general-purpose content API; generalization decisions are deferred until a second consumer exists.
 
@@ -109,7 +109,7 @@ Deliberately excluded in v1: `category` (not present in the export; adding it re
 - **Historical gap:** a query range (partially) older than `window_from` is not an error — the API returns matches inside the window. `coverage` tells the agent that older content exists but is out of scope.
 - **Content coverage vs. pipeline health are separate signals:**
   - `request_exceeds_window_to` is `true` when the request range extends beyond `window_to` (no items in the window for the requested dates). With a healthy pipeline this can be a legitimate editorial fact: nothing new happened.
-  - `data_may_be_stale` is `true` when `last_successful_run_at` is older than the configured freshness threshold (`freshness_sla_hours`, default `48`). This means the **pipeline itself** may not have run — independent of whether content changed. (A successful run refreshes `last_successful_run_at` even when no content changed; see the refactor plan v4.)
+  - `data_may_be_stale` is `true` when `last_successful_run_at` is older than the configured freshness threshold (`freshness_sla_hours`, default `48`). This means the **pipeline itself** may not have run — independent of whether content changed. (A successful run refreshes `last_successful_run_at` even when no content changed; see the refactor plan v7.)
 - **Agent guidance (normative):** when `data_may_be_stale` is `true`, the agent must report "the site's pipeline has not run recently" — never "there was no news". When only `request_exceeds_window_to` is `true` and the pipeline is fresh, the agent may report that no new items appeared in the window.
 - `coverage.items_without_event_time` counts in-window items skipped because `source_published_at` was missing or unparseable (feed metadata quality varies by source).
 
@@ -123,7 +123,7 @@ Deliberately excluded in v1: `category` (not present in the export; adding it re
 
 ## 5. Data Source and Adapter Boundary
 
-Responses derive exclusively from the **current generation** under `data/publish_export/` (layout per `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md`):
+Responses derive exclusively from the **current generation** under `data/publish_export/` (layout per `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7, landed as Phase B1 on 2026-08-18):
 
 ```text
 data/publish_export/
@@ -156,9 +156,9 @@ The authoritative source for the supported language set is the **`languages` lis
 
 If `current.json` is missing or invalid, the API does not fall back to directory scanning — it returns `503` (§7).
 
-## 7. Read Consistency: Generation Pointer (precondition)
+## 7. Read Consistency: Generation Pointer
 
-This contract assumes the publish refactor has landed: each content-changing export run produces an **immutable generation directory** and atomically switches `current.json` (single-file `os.replace`, same volume) only after the generation is complete; successful no-change runs atomically refresh `current.json.last_successful_run_at` without a new generation.
+Phase B1 of the publish refactor has landed (2026-08-18): each content-changing export run produces an **immutable generation directory** and atomically switches `current.json` (single-file `os.replace`, same volume) only after the generation is complete; successful no-change runs atomically refresh `current.json.last_successful_run_at` without a new generation. A forced `rebuild` also switches the generation even when the content fingerprint is unchanged, so any generation difference — not only a fingerprint change — expires cursors (§4).
 
 Read protocol per request — the **entire read flow is wrapped in a single retry scope**, because retention can sweep the resolved generation at any point, not just during resolution:
 
@@ -178,13 +178,3 @@ The consistency burden lives once in the writer (publish), not in every reader.
 - Breaking changes (field removal, type change, semantics change) require a new prefix (`/v2/`); `/v1/` must keep working while any consumer depends on it.
 - Additive changes (new optional fields, new optional parameters) may ship within `/v1/`.
 
-## 9. Revision History
-
-- **v1.0 draft (2026-08-17):** initial proposal.
-- **v1.1 draft (2026-08-17):** first external review — field names aligned to actual export; `status` removed; `category` removed; `approved_at` filtering; ordering/pagination/`count` semantics; language set derived; adapter reads `items/`; read-consistency section.
-- **v1.2 draft (2026-08-17):** owner product review — event-time (`source_published_at`) semantics; scope constrained to the recent window; adapter simplified to `index.json` + per-slug join; `coverage` block added.
-- **v1.3 draft (2026-08-17):** second external review — manifest-bracketed read protocol with retry; manifest language list as sole authority; freshness semantics (`request_exceeds_window_to`, `data_may_be_stale`, `export_completed_at`).
-- **v1.4 draft (2026-08-17):** owner architecture decision — publish refactor first (`PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md`), api implementation deferred until it lands. Contract rebased onto immutable generations + atomic `current.json` pointer; retry protocol removed.
-- **v1.5 draft (2026-08-17):** third external review — (1) generation-id format fixed for Windows (`:` → `-`, collision suffix rule); (2) residual TOCTOU formally handled; (3) `stats.json` placed inside the generation directory.
-- **v1.6 draft (2026-08-17):** fourth external review — (1) Phase B must rebuild **complete** snapshots from the full active published set every run (current incremental staging writes only mutated items/affected months — verified in `orchestrator.py`); (2) one-time migration moves only publish-owned artifacts, non-owned directories (e.g. `assets/`) stay at the export root; (3) the single retry now wraps the **entire** read flow; (4) site's committed dev fixture must be migrated to the pointer layout in the same change (verified flat). Phase A acceptance criteria codified in the refactor plan (test baseline 95 passed / 583 subtests; byte-identical outputs; independent review before Phase B).
-- **v1.7 draft (2026-08-17):** fifth external review — (1) freshness split into two signals: `data_may_be_stale` now derives from `last_successful_run_at` (pipeline health — refreshed on every successful run, even no-change ones) while `request_exceeds_window_to` remains content coverage; (2) cursors are generation-bound: generation mismatch between pages returns `400 cursor_expired`, never silently mixes generations; (3) `MODULE_PROPOSAL.md` doc drift (stale version header, "no retry" claim) corrected.

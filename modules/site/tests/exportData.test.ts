@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { makeTempDir, writeJson, type TempDir } from './helpers/tempDir';
 import { localeProfiles } from '../src/utils/i18n';
+import { resolveExportContext, EXPORT_ROOT_ENV_VAR } from '../src/utils/export_root.js';
 import {
   validateCatalogItem,
   validateArchiveManifestEntry,
@@ -18,7 +19,13 @@ import {
 } from '../src/utils/exportData';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const committedFixtureRoot = path.join(__dirname, 'fixtures', 'publish_export');
+// The committed fixture is a generationized export root (Phase B1): the
+// loader matrix runs against the live generation resolved through its
+// current.json pointer, exactly like production pages do.
+const committedFixtureBase = path.join(__dirname, 'fixtures', 'publish_export');
+const committedFixtureRoot = resolveExportContext({
+  [EXPORT_ROOT_ENV_VAR]: committedFixtureBase,
+}).generationRoot;
 const REQUIRED_LOCALES = Object.keys(localeProfiles);
 
 const ERROR_TAG = /Data Integrity Validation Failed/;

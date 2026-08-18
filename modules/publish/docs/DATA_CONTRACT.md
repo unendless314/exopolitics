@@ -1,7 +1,7 @@
 # Publish Data Contract
 
-**Document version:** v2.0  
-**Updated:** 2026-06-24  
+**Document version:** v3.1
+**Updated:** 2026-08-18
 **Status:** Active rewrite draft
 
 ---
@@ -53,25 +53,30 @@ Tracks language-specific export state as a downstream synchronization record.
 
 Stores publish-owned logical write timestamps for monthly archive files. The
 archives index manifest (`archives/index.json`) reads `updated_at` from this
-table so the value reflects the most recent successful write or rewrite of
-that specific archive file, rather than an aggregate over item-level publish
-timestamps.
+table so the value records the logical write time of the archive's most recent
+content change, rather than an aggregate over item-level publish timestamps.
 
 | Field Name | SQLite Type | Nullability | Description / Constraint |
 | :--- | :--- | :--- | :--- |
 | `language_code` | `TEXT` | `NOT NULL` | Exported language code. Part of the composite primary key `(language_code, archive_month)`. |
 | `archive_month` | `TEXT` | `NOT NULL` | Calendar month key in `YYYY-MM` form, derived strictly from `source_item.published_at`. Part of the composite primary key. |
-| `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 logical clock of the run that most recently wrote or rewrote the archive file (creation, withdrawal- or correction-driven rewrite, or full rebuild). |
+| `updated_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 logical clock of the run whose generation build last changed the archive file's content (creation, withdrawal- or correction-driven change, or full rebuild restamp). |
 | `created_at` | `TEXT` | `NOT NULL` | UTC ISO-8601 system timestamp for row creation. |
 
 Lifecycle rules:
 
-- a row is inserted or updated only when the corresponding archive file is written in the same run
-- an incremental run that does not touch an archive leaves its row (and therefore its manifest `updated_at`) unchanged
-- an active month without a row (databases created before this table existed) is healed by rewriting its archive file once in the next incremental run, so the new row still records a run that actually wrote the file; the runner never stamps a row for an archive it did not write in that run
-- when an archive becomes empty after withdrawal and the file is deleted, the row is deleted with it; a later recreation of the same month starts a new row with a new logical write timestamp
-- when a language leaves the configured set, its rows are deleted together with that language's archive artifacts
-- a full rebuild rewrites every active archive and therefore refreshes every row; rows for months with no active items are removed
+- rows are synced in a short transaction after each generation is fully built and before the pointer switch: every planned stamp is upserted and rows whose month is no longer active are deleted
+- the recorded `updated_at` value advances only when the archive's content changes. The stamping decision for each active month is, by priority:
+  1. a `rebuild` run stamps every active month with the run's logical clock
+  2. a missing metadata row (databases created before this table existed) is healed with the run's logical clock
+  3. if the live generation's `meta.json` hash for the archive file matches the planned bytes, the recorded DB value is kept verbatim
+  4. if the hash is missing (e.g. before the one-time migration), the planned bytes are compared against the fallback root (the live generation, or the pre-pointer flat export tree when no pointer exists); equal bytes keep the recorded DB value
+  5. anything else is stamped with the run's logical clock
+- a run whose content did not change builds nothing and leaves every row (and therefore every manifest `updated_at`) unchanged
+- healing a missing row changes the planned manifest, so it builds exactly one new generation carrying the new stamp; the archive file bytes themselves are unchanged
+- when an archive month becomes inactive (e.g. emptied by withdrawal), its row is deleted during the metadata sync of that build and the new generation simply has no file for it; a later recreation of the same month starts a new row with a new logical write timestamp
+- when a language leaves the configured set, its rows are deleted unconditionally during reconciliation; the next generation contains no artifacts for that language
+- a full rebuild restamps every active month with the rebuild run's logical clock; rows for months with no active items are removed
 
 ### 2.4 Logical Constraints
 
@@ -248,14 +253,32 @@ The exact SQL may vary, but the behavior must be equivalent to:
 
 ## 6. Export File Contracts
 
-All public artifacts are emitted under `data/publish_export/`.
+All public artifacts are emitted under `data/publish_export/` as immutable, complete export generations behind an atomic pointer:
+
+```text
+data/publish_export/
+  current.json                      # atomic pointer (commit point); the only reader entry point
+  generations/<generation-id>/
+    stats.json
+    meta.json
+    <language_code>/
+      index.json
+      items/<slug>.json
+      archives/index.json
+      archives/archive_YYYY_MM.json
+```
+
+- A generation id is the building run's logical UTC timestamp with colons replaced by hyphens (`YYYY-MM-DDTHH-MM-SSZ`); same-second collisions get a `-r2`/`-r3` suffix. Ids always match `^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z(-r\d+)?$`.
+- Every generation is a complete snapshot of the active published set and is immutable once published. Readers enter exclusively through `current.json`, resolve the referenced generation directory, and read inside it; the pointer switch is the single commit point, so readers see either the complete old generation or the complete new one, never partial output.
+- A generation is complete even when empty: every configured language always has an `index.json` (`[]`), an archives manifest `archives/index.json` (`[]`), and explicit `items/` and `archives/` directories.
+- Artifact bytes are serialized as `json.dumps(obj, indent=2, ensure_ascii=False)` UTF-8 with no trailing newline — unchanged from the pre-generation runner.
 
 ### 6.1 Item JSON
 
 Path:
 
 ```text
-data/publish_export/<language_code>/items/<slug>.json
+data/publish_export/generations/<generation-id>/<language_code>/items/<slug>.json
 ```
 
 **JSON Object Parsing Rule**:
@@ -322,7 +345,7 @@ Contract example:
 Path:
 
 ```text
-data/publish_export/<language_code>/index.json
+data/publish_export/generations/<generation-id>/<language_code>/index.json
 ```
 
 Contract example:
@@ -357,20 +380,20 @@ Contract example:
 Path:
 
 ```text
-data/publish_export/<language_code>/archives/archive_YYYY_MM.json
+data/publish_export/generations/<generation-id>/<language_code>/archives/archive_YYYY_MM.json
 ```
 
 - Each file contains all items published within a specific calendar month, mapped strictly by their `source_published_at` (derived from `source_item.published_at`). Other fields like `approved_at` or `published_at` must not be used for classification to prevent month drifting.
 - The structure of the JSON array is identical to `index.json` (see Section 6.2).
 - Items inside the archive must be sorted by `source_published_at DESC` with a deterministic tiebreaker `slug ASC`.
-- Historical archives are append-stable (immutable for normal incremental runs) but may be rewritten for compliance-driven withdrawal or correction synchronization. If a monthly archive file becomes empty after withdrawal, it must be deleted from disk and its entry must be removed from the archives index manifest.
+- Historical archives are append-stable: a published generation is never modified in place. Withdrawal- or correction-driven changes take effect in the next generation, whose archive file for that month reflects the post-sync set. If a monthly archive becomes empty after withdrawal, the next generation has no file for that month and the archives index manifest has no entry for it.
 
 ### 6.4 Monthly Archive Index JSON (Manifest)
 
 Path:
 
 ```text
-data/publish_export/<language_code>/archives/index.json
+data/publish_export/generations/<generation-id>/<language_code>/archives/index.json
 ```
 
 Provides a manifest of available archives so downstream consumers (e.g. `site` module) can discover available monthly packages without scanning directory contents.
@@ -395,14 +418,15 @@ Contract example:
 ```
 
 - The list must be sorted by `archive_month DESC`.
-- `updated_at` tracks the UTC ISO-8601 timestamp of the most recent write to that specific monthly archive file. It is read from the publish-owned `publish_archive_metadata` state (see Section 2.3), not derived from item-level publish timestamps and not from file-system mtime. Active months that predate `publish_archive_metadata` are rewritten once so the recorded timestamp always corresponds to an actual file write (see Section 2.3).
+- The manifest is always written for every configured language, empty as `[]` when the language has no monthly archives.
+- `updated_at` records the logical write time of the archive's most recent content change. It is read from the publish-owned `publish_archive_metadata` state (see Section 2.3), not derived from item-level publish timestamps and not from file-system mtime. Active months that predate `publish_archive_metadata` are restamped once with the run's logical clock (heal), which changes the planned manifest and therefore builds exactly one new generation while leaving the archive bytes unchanged (see Section 2.3).
 
 ### 6.5 Global Stats JSON
 
 Path:
 
 ```text
-data/publish_export/stats.json
+data/publish_export/generations/<generation-id>/stats.json
 ```
 
 This file exposes lightweight aggregate counts and operational observation metrics:
@@ -412,7 +436,64 @@ This file exposes lightweight aggregate counts and operational observation metri
 - `latest_index_count_by_language`: dictionary mapping language codes to count of items in their `index.json`
 - `archive_month_count_by_language`: dictionary mapping language codes to count of historical monthly archive files
 - `oldest_archive_month_by_language`: dictionary mapping language codes to their earliest archive month string (e.g., `"2026-05"`)
-- `last_export_run_timestamp`: UTC ISO-8601 timestamp of the last export execution
+- `last_export_run_timestamp`: UTC ISO-8601 timestamp frozen at the generation's build time. It is artifact content: a no-change run builds nothing, so this value does not advance. The run freshness signal lives on the pointer's `last_successful_run_at` (see Section 6.6).
+
+### 6.6 Generation Pointer (`current.json`)
+
+Path:
+
+```text
+data/publish_export/current.json
+```
+
+The pointer is the commit point of every run and the only entry point for readers. It is switched atomically (sibling temp file plus same-volume `os.replace`; a sharing violation is retried a limited number of times, then the run fails stop with the old pointer still valid). A no-change successful run refreshes only `last_successful_run_at`, atomically, without building a generation.
+
+Contract example:
+
+```json
+{
+  "generation": "2026-08-17T12-30-45Z",
+  "export_completed_at": "2026-08-17T12:30:45Z",
+  "last_successful_run_at": "2026-08-17T18:05:11Z",
+  "languages": ["zh", "en"],
+  "content_fingerprint": "sha256-exportstate-v1:9f2c1d4e..."
+}
+```
+
+- `generation`: id of the live generation directory under `generations/`; must match the strict generation id format (see Section 6) and reference an existing directory.
+- `export_completed_at`: UTC ISO-8601 logical timestamp of the run that built the live generation.
+- `last_successful_run_at`: UTC ISO-8601 logical timestamp of the most recent successful run; the pipeline freshness signal.
+- `languages`: the configured language set of the live generation; always a non-empty list of language codes. The pointer is the authoritative language set for downstream consumers, so an empty list is invalid even though every generation carries per-language artifacts.
+- `content_fingerprint`: versioned digest of the planned export state, in the form `sha256-exportstate-v1:<64 lowercase hex>`. It is recorded verbatim so a future algorithm upgrade is an explicit rebuild trigger. Consumers must treat it as an opaque string.
+
+A corrupt pointer (unparseable JSON, missing fields, malformed generation id, a calendar-impossible timestamp such as `2026-02-30T12:00:00Z`, an empty `languages` list, or a missing generation directory) is a fail-stop state: the runner raises instead of silently rebuilding, and readers must do the same.
+
+### 6.7 Generation Metadata (`meta.json`)
+
+Path:
+
+```text
+data/publish_export/generations/<generation-id>/meta.json
+```
+
+Per-generation diagnostics and content hash table, written when the generation is built:
+
+```json
+{
+  "generation": "2026-08-17T12-30-45Z",
+  "created_at": "2026-08-17T12:30:45Z",
+  "content_fingerprint": "sha256-exportstate-v1:9f2c1d4e...",
+  "aggregate_file_hashes": {
+    "stats.json": "sha256:...",
+    "zh/index.json": "sha256:...",
+    "zh/archives/index.json": "sha256:...",
+    "zh/archives/archive_2026_06.json": "sha256:..."
+  }
+}
+```
+
+- `aggregate_file_hashes` maps a generation-relative path to the `sha256:<hex>` digest of its bytes and covers aggregate files only: `stats.json`, each language's `index.json`, `archives/index.json`, and every `archive_YYYY_MM.json` — never `items/*` payloads. The runner uses it to decide archive `updated_at` stamping (see Section 2.3) without re-reading archive files. The table is never empty: every generation records at least `stats.json` and the per-language aggregate files, so an empty table is corruption, not a zero-data state.
+- A missing or corrupt `meta.json` on the live generation (including an empty `aggregate_file_hashes` table) is a fail-stop state.
 
 ---
 
@@ -477,4 +558,5 @@ index_policy:
 - `index_policy.archive_granularity` must equal `"month"`.
 
 If configuration validation fails due to structural or schema errors (such as missing required keys, negative bounds, or invalid data types), the runner must abort immediately. Warning-level runtime validation rules (such as missing database records for a configured target language during cold start) are handled per the rules defined in [EXECUTION_POLICY.md](./EXECUTION_POLICY.md) to allow graceful warning output and bypass.
+
 

@@ -1,4 +1,3 @@
-import os
 import pathlib
 import tempfile
 import unittest
@@ -133,9 +132,9 @@ class TestPublishModule(unittest.TestCase):
         summary = support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertEqual(summary["published_count"], 2)
 
-        # Check files exist
-        zh_file = self.export_dir / "zh" / "items" / "en-item-six.json"
-        en_file = self.export_dir / "en" / "items" / "en-item-six.json"
+        # Check files exist in the live generation
+        zh_file = support.live_root(self.export_dir) / "zh" / "items" / "en-item-six.json"
+        en_file = support.live_root(self.export_dir) / "en" / "items" / "en-item-six.json"
         self.assertTrue(zh_file.exists())
         self.assertTrue(en_file.exists())
 
@@ -155,9 +154,10 @@ class TestPublishModule(unittest.TestCase):
         summary2 = support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertEqual(summary2["withdrawn_count"], 2)
 
-        # Check files deleted
-        self.assertFalse(zh_file.exists())
-        self.assertFalse(en_file.exists())
+        # Check files are absent from the new live generation
+        live = support.live_root(self.export_dir)
+        self.assertFalse((live / "zh" / "items" / "en-item-six.json").exists())
+        self.assertFalse((live / "en" / "items" / "en-item-six.json").exists())
 
         # Check DB status is 'withdrawn'
         conn = get_connection(self.db_path)
@@ -178,9 +178,10 @@ class TestPublishModule(unittest.TestCase):
         summary3 = support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertEqual(summary3["published_count"], 2)
 
-        # Check files exist again
-        self.assertTrue(zh_file.exists())
-        self.assertTrue(en_file.exists())
+        # Check files exist again in the new live generation
+        live = support.live_root(self.export_dir)
+        self.assertTrue((live / "zh" / "items" / "en-item-six.json").exists())
+        self.assertTrue((live / "en" / "items" / "en-item-six.json").exists())
 
         # Check DB status is 'published' again
         conn = get_connection(self.db_path)
@@ -225,9 +226,10 @@ class TestPublishModule(unittest.TestCase):
         self.assertEqual(summary_rebuild["published_count"], 2) # item 7 (en & zh)
         self.assertEqual(summary_rebuild["withdrawn_count"], 0) # already withdrawn in Run 2
 
-        # Check that files exist and index still correct
-        self.assertTrue((self.export_dir / "zh" / "items" / "en-item-seven.json").exists())
-        self.assertFalse((self.export_dir / "zh" / "items" / "en-item-eight.json").exists())
+        # Check that files exist in the live generation and index still correct
+        live = support.live_root(self.export_dir)
+        self.assertTrue((live / "zh" / "items" / "en-item-seven.json").exists())
+        self.assertFalse((live / "zh" / "items" / "en-item-eight.json").exists())
 
 
     def test_archive_withdrawal_and_overlap(self) -> None:
@@ -242,11 +244,10 @@ class TestPublishModule(unittest.TestCase):
 
         support.run_publish(self.config, self.db_path, self.export_dir)
 
-        # Check monthly archives written
-        june_archive_path = self.export_dir / "zh" / "archives" / "archive_2026_06.json"
-        may_archive_path = self.export_dir / "zh" / "archives" / "archive_2026_05.json"
-        self.assertTrue(june_archive_path.exists())
-        self.assertTrue(may_archive_path.exists())
+        # Check monthly archives written in the live generation
+        live = support.live_root(self.export_dir)
+        self.assertTrue((live / "zh" / "archives" / "archive_2026_06.json").exists())
+        self.assertTrue((live / "zh" / "archives" / "archive_2026_05.json").exists())
 
         # Check overlap consistency: June Item is in index.json AND in archive_2026_06.json
         idx = support.read_index(self.export_dir, "zh")
@@ -265,8 +266,9 @@ class TestPublishModule(unittest.TestCase):
         conn.close()
         support.run_publish(self.config, self.db_path, self.export_dir)
 
-        # Check archive_2026_05.json deleted (as it became empty)
-        self.assertFalse(may_archive_path.exists())
+        # Check archive_2026_05.json absent from the new live generation (it became empty)
+        live = support.live_root(self.export_dir)
+        self.assertFalse((live / "zh" / "archives" / "archive_2026_05.json").exists())
 
         # Check archives index manifest is updated
         manifest = support.read_manifest(self.export_dir, "zh")
@@ -361,28 +363,43 @@ index_policy:
         res_reb = runner.invoke(cli, ["--config-path", str(temp_yaml), "rebuild", "--db-path", str(self.db_path), "--export-dir", str(self.export_dir)])
         self.assertEqual(res_reb.exit_code, 0)
 
-    @patch("json.dump")
-    def test_first_time_file_write_compensation(self, mock_dump) -> None:
-        """Verify first-time publish file write failure deletes DB states instead of creating withdrawn.
+    def test_first_time_publish_build_failure_converges(self) -> None:
+        """A generation-build failure on a first-time publish keeps the new
+        DB state (no compensation) and establishes no live pointer; the next
+        successful run converges by state comparison.
 
-        Unique protection (TEST_COVERAGE_MAP.md): first-time publish compensation
-        removes the newly created publish_record rather than marking it withdrawn."""
-        mock_dump.side_effect = IOError("Disk full")
-
+        Unique protection (TEST_COVERAGE_MAP.md): first-time publish build
+        failure leaves the publish rows intact (DB ahead) and converges on
+        rerun."""
         # Seed a new eligible item 15
         self.seed_data(15, "Item Fifteen", "2026-06-25T10:00:00Z")
 
-        # Run orchestrate_run, it should raise and handle the exception (reverting the DB)
-        with self.assertRaises(IOError) as ctx:
-            support.run_publish(self.config, self.db_path, self.export_dir)
+        with patch(
+            "modules.publish.src.generation_store.write_generation_to_staging",
+            side_effect=IOError("Disk full"),
+        ):
+            with self.assertRaises(IOError) as ctx:
+                support.run_publish(self.config, self.db_path, self.export_dir)
         self.assertIn("Disk full", str(ctx.exception))
 
-        # Verify no database rows are left for item 15
+        # No compensation: the new publish rows stay (DB ahead of the export).
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
         pub_rec = repo.get_publish_record_by_source_item_id(15)
-        self.assertIsNone(pub_rec) # Record must be deleted on first-time failure
+        self.assertIsNotNone(pub_rec)
+        pls = repo.get_publish_language_status(pub_rec["publish_record_id"], "zh")
+        self.assertEqual(pls["publish_status"], "published")
         conn.close()
+
+        # No live pointer was established.
+        self.assertFalse((self.export_dir / "current.json").exists())
+
+        # The next successful run converges: a generation is built and the
+        # item file goes live.
+        summary = support.run_publish(self.config, self.db_path, self.export_dir)
+        self.assertEqual(summary["status"], "success")
+        item = support.read_item(self.export_dir, "zh", "en-item-fifteen")
+        self.assertEqual(item["slug"], "en-item-fifteen")
 
     def test_warning_per_command_scope(self) -> None:
         """Verify target-language warnings are logged once per execution run.
@@ -412,58 +429,78 @@ index_policy:
         self.assertEqual(len(log2.output), 1)
         self.assertIn("Target language 'ja' has zero completed translations in the database.", log2.output[0])
 
-    @patch("json.dump")
-    def test_update_file_write_compensation(self, mock_dump) -> None:
-        """Verify that updating an already-published item fails to write file restores previous DB states.
+    def test_update_build_failure_converges(self) -> None:
+        """A build failure on an update run keeps the new DB state and the old
+        live generation; the next run rebuilds from the DB state, and a
+        further no-change run stays on that generation (fingerprint
+        convergence).
 
-        Unique protection (TEST_COVERAGE_MAP.md): update-path compensation
-        restores the prior fingerprint and published status."""
-        # 1. First, publish an item successfully
-        self.seed_data(17, "Item Seventeen", "2026-06-25T10:00:00Z")
-        summary = support.run_publish(self.config, self.db_path, self.export_dir)
-        self.assertEqual(summary["status"], "success")
+        Unique protection (TEST_COVERAGE_MAP.md): update-path build failure
+        leaves the DB ahead with the live generation intact, then converges
+        without a spurious extra build."""
+        clock = support.FakeClock("2026-07-01T00:00:00Z")
+        with clock.patch():
+            # 1. First, publish an item successfully
+            self.seed_data(17, "Item Seventeen", "2026-06-25T10:00:00Z")
+            summary = support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertEqual(summary["status"], "success")
 
-        # Capture the successful database states
-        conn = get_connection(self.db_path)
-        try:
-            repo = PublishRepository(conn)
-            pub_rec = repo.get_publish_record_by_source_item_id(17)
-            self.assertIsNotNone(pub_rec)
-            pls_before = repo.get_publish_language_status(pub_rec["publish_record_id"], "zh")
-            self.assertEqual(pls_before["publish_status"], "published")
-            fingerprint_before = pls_before["source_fingerprint"]
-        finally:
-            conn.close()
+            pointer_before = support.read_pointer(self.export_dir)
+            zh_item_rel = pathlib.Path("zh") / "items" / "en-item-seventeen.json"
+            item_bytes_before = (support.live_root(self.export_dir) / zh_item_rel).read_bytes()
 
-        # 2. Trigger an update by modifying downstream content/fingerprint in DB (simulating a change)
-        conn = get_connection(self.db_path)
-        try:
-            # Update fingerprint in approved_content_record and translation_output to trigger a publish update
+            # 2. Trigger an update by modifying downstream content/fingerprint in DB
+            conn = get_connection(self.db_path)
             conn.execute("UPDATE approved_content_record SET content_fingerprint = 'new-fingerprint' WHERE source_item_id = 17")
             conn.execute("UPDATE translation_output SET source_fingerprint = 'new-fingerprint' WHERE parent_content_id = (SELECT parent_content_id FROM approved_content_record WHERE source_item_id = 17)")
             conn.commit()
-        finally:
             conn.close()
 
-        # Mock json.dump to raise IOError when trying to write the updated file
-        mock_dump.side_effect = IOError("Disk full on update")
+            # 3. Fail the generation build of the update run
+            clock.advance(hours=1)
+            with patch(
+                "modules.publish.src.generation_store.write_generation_to_staging",
+                side_effect=IOError("Disk full on update"),
+            ):
+                with self.assertRaises(IOError) as ctx:
+                    support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertIn("Disk full on update", str(ctx.exception))
 
-        # Run orchestrate_run, it should raise and handle the exception, reverting DB state to previous published status
-        with self.assertRaises(IOError) as ctx:
-            support.run_publish(self.config, self.db_path, self.export_dir)
-        self.assertIn("Disk full on update", str(ctx.exception))
-
-        # 3. Verify that database rows for item 17 are restored to the state before the failed update
-        conn = get_connection(self.db_path)
-        try:
+            # The DB is ahead and NOT reverted: the new fingerprint stays.
+            conn = get_connection(self.db_path)
             repo = PublishRepository(conn)
-            pub_rec_after = repo.get_publish_record_by_source_item_id(17)
-            self.assertIsNotNone(pub_rec_after)
-            pls_after = repo.get_publish_language_status(pub_rec_after["publish_record_id"], "zh")
+            pub_rec = repo.get_publish_record_by_source_item_id(17)
+            self.assertIsNotNone(pub_rec)
+            pls_after = repo.get_publish_language_status(pub_rec["publish_record_id"], "zh")
             self.assertEqual(pls_after["publish_status"], "published")
-            self.assertEqual(pls_after["source_fingerprint"], fingerprint_before) # Fingerprint restored to previous state
-        finally:
+            self.assertEqual(pls_after["source_fingerprint"], "new-fingerprint")
             conn.close()
+
+            # The live generation is untouched.
+            self.assertEqual(pointer_before, support.read_pointer(self.export_dir))
+            self.assertEqual(
+                item_bytes_before,
+                (support.live_root(self.export_dir) / zh_item_rel).read_bytes(),
+            )
+
+            # 4. Convergence: the next successful run rebuilds from DB state.
+            clock.advance(hours=1)
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            pointer_after = support.read_pointer(self.export_dir)
+            self.assertNotEqual(pointer_before["generation"], pointer_after["generation"])
+            self.assertNotEqual(
+                item_bytes_before,
+                (support.live_root(self.export_dir) / zh_item_rel).read_bytes(),
+            )
+
+            # 5. A further no-change run stays on that generation: the state
+            # comparison converged (no spurious extra build).
+            clock.advance(hours=1)
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertEqual(
+                pointer_after["generation"],
+                support.read_pointer(self.export_dir)["generation"],
+            )
 
     def test_direct_rebuild_after_upstream_withdrawal(self) -> None:
         """Verify direct rebuild after upstream withdrawal without a preceding incremental run."""
@@ -471,7 +508,7 @@ index_policy:
         self.seed_data(18, "Item Eighteen", "2026-06-25T10:00:00Z")
         support.run_publish(self.config, self.db_path, self.export_dir)
 
-        zh_file = self.export_dir / "zh" / "items" / "en-item-eighteen.json"
+        zh_file = support.live_root(self.export_dir) / "zh" / "items" / "en-item-eighteen.json"
         self.assertTrue(zh_file.exists())
 
         # 2. Update curate_status to withdrawn in database
@@ -485,8 +522,9 @@ index_policy:
         self.assertEqual(summary["withdrawn_count"], 2) # en and zh
         self.assertEqual(summary["published_count"], 0)
 
-        # 4. Verify item files are deleted and DB reflects withdrawn
-        self.assertFalse(zh_file.exists())
+        # 4. Verify item files are absent from the new live generation and DB reflects withdrawn
+        live = support.live_root(self.export_dir)
+        self.assertFalse((live / "zh" / "items" / "en-item-eighteen.json").exists())
         conn = get_connection(self.db_path)
         repo = PublishRepository(conn)
         pub_rec = repo.get_publish_record_by_source_item_id(18)
@@ -494,29 +532,46 @@ index_policy:
         self.assertEqual(pls_zh["publish_status"], "withdrawn")
         conn.close()
 
-    @patch("json.dump")
-    def test_rebuild_file_write_failure_divergence_prevention(self, mock_dump) -> None:
-        """Verify rebuild file write failure does not clear or corrupt final export directory.
+    def test_failed_rebuild_leaves_live_generation_untouched(self) -> None:
+        """A rebuild whose generation build fails must not clear or corrupt
+        the currently live generation.
 
-        Unique protection (TEST_COVERAGE_MAP.md): pre-existing export files
-        survive a failed rebuild unchanged."""
-        # 1. Publish item 19 successfully
-        self.seed_data(19, "Item Nineteen", "2026-06-25T10:00:00Z")
-        support.run_publish(self.config, self.db_path, self.export_dir)
+        Unique protection (TEST_COVERAGE_MAP.md): the pre-existing live
+        generation survives a failed rebuild unchanged."""
+        clock = support.FakeClock("2026-07-01T00:00:00Z")
+        with clock.patch():
+            # 1. Publish item 19 successfully
+            self.seed_data(19, "Item Nineteen", "2026-06-25T10:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
 
-        zh_file = self.export_dir / "zh" / "items" / "en-item-nineteen.json"
-        self.assertTrue(zh_file.exists())
+            pointer_before = support.read_pointer(self.export_dir)
+            live = support.live_root(self.export_dir)
+            tree_before = {p.relative_to(live): p.read_bytes() for p in live.rglob("*.json")}
 
-        # 2. Mock file writing to fail during rebuild
-        mock_dump.side_effect = IOError("Disk full on rebuild")
+            # 2. Fail the generation build during rebuild
+            clock.advance(hours=1)
+            with patch(
+                "modules.publish.src.generation_store.write_generation_to_staging",
+                side_effect=IOError("Disk full on rebuild"),
+            ):
+                with self.assertRaises(IOError) as ctx:
+                    support.run_publish(self.config, self.db_path, self.export_dir, rebuild=True)
+            self.assertIn("Disk full on rebuild", str(ctx.exception))
 
-        # 3. Run rebuild, it should fail
-        with self.assertRaises(IOError) as ctx:
-            support.run_publish(self.config, self.db_path, self.export_dir, rebuild=True)
-        self.assertIn("Disk full on rebuild", str(ctx.exception))
+            # 3. The live generation is NOT cleared/half-switched
+            self.assertEqual(pointer_before, support.read_pointer(self.export_dir))
+            live_after = support.live_root(self.export_dir)
+            tree_after = {p.relative_to(live_after): p.read_bytes() for p in live_after.rglob("*.json")}
+            self.assertEqual(tree_before, tree_after)
 
-        # 4. The final export directory should NOT be cleared/half-deleted
-        self.assertTrue(zh_file.exists())
+            # 4. A retried rebuild succeeds and switches the pointer.
+            clock.advance(hours=1)
+            summary = support.run_publish(self.config, self.db_path, self.export_dir, rebuild=True)
+            self.assertEqual(summary["status"], "success")
+            self.assertNotEqual(
+                pointer_before["generation"],
+                support.read_pointer(self.export_dir)["generation"],
+            )
 
     def test_archive_index_batching_limit(self) -> None:
         """Verify archive/index behavior with batch_size > latest_limit."""
@@ -533,89 +588,76 @@ index_policy:
         zh_index = support.read_index(self.export_dir, "zh")
         self.assertEqual(len(zh_index), 2)
 
-    def test_promotion_midway_failure_reversion(self) -> None:
-        """Verify that a failure midway through file promotion reverts both the export directory and the database.
+    def test_pointer_switch_failure_converges(self) -> None:
+        """A pointer-switch failure after the generation was built and the
+        archive metadata applied leaves the DB ahead with the old generation
+        still live; the next successful run converges both.
 
-        Unique protection (TEST_COVERAGE_MAP.md): byte-identical export-tree
-        snapshot restore plus DB fingerprint/updated_at restore after a
-        promotion-phase failure."""
-        # 1. Publish item 25 successfully
-        self.seed_data(25, "Item TwentyFive", "2026-06-25T10:00:00Z")
-        support.run_publish(self.config, self.db_path, self.export_dir)
+        Unique protection (TEST_COVERAGE_MAP.md): live-generation byte
+        snapshot and pointer stay intact after a pointer-switch failure;
+        convergence run rebuilds and switches."""
+        clock = support.FakeClock("2026-07-01T00:00:00Z")
+        with clock.patch():
+            # 1. Publish item 25 successfully
+            self.seed_data(25, "Item TwentyFive", "2026-06-25T10:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
 
-        zh_file = self.export_dir / "zh" / "items" / "en-item-twentyfive.json"
-        self.assertTrue(zh_file.exists())
+            pointer_before = support.read_pointer(self.export_dir)
+            live = support.live_root(self.export_dir)
+            zh_item_rel = pathlib.Path("zh") / "items" / "en-item-twentyfive.json"
+            orig_item_json = (live / zh_item_rel).read_text(encoding="utf-8")
 
-        # Keep track of original item JSON to verify it was restored
-        orig_item_json = zh_file.read_text(encoding="utf-8")
+            # Snapshot the live generation tree; it must survive the failed
+            # run byte-identically.
+            tree_before = {p.relative_to(live): p.read_bytes() for p in live.rglob("*.json")}
 
-        # Snapshot the entire export tree; a complete rollback must restore it exactly,
-        # regardless of which files happened to be promoted before the failure
-        tree_before = {p.relative_to(self.export_dir): p.read_bytes() for p in self.export_dir.rglob("*.json")}
+            # 2. Update item 25 and seed item 26, so the run has changes
+            conn = get_connection(self.db_path)
+            conn.execute("UPDATE approved_content_record SET content_fingerprint = 'new-fp-25' WHERE source_item_id = 25")
+            conn.execute("UPDATE translation_output SET source_fingerprint = 'new-fp-25' WHERE parent_content_id = (SELECT parent_content_id FROM approved_content_record WHERE source_item_id = 25)")
+            conn.commit()
+            conn.close()
+            self.seed_data(26, "Item TwentySix", "2026-06-25T10:00:00Z")
 
-        # Capture database state before update
-        conn = get_connection(self.db_path)
-        repo = PublishRepository(conn)
-        pub_rec_orig = repo.get_publish_record_by_source_item_id(25)
-        pls_orig = repo.get_publish_language_status(pub_rec_orig["publish_record_id"], "zh")
-        fingerprint_orig = pls_orig["source_fingerprint"]
-        updated_at_orig = pub_rec_orig["updated_at"]
-        conn.close()
+            clock.advance(hours=1)
+            with patch(
+                "modules.publish.src.generation_store.write_pointer_atomic",
+                side_effect=OSError("Simulated pointer switch failure"),
+            ):
+                with self.assertRaises(OSError) as ctx:
+                    support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertIn("Simulated pointer switch failure", str(ctx.exception))
 
-        # 2. Trigger an update by modifying downstream content/fingerprint in DB
-        conn = get_connection(self.db_path)
-        conn.execute("UPDATE approved_content_record SET content_fingerprint = 'new-fp-25' WHERE source_item_id = 25")
-        conn.execute("UPDATE translation_output SET source_fingerprint = 'new-fp-25' WHERE parent_content_id = (SELECT parent_content_id FROM approved_content_record WHERE source_item_id = 25)")
-        conn.commit()
-        conn.close()
+            # 3. The DB is ahead and NOT rolled back: item 25 carries the new
+            # fingerprint and item 26 is published.
+            conn = get_connection(self.db_path)
+            repo = PublishRepository(conn)
+            pub_rec_25 = repo.get_publish_record_by_source_item_id(25)
+            pls_zh_25 = repo.get_publish_language_status(pub_rec_25["publish_record_id"], "zh")
+            self.assertEqual(pls_zh_25["source_fingerprint"], "new-fp-25")
+            self.assertIsNotNone(repo.get_publish_record_by_source_item_id(26))
+            conn.close()
 
-        # Seed a new item 26 to trigger a run with two items (25 update + 26 publish)
-        self.seed_data(26, "Item TwentySix", "2026-06-25T10:00:00Z")
+            # 4. The live generation and the pointer are untouched.
+            self.assertEqual(pointer_before, support.read_pointer(self.export_dir))
+            live_after = support.live_root(self.export_dir)
+            self.assertEqual((live_after / zh_item_rel).read_text(encoding="utf-8"), orig_item_json)
+            self.assertFalse((live_after / "zh" / "items" / "en-item-twentysix.json").exists())
+            tree_after = {p.relative_to(live_after): p.read_bytes() for p in live_after.rglob("*.json")}
+            self.assertEqual(tree_before, tree_after)
 
-        orig_replace = os.replace
-        staging_dir = self.export_dir / ".staging"
-        zh_index_dest = self.export_dir / "zh" / "index.json"
-
-        def side_effect(src, dst):
-            # Fail deterministically when promotion reaches zh/index.json: with the
-            # sorted promotion order, a newly created item-26 file has already been
-            # promoted by then, so both rollback paths are exercised. Rollback
-            # restores (src in .backup) must pass through or the reversion itself breaks.
-            if pathlib.Path(src).is_relative_to(staging_dir) and pathlib.Path(dst) == zh_index_dest:
-                raise OSError("Staging promotion disk full simulated error")
-            return orig_replace(src, dst)
-
-        with patch("os.replace", side_effect=side_effect):
-            with self.assertRaises(OSError) as ctx:
-                support.run_publish(self.config, self.db_path, self.export_dir)
-            self.assertIn("Staging promotion disk full simulated error", str(ctx.exception))
-
-        # 3. Verify final export dir is restored:
-        # - Item 25 should still have its original item JSON (not the updated one)
-        # - Item 26 file should NOT exist
-        self.assertTrue(zh_file.exists())
-        self.assertEqual(zh_file.read_text(encoding="utf-8"), orig_item_json)
-
-        zh_file_26 = self.export_dir / "zh" / "items" / "en-item-twentysix.json"
-        self.assertFalse(zh_file_26.exists())
-
-        # The whole export tree must be byte-identical to the pre-failure snapshot
-        tree_after = {p.relative_to(self.export_dir): p.read_bytes() for p in self.export_dir.rglob("*.json")}
-        self.assertEqual(tree_before, tree_after)
-
-        # 4. Verify DB was rolled back:
-        # - Item 25 fingerprint and updated_at in DB should be restored to orig
-        # - Item 26 should not be in DB
-        conn = get_connection(self.db_path)
-        repo = PublishRepository(conn)
-        pub_rec_25 = repo.get_publish_record_by_source_item_id(25)
-        pls_zh_25 = repo.get_publish_language_status(pub_rec_25["publish_record_id"], "zh")
-        self.assertEqual(pls_zh_25["source_fingerprint"], fingerprint_orig)
-        self.assertEqual(pub_rec_25["updated_at"], updated_at_orig)
-
-        pub_rec_26 = repo.get_publish_record_by_source_item_id(26)
-        self.assertIsNone(pub_rec_26)
-        conn.close()
+            # 5. The next successful run converges: rebuild from DB state and
+            # switch the pointer; item 26 goes live.
+            clock.advance(hours=1)
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            pointer_after = support.read_pointer(self.export_dir)
+            self.assertNotEqual(pointer_before["generation"], pointer_after["generation"])
+            live_converged = support.live_root(self.export_dir)
+            self.assertTrue((live_converged / "zh" / "items" / "en-item-twentysix.json").exists())
+            self.assertNotEqual(
+                (live_converged / zh_item_rel).read_text(encoding="utf-8"),
+                orig_item_json,
+            )
 
 
 if __name__ == "__main__":

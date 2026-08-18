@@ -308,9 +308,10 @@ class TestStructuredContentExport(PublishContractTestBase):
         self.run_publish()
 
         scanned = 0
+        live = support.live_root(self.export_dir)
         targets: List[pathlib.Path] = [
-            self.export_dir / lang / "items" / "en-label-scan-item.json" for lang in ("zh", "en")
-        ] + [self.export_dir / lang / "index.json" for lang in ("zh", "en")]
+            live / lang / "items" / "en-label-scan-item.json" for lang in ("zh", "en")
+        ] + [live / lang / "index.json" for lang in ("zh", "en")]
         for path in targets:
             data = support.read_json(path)
             for s in collect_strings(data):

@@ -60,7 +60,7 @@ class TestCjkSlugFallback(unittest.TestCase):
         self.assertEqual("item", self.get_slug(1))
         for lang in ("zh", "en"):
             with self.subTest(language=lang):
-                self.assertTrue((self.export_dir / lang / "items" / "item.json").exists())
+                self.assertTrue((support.live_root(self.export_dir) / lang / "items" / "item.json").exists())
 
         # Second all-CJK item: deterministic collision suffix "item-2".
         self.seed_cjk_item(2, "秘密檔案公開")
@@ -69,7 +69,7 @@ class TestCjkSlugFallback(unittest.TestCase):
         self.assertEqual("item-2", self.get_slug(2))
         for lang in ("zh", "en"):
             with self.subTest(language=lang):
-                self.assertTrue((self.export_dir / lang / "items" / "item-2.json").exists())
+                self.assertTrue((support.live_root(self.export_dir) / lang / "items" / "item-2.json").exists())
 
         # Retitle both items to ASCII titles with new fingerprints and
         # republish: both fallback slugs remain frozen.
@@ -86,8 +86,8 @@ class TestCjkSlugFallback(unittest.TestCase):
         self.assertEqual("item-2", self.get_slug(2))
         for lang in ("zh", "en"):
             with self.subTest(language=lang):
-                self.assertTrue((self.export_dir / lang / "items" / "item.json").exists())
-                self.assertTrue((self.export_dir / lang / "items" / "item-2.json").exists())
+                self.assertTrue((support.live_root(self.export_dir) / lang / "items" / "item.json").exists())
+                self.assertTrue((support.live_root(self.export_dir) / lang / "items" / "item-2.json").exists())
 
 
 if __name__ == "__main__":

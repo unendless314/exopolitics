@@ -1,7 +1,7 @@
 # System Overview
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-07-24
+**Updated:** 2026-08-18
 
 ---
 
@@ -107,6 +107,7 @@ The rewritten system recognizes at least four important content representations:
 - approved outputs prepared for public consumption in static file form (multilingual folders, index, feeds)
 - derived from canonical records using a unified frozen slug lookup
 - carries structured content with semantic bullet keys; localized post presentation labels are applied by `site` at build time, not stored in the export
+- emitted as immutable, versioned generation directories under `data/publish_export/generations/`, committed by an atomic `current.json` pointer switch — the publish→site handoff resolves the live generation exclusively through that pointer
 - optimized for site rendering rather than operational workflow
 
 ---
@@ -172,6 +173,7 @@ Owns:
 - selecting completed translated records (`translation_output`) of actively approved items for export
 - generating publish-layer outputs and synchronizing cleanup for withdrawn items
 - preserving attribution, disclosure, and unified slug generation
+- versioned generation emission: each content-changing run builds a complete immutable generation under `data/publish_export/generations/` and commits it by atomically switching the `current.json` pointer
 
 ### 6.8 `site`
 
@@ -181,6 +183,8 @@ Owns:
 - UI localization (i18n) and SEO concerns
 - routing and page generation
 - static rendering concerns
+
+Renders read-only from the live publish generation resolved through `current.json`; no canonical DB access.
 
 ### 6.9 `analysis`
 

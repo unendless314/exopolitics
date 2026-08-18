@@ -1,7 +1,7 @@
 # Publish Module
 
-**Document version:** v2.0  
-**Updated:** 2026-06-24  
+**Document version:** v2.1
+**Updated:** 2026-08-18
 **Status:** Active rewrite draft
 
 ---
@@ -33,7 +33,7 @@ This means `publish` must not treat translation completion alone as publication 
 
 ### 1.2 Downstream Handoff to `site`
 
-The output artifacts produced by `publish` (specifically the latest items index `data/publish_export/<language_code>/index.json`, the monthly archives index `data/publish_export/<language_code>/archives/index.json`, the monthly archives `data/publish_export/<language_code>/archives/archive_YYYY_MM.json`, and per-item JSON exports under `data/publish_export/<language_code>/items/<slug>.json`) serve as the handoff contract for the downstream presentation layer. The `site` module consumes these files to render final web pages and may derive additional presentation-layer artifacts from the structured fields in the language index, monthly archives, and per-item JSON exports. Per-item JSON exports carry structured content fields (`display_title`, `summary_short`, and `bullets` — an object with `key_claim`, `evidence_level`, `objective_impact` for `publish_summary` items, or `null` for `publish_link` items) rather than a monolithic translated Markdown body; presentation labels are applied by `site` at build time.
+The output artifacts produced by `publish` serve as the handoff contract for the downstream presentation layer. They are emitted as immutable, complete export generations under `data/publish_export/generations/<generation-id>/`, behind an atomic `data/publish_export/current.json` pointer that is the only reader entry point. Within the live generation readers find the latest items index `<language_code>/index.json`, the monthly archives index `<language_code>/archives/index.json`, the monthly archives `<language_code>/archives/archive_YYYY_MM.json`, and per-item JSON exports under `<language_code>/items/<slug>.json`. The `site` module consumes these files to render final web pages and may derive additional presentation-layer artifacts from the structured fields in the language index, monthly archives, and per-item JSON exports. Per-item JSON exports carry structured content fields (`display_title`, `summary_short`, and `bullets` — an object with `key_claim`, `evidence_level`, `objective_impact` for `publish_summary` items, or `null` for `publish_link` items) rather than a monolithic translated Markdown body; presentation labels are applied by `site` at build time. The site displays the run freshness timestamp from the pointer's `last_successful_run_at`, not from the generation's `stats.json`.
 
 ### 1.3 Boundary Rules
 
@@ -48,7 +48,7 @@ The output artifacts produced by `publish` (specifically the latest items index 
 
 1. Select export-eligible translated records whose upstream curation status remains active.
 2. Generate and persist a stable slug on first publication.
-3. Emit per-language public artifacts under the export directory.
+3. Emit per-language public artifacts as complete, immutable export generations behind an atomic pointer.
 4. Rebuild language indexes and global stats from canonical publish-layer state.
 5. Detect upstream withdrawals or eligibility loss and remove corresponding public files.
 6. Preserve attribution, disclosure, and source provenance fields in exported payloads.
@@ -131,3 +131,4 @@ Inspect publish-layer queue and state counts:
 ```text
 python -m modules.publish.src.cli status --db-path data/canonical.db
 ```
+

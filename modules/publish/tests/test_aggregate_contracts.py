@@ -4,7 +4,7 @@ stats.json (plan section 3.9, DATA_CONTRACT.md sections 6.4 and 6.5).
 
 The manifest must list every non-empty month sorted DESC with the exact file
 name, item count and the publish-owned logical write timestamp of that
-archive's most recent write. stats.json must expose every configured
+archive's most recent content change. stats.json must expose every configured
 language key with exact counts, including zero values and null oldest
 months. All clock-sensitive assertions use an injected FakeClock.
 """
@@ -13,6 +13,7 @@ import pathlib
 import re
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from modules.publish.src.database import (
     run_migrations,
@@ -58,6 +59,7 @@ class TestAggregateArtifactContracts(unittest.TestCase):
             support.run_publish(self.config, self.db_path, self.export_dir)
             run_ts = self.clock.now_iso
 
+            live = support.live_root(self.export_dir)
             for lang in ("zh", "en"):
                 with self.subTest(language=lang):
                     manifest = support.read_manifest(self.export_dir, lang)
@@ -77,7 +79,7 @@ class TestAggregateArtifactContracts(unittest.TestCase):
                     # Every manifest month has a real archive file on disk.
                     for entry in manifest:
                         self.assertTrue(
-                            (self.export_dir / lang / "archives" / entry["file_name"]).exists(),
+                            (live / lang / "archives" / entry["file_name"]).exists(),
                             entry["file_name"],
                         )
 
@@ -115,15 +117,17 @@ class TestAggregateArtifactContracts(unittest.TestCase):
                     self.assertEqual(t1, months["2026-06"]["updated_at"])
                     self.assertEqual(t0, months["2026-04"]["updated_at"])
 
-            # Emptying the May archive deletes the file and the metadata row.
+            # Emptying the May archive removes the file from the new live
+            # generation and deletes the metadata row.
             self.clock.advance(hours=1)
             self.set_curation(3, "withdrawn")
             support.run_publish(self.config, self.db_path, self.export_dir)
             t3 = self.clock.now_iso
 
+            live = support.live_root(self.export_dir)
             for lang in ("zh", "en"):
                 with self.subTest(language=lang):
-                    self.assertFalse((self.export_dir / lang / "archives" / "archive_2026_05.json").exists())
+                    self.assertFalse((live / lang / "archives" / "archive_2026_05.json").exists())
                     months = self.manifest_by_month(lang)
                     self.assertNotIn("2026-05", months)
                     self.assertEqual(t1, months["2026-06"]["updated_at"])
@@ -164,19 +168,29 @@ class TestAggregateArtifactContracts(unittest.TestCase):
             self.assertGreater(t2, t1)
             self.assertGreater(t1, t0)
 
-    def test_missing_metadata_heals_by_rewriting_archive_once(self) -> None:
+    def test_missing_metadata_heals_by_restamping_archive_once(self) -> None:
         """Pre-v002 databases have archives on disk but no
-        publish_archive_metadata rows. The next incremental run must rewrite
-        those archives once and stamp the metadata with that run's clock, so
-        the manifest updated_at always reflects a real file write
-        (DATA_CONTRACT.md section 2.3). Once metadata is intact, an
-        unchanged run must not rewrite untouched archives again.
+        publish_archive_metadata rows. The next incremental run must stamp
+        the metadata once with that run's clock (heal), which changes the
+        planned manifest and therefore builds exactly one new generation;
+        the archive bytes themselves are unchanged. Once metadata is intact,
+        an unchanged run must not build again or advance the stamps
+        (DATA_CONTRACT.md section 2.3).
         """
-        import os
-
         with self.clock.patch():
             self.seed_base_items()
             support.run_publish(self.config, self.db_path, self.export_dir)
+
+            archive_refs = [
+                (lang, month)
+                for lang in ("zh", "en")
+                for month in ("2026-04", "2026-05")
+            ]
+            live = support.live_root(self.export_dir)
+            bytes_before = {
+                ref: (live / ref[0] / "archives" / f"archive_{ref[1].replace('-', '_')}.json").read_bytes()
+                for ref in archive_refs
+            }
 
             # Simulate the pre-v002 state: archives exist, metadata is gone.
             conn = get_connection(self.db_path)
@@ -184,55 +198,47 @@ class TestAggregateArtifactContracts(unittest.TestCase):
             conn.commit()
             conn.close()
 
-            archive_paths = [
-                self.export_dir / lang / "archives" / f"archive_{month.replace('-', '_')}.json"
-                for lang in ("zh", "en")
-                for month in ("2026-04", "2026-05")
-            ]
-            bytes_before = {p: p.read_bytes() for p in archive_paths}
-            backdated = 978307200  # 2001-01-01T00:00:00Z
-            for p in archive_paths:
-                os.utime(p, (backdated, backdated))
-
             self.clock.advance(hours=1)
             summary = support.run_publish(self.config, self.db_path, self.export_dir)
             t1 = self.clock.now_iso
             self.assertEqual(0, summary["published_count"])
             self.assertEqual(0, summary["withdrawn_count"])
 
-            # The heal run rewrites the file (observable via mtime) with
-            # identical content and records the heal run's clock.
-            for p in archive_paths:
-                with self.subTest(archive=str(p)):
-                    self.assertGreater(p.stat().st_mtime, backdated)
-                    self.assertEqual(bytes_before[p], p.read_bytes())
+            # The heal changes the planned manifest timestamps, so exactly one
+            # new generation is built; the archive bytes are identical.
+            generation_after_heal = support.read_pointer(self.export_dir)["generation"]
+            live = support.live_root(self.export_dir)
+            for lang, month in archive_refs:
+                with self.subTest(language=lang, month=month):
+                    self.assertEqual(
+                        bytes_before[(lang, month)],
+                        (live / lang / "archives" / f"archive_{month.replace('-', '_')}.json").read_bytes(),
+                    )
             for lang in ("zh", "en"):
                 with self.subTest(language=lang):
                     months = self.manifest_by_month(lang)
                     self.assertEqual(t1, months["2026-04"]["updated_at"])
                     self.assertEqual(t1, months["2026-05"]["updated_at"])
 
-            # Metadata is now intact: a further unchanged run leaves the
-            # archives and their timestamps alone.
-            for p in archive_paths:
-                os.utime(p, (backdated, backdated))
+            # Metadata is now intact: a further unchanged run builds nothing
+            # and leaves the generation and its manifest timestamps alone.
             self.clock.advance(hours=1)
             support.run_publish(self.config, self.db_path, self.export_dir)
-            for p in archive_paths:
-                with self.subTest(archive=str(p)):
-                    self.assertEqual(backdated, int(p.stat().st_mtime))
+            self.assertEqual(
+                generation_after_heal,
+                support.read_pointer(self.export_dir)["generation"],
+            )
             for lang in ("zh", "en"):
                 with self.subTest(language=lang):
                     months = self.manifest_by_month(lang)
                     self.assertEqual(t1, months["2026-04"]["updated_at"])
                     self.assertEqual(t1, months["2026-05"]["updated_at"])
 
-    def test_archive_metadata_rolls_back_on_promotion_failure(self) -> None:
-        """A promotion-phase failure must restore publish_archive_metadata to
-        its pre-run values, alongside the existing DB/file compensation."""
-        import os
-        from unittest.mock import patch
-
+    def test_archive_metadata_converges_after_pointer_switch_failure(self) -> None:
+        """A pointer-switch failure after the archive metadata sync leaves
+        the DB ahead (the new month stamped with the failed run's clock)
+        while the live generation keeps serving the pre-run manifest; the
+        next successful run converges both."""
         with self.clock.patch():
             self.seed_base_items()
             support.run_publish(self.config, self.db_path, self.export_dir)
@@ -241,36 +247,43 @@ class TestAggregateArtifactContracts(unittest.TestCase):
             self.clock.advance(hours=1)
             support.seed_item(self.db_path, 4, "June Item", "2026-06-01T12:00:00Z")
 
-            orig_replace = os.replace
-            staging_dir = self.export_dir / ".staging"
-
-            def fail_on_first_promotion(src, dst):
-                if pathlib.Path(src).is_relative_to(staging_dir):
-                    raise OSError("Simulated promotion failure")
-                return orig_replace(src, dst)
-
-            with patch("os.replace", side_effect=fail_on_first_promotion):
+            with patch(
+                "modules.publish.src.generation_store.write_pointer_atomic",
+                side_effect=OSError("Simulated pointer switch failure"),
+            ):
                 with self.assertRaises(OSError):
                     support.run_publish(self.config, self.db_path, self.export_dir)
+            t1 = self.clock.now_iso
 
-            # Metadata is unchanged: no June row, existing rows keep T0.
+            # The DB is ahead and NOT rolled back: the June row exists with
+            # this run's clock; untouched months keep T0.
             conn = get_connection(self.db_path)
             rows = conn.execute(
                 "SELECT language_code, archive_month, updated_at FROM publish_archive_metadata ORDER BY language_code, archive_month"
             ).fetchall()
             conn.close()
             self.assertEqual(
-                [(lang, month, t0) for lang in ("en", "zh") for month in ("2026-04", "2026-05")],
+                [(lang, month, ts) for lang in ("en", "zh") for month, ts in (("2026-04", t0), ("2026-05", t0), ("2026-06", t1))],
                 [(r[0], r[1], r[2]) for r in rows],
             )
 
-            # The public manifest still shows the pre-failure timestamps.
+            # The live generation still serves the pre-failure manifest.
             for lang in ("zh", "en"):
                 with self.subTest(language=lang):
                     months = self.manifest_by_month(lang)
                     self.assertEqual(t0, months["2026-04"]["updated_at"])
                     self.assertEqual(t0, months["2026-05"]["updated_at"])
                     self.assertNotIn("2026-06", months)
+
+            # The next successful run converges: June goes live and the DB
+            # metadata stays consistent with the served manifest.
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            for lang in ("zh", "en"):
+                with self.subTest(language=lang):
+                    months = self.manifest_by_month(lang)
+                    self.assertEqual(t1, months["2026-06"]["updated_at"])
+                    self.assertEqual(1, months["2026-06"]["item_count"])
+                    self.assertEqual(t0, months["2026-04"]["updated_at"])
 
     def test_stats_contract_counts_and_keys(self) -> None:
         config = support.make_config(export_dir=self.export_dir, batch_size=10, latest_limit=2)
@@ -324,6 +337,28 @@ class TestAggregateArtifactContracts(unittest.TestCase):
 
             self.assertEqual(run_ts, stats["last_export_run_timestamp"])
             self.assertRegex(stats["last_export_run_timestamp"], ISO_8601_UTC_RE)
+
+    def test_zero_state_bootstrap_layout(self) -> None:
+        """A zero-data first run still builds a complete (empty) generation:
+        every configured language gets an empty index, an empty archives
+        manifest and explicit items/ and archives/ directories (Phase B1
+        bootstrap layout, consumed by the site loaders)."""
+        with self.clock.patch():
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            run_ts = self.clock.now_iso
+
+            live = support.live_root(self.export_dir)
+            for lang in ("zh", "en"):
+                with self.subTest(language=lang):
+                    self.assertEqual([], support.read_index(self.export_dir, lang))
+                    self.assertEqual([], support.read_manifest(self.export_dir, lang))
+                    self.assertTrue((live / lang / "items").is_dir())
+                    self.assertTrue((live / lang / "archives").is_dir())
+
+            pointer = support.read_pointer(self.export_dir)
+            self.assertEqual(run_ts, pointer["export_completed_at"])
+            self.assertEqual(run_ts, pointer["last_successful_run_at"])
+            self.assertEqual(["zh", "en"], pointer["languages"])
 
 
 if __name__ == "__main__":

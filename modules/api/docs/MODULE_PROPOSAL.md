@@ -1,6 +1,6 @@
 # `api` Module Proposal
 
-**Status:** Proposal v1.8 — six external review rounds incorporated. **Phase A (mechanical split of publish's orchestrator) is reviewer-approved** under the acceptance conditions in the refactor plan. **Phase B and api implementation remain blocked** pending final document review of `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v5. This module stays at documentation stage until then.
+**Status:** Proposal v1.9 — six external review rounds incorporated. **Phase A (mechanical split of publish's orchestrator) is completed and passed independent code review (2026-08-17)**. **Phase B1 (generation + atomic pointer) landed 2026-08-18** — the publish export is now generation + `current.json` pointer based, and the site-side consumption (resolver, pointer-driven "last updated", generationized fixture) landed with it. Phase B2 (hardlink reuse optimization) remains a separate pending batch. This module stays at documentation stage and is not implemented. Refactor basis: `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7.
 **Proposed:** 2026-08-17
 **Reversal plan:** delete `modules/api/` entirely. No top-level docs (including `docs/MODULE_BOUNDARIES.md`) have been modified; no other module is affected.
 
@@ -21,7 +21,7 @@ publish export ──> site  (for humans)
 
 Both consumers read only publish-layer outputs; neither touches canonical storage.
 
-**Interim note:** the deep-reader use case is not blocked while this module waits — an agent on the same machine can read `data/publish_export/<lang>/index.json` directly with file tools. The API adds contractual stability and freshness semantics, not basic capability.
+**Interim note:** the deep-reader use case is not blocked while this module waits — an agent on the same machine can read `data/publish_export/current.json` and the live generation's `<lang>/index.json` directly with file tools. The API adds contractual stability and freshness semantics, not basic capability.
 
 ## 2. Product Constraint (owner decision, 2026-08-17)
 
@@ -60,7 +60,7 @@ Review round 2 surfaced that export reads are unsafe without a generation marker
 - The writer-side fix deletes complexity in publish itself (per-file promote, per-file backups, promotion journal, withdrawal/language-shrink sweeps all simplify) and benefits every current and future consumer of the export, including `site`.
 - The pattern already has an accepted pending precedent in this repo: `known_issues/SITE_RELEASE_POINTER_PROMOTION_PROPOSAL.md`.
 
-Consequence: **api implementation is blocked on the publish refactor, by design and by preference.** The refactor basis lives in `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md`.
+Consequence: **api implementation was gated on the publish refactor, by design and by preference.** Phase B1 — the part that establishes the reader-visible contract this module depends on — has since landed (2026-08-18); Phase B2 (hardlink reuse optimization) remains pending as an independent batch that does not change generation immutability or the reader protocol. The module stays at documentation stage until the refactor completes and the owner green-lights implementation. The refactor basis lives in `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` (v7).
 
 ## 4. Proposed Boundary Definition
 
@@ -96,13 +96,15 @@ The module exposes **its own** contract externally, but v1 response field names 
 - **Data layer:** reads `current.json` → resolves the generation directory → `index.json` + per-slug `items/` joins; no database driver needed
 - **First endpoint:** `GET /v1/articles?event_from=...&event_to=...&language=...&limit=...&cursor=...` — full contract in `API_CONTRACT.md`
 
-## 7. Upstream Precondition (hard blocker)
+## 7. Upstream Precondition (met for Phase B1)
 
-**The publish generation-pointer refactor** (`known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md`) must land before api implementation:
+**Phase B1 of the publish generation-pointer refactor** (`known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7) landed on 2026-08-18. The assumptions this contract was written against are now live behavior:
 
-1. **Generation consistency:** pre-refactor promotion is per-file and non-atomic; withdrawal cleanup interleaves with promotion. Post-refactor, generation directories are immutable and `current.json` switches atomically — content drift during a read is impossible by construction. One narrow retry remains: if retention sweeps the resolved generation at any point during the read flow, the reader re-resolves the pointer and re-runs the flow once before returning `503` (see `API_CONTRACT.md` §7).
-2. **Language authority:** the pointer's `languages` list becomes the single source of truth; directory existence is not evidence (publish's own orchestration says so).
-3. **Freshness signaling:** the pointer carries `export_completed_at`, letting the agent distinguish "no news today" from "export not updated yet".
+1. **Generation consistency:** pre-B1 promotion was per-file and non-atomic, with withdrawal cleanup interleaved. Generation directories are now immutable and `current.json` switches atomically — content drift during a read is impossible by construction. One narrow retry remains: if retention sweeps the resolved generation at any point during the read flow, the reader re-resolves the pointer and re-runs the flow once before returning `503` (see `API_CONTRACT.md` §7).
+2. **Language authority:** the pointer's `languages` list is the single source of truth; directory existence is not evidence (publish's own orchestration said so even before the refactor).
+3. **Freshness signaling:** the pointer carries `export_completed_at` and `last_successful_run_at`, letting the agent distinguish "no news today" from "export not updated yet".
+
+Phase B2 (hardlink reuse optimization) is still pending as an independent batch; it does not change the reader-visible contract above. The api module itself remains at documentation stage.
 
 Deferred upstream item (not a blocker): `category` in export items — only if a future consumer needs classification in the reading list.
 
@@ -118,9 +120,9 @@ Deferred upstream item (not a blocker): `category` in export items — only if a
 Included now:
 
 - this proposal document
-- `API_CONTRACT.md` — v1.7 contract draft rebased onto the generation-pointer layout
+- `API_CONTRACT.md` — v1.8 contract draft rebased onto the generation-pointer layout
 
-Deliberately excluded until the publish refactor lands and this proposal is approved:
+Deliberately excluded until the publish refactor completes (Phase B1 landed 2026-08-18; Phase B2 pending) and this proposal is approved:
 
 - changes to any top-level doc
 - `src/`, `config/`, `tests/` scaffolds
@@ -128,7 +130,7 @@ Deliberately excluded until the publish refactor lands and this proposal is appr
 
 ## 10. On Approval, the Implementation Change Must Also Update
 
-(After the publish refactor lands; the refactor plan lists its own doc set.)
+(After the publish refactor completes — Phase B1 landed 2026-08-18, Phase B2 pending; the refactor plan lists its own doc set.)
 
 - `docs/MODULE_BOUNDARIES.md` — add section 3.10 from §4 above
 - `docs/SYSTEM_OVERVIEW.md` — add `api` to the module sequence/diagram
@@ -136,14 +138,3 @@ Deliberately excluded until the publish refactor lands and this proposal is appr
 - `docs/IMPLEMENTATION_ROADMAP.md` — add the `api` work item
 - `AGENTS.md` — module list and ownership rules, if it enumerates modules
 
-## 11. Review History
-
-- **v1.0 (2026-08-17):** initial proposal.
-- **v1.1 (2026-08-17):** external review round 1 — "direction approved, implementation not approved", 7 data-contract issues; all incorporated.
-- **v1.2 (2026-08-17):** owner product review — event-time semantics, recent-window scope.
-- **v1.3 (2026-08-17):** external review round 2 — 3 P1 items adopted (manifest-bracketed consistency, manifest language authority, freshness semantics).
-- **v1.4 (2026-08-17):** owner architecture decision — writer-side fix (immutable generations + atomic pointer) preferred over reader-side defense; api implementation deliberately deferred until the publish refactor lands. Contract rebased accordingly; retry protocol removed before ever being built. Refactor basis: `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md`.
-- **v1.5 (2026-08-17):** external review round 3 — 3 P1 items adopted in both the refactor plan (now v2) and the contract: Windows-safe generation-id format with collision suffix; narrow single retry on retention-swept generation then `503`; `stats.json` placed inside the generation so site's `loadStats`/Footer/stats page pass through the resolver seam unchanged. Refactor plan now sequences Phase A (mechanical god-module split of `orchestrator.py`, zero behavior change, existing tests as the safety net) before Phase B (generation-pointer behavior change).
-- **v1.6 (2026-08-17):** external review round 4 — 4 P1 items adopted (refactor plan now v3): full-snapshot generations rebuilt from the complete active published set every run; migration restricted to publish-owned artifacts; retry widened to the entire read flow; committed dev fixture must be generationized in the same change. Phase A acceptance criteria codified (no test-semantics changes, byte-identical outputs, FakeClock/failure-injection reuse, independent review gate before Phase B). Awaiting reviewer final pass on the documents before Phase A is approved.
-- **v1.7 (2026-08-17):** external review round 5 — 3 P1 items adopted (refactor plan now v4): (1) no-change-run freshness rule — every successful run atomically refreshes `current.json.last_successful_run_at`, new generations only on content change; freshness split into pipeline-health (`data_may_be_stale`) vs. content-coverage (`request_exceeds_window_to`) signals; (2) cursors are generation-bound — mismatch returns `400 cursor_expired`, never silently mixing generations; (3) this document's own drift corrected (stale version header, outdated plan reference, and the "no retry at all" claim contradicted by contract v1.6 — all now synchronized).
-- **v1.8 (2026-08-17):** external review round 6 — **Phase A approved** (acceptance conditions per refactor plan). Phase B remains blocked pending final document pass; 2 P1 items adopted in refactor plan v5: (1) site's "last updated" display must read `current.json.last_successful_run_at` (generation-internal stats timestamp freezes on no-change runs), widening the site change slightly beyond the pure resolver seam — the resolver now exposes both the generation root and the pointer; (2) bootstrap rule — when `current.json` does not yet exist, the first successful run always creates a complete (possibly empty) generation, honoring the zero-state contract proven by `test_stats_zero_state`. Also fixed the remaining P3 drift in §9 (contract version reference).

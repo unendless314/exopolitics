@@ -1,7 +1,7 @@
 # Module Boundaries
 
 **Status:** Active rewrite draft  
-**Updated:** 2026-07-24
+**Updated:** 2026-08-18
 
 ---
 
@@ -161,7 +161,8 @@ Owns:
 
 - selection of completed translated records for export
 - generation of slug on first publication, which is permanently frozen in canonical storage
-- static multilingual directory structures and export files emission
+- versioned generation emission: immutable, complete-snapshot generation directories under `data/publish_export/generations/<generation-id>/`, committed by an atomic `current.json` pointer switch
+- the publish-owned export-root state: `generations/`, `current.json`, the `.staging/` build directory, generation retention (newest 5 generations plus the always-protected live generation), and the `publish_runner.lock` single-writer lock placed next to the canonical DB
 - attribution and disclosure emission
 - downstream export synchronization and cleanup based on upstream state transitions
 
@@ -189,7 +190,7 @@ Owns:
 
 May read:
 
-- publish-layer outputs only
+- publish-layer outputs only — the live generation resolved read-only through the atomic `current.json` pointer (generation directories under `data/publish_export/generations/` are immutable; `site` never writes there and has no canonical DB access)
 
 Must not own:
 
@@ -282,7 +283,7 @@ Until then, avoid inventing heavyweight shared systems too early.
 - `curate` owns curation decision-making
 - `approved_content_record` functions as a canonical handoff artifact assembled from finalized upstream editorial states
 - `translate` owns content translation and fingerprinted lifecycle
-- `publish` owns export shape and slug generation
+- `publish` owns export shape, slug generation, and the versioned generation/pointer emission layout (`generations/` + atomic `current.json`)
 - `site` is a pure downstream consumer
 - post presentation labels are owned by `site` and applied at build time; canonical records and publish exports carry label-free structured content
 - `analysis` functions as a read-only sidecar observer that does not affect canonical state transitions

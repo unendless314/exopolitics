@@ -1,13 +1,16 @@
 ---
 import { useTranslations, formatAbsoluteDateTime, localeProfiles } from "../utils/i18n";
-import { publishExportDir } from "../utils/paths";
+import { publishExportDir, publishExportPointer } from "../utils/paths";
 import { loadStats } from "../utils/exportData";
 
 const lang = Astro.currentLocale || "zh";
 const t = useTranslations(lang);
-// Same loader/validator as the stats page: missing or invalid stats hard-fail.
-const stats = loadStats(publishExportDir, Object.keys(localeProfiles));
-const lastRun = stats.last_export_run_timestamp;
+// Kept for its hard-fail side effect: a missing or invalid stats.json must
+// break the build even though the Footer no longer reads a value from it.
+loadStats(publishExportDir, Object.keys(localeProfiles));
+// Phase B1: the freshness signal lives on the pointer; stats.json stays
+// frozen at the generation's build time on no-change runs.
+const lastRun = publishExportPointer.last_successful_run_at;
 ---
 
 <footer class="w-full border-t border-hairline py-8 mt-12 bg-bgColor transition-colors duration-300">

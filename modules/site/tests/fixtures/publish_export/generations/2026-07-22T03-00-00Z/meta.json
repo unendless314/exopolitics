@@ -1,0 +1,17 @@
+{
+  "generation": "2026-07-22T03-00-00Z",
+  "created_at": "2026-07-22T03:00:00Z",
+  "content_fingerprint": "sha256-exportstate-v1:0000000000000000000000000000000000000000000000000000000000000000",
+  "aggregate_file_hashes": {
+    "en/archives/archive_2026_07.json": "sha256:9e3e27a1c13895a3a32f5dacace6052a23c481fe709c0e7923ebae83109de4d1",
+    "en/archives/index.json": "sha256:190c9440afd0b76a14b8f3e62307f766ad69047b15d6043f21a895c6bf0aa8b0",
+    "en/index.json": "sha256:9e3e27a1c13895a3a32f5dacace6052a23c481fe709c0e7923ebae83109de4d1",
+    "ja/archives/archive_2026_07.json": "sha256:259f65ee798f326d391f0ef65a751b4a34b6074ee09c0cfae4ae4de07120f71f",
+    "ja/archives/index.json": "sha256:190c9440afd0b76a14b8f3e62307f766ad69047b15d6043f21a895c6bf0aa8b0",
+    "ja/index.json": "sha256:259f65ee798f326d391f0ef65a751b4a34b6074ee09c0cfae4ae4de07120f71f",
+    "stats.json": "sha256:33635cf02d88082593cd454d38e803e027e6d074bd92c6a4a1c56aa8d5288154",
+    "zh/archives/archive_2026_07.json": "sha256:8d38f9236d1bfb3cac060546452a1f47e09dc5c085097948147b014a97ffa07f",
+    "zh/archives/index.json": "sha256:190c9440afd0b76a14b8f3e62307f766ad69047b15d6043f21a895c6bf0aa8b0",
+    "zh/index.json": "sha256:8d38f9236d1bfb3cac060546452a1f47e09dc5c085097948147b014a97ffa07f"
+  }
+}

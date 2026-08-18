@@ -166,12 +166,12 @@ class TestAuthorMetadataEndToEnd(unittest.TestCase):
                 )
                 conn.close()
 
-                slug = f"en-metadata-item-{item_id}"
-                for lang in ("zh", "en"):
-                    self.assertFalse(
-                        (self.export_dir / lang / "items" / f"{slug}.json").exists(),
-                        f"{case_name} must not write a public artifact for {lang}",
-                    )
+                # The failed run must not establish a live pointer, so no
+                # public artifact of the item can exist for any language.
+                self.assertFalse(
+                    (self.export_dir / "current.json").exists(),
+                    f"{case_name} must not produce a live pointer",
+                )
 
     def test_invalid_update_preserves_existing_publication(self) -> None:
         support.seed_item(self.db_path, 1, "Metadata Item", "2026-06-15T12:00:00Z")
@@ -179,7 +179,7 @@ class TestAuthorMetadataEndToEnd(unittest.TestCase):
         self.assertEqual(summary["published_count"], 2)
 
         slug = "en-metadata-item"
-        zh_item_path = self.export_dir / "zh" / "items" / f"{slug}.json"
+        zh_item_path = support.live_root(self.export_dir) / "zh" / "items" / f"{slug}.json"
         zh_bytes_before = zh_item_path.read_bytes()
 
         conn = get_connection(self.db_path)
