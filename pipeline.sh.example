@@ -64,13 +64,13 @@ log ""
 log "[5/6] PUBLISH — export JSON to publish_export/"
 python3 -m modules.publish.src.cli run --db-path data/canonical.db --export-dir data/publish_export 2>&1 | tail -10
 
-# ---------- Step 6: rebuild site (delegated to site-build.service or direct build) ----------
+# ---------- Step 6: rebuild site (delegated to site_build.service or direct build) ----------
 log ""
-log "[6/6] SITE — triggering site-build.service (separate cgroup, MemoryMax=2G)"
+log "[6/6] SITE — triggering site_build.service (separate cgroup, MemoryMax=2G)"
 # On systemd Linux server:
-systemctl --user start site-build --wait
+systemctl --user start site_build --wait
 # Or fallback direct build:
-# bash "$WORKSPACE/site-build.sh"
+# bash "$WORKSPACE/site_build.sh"
 
 # ---------- DB Status Tracking ----------
 DB_SIZE_AFTER=$(stat -c%s "$DB_PATH")
