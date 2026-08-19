@@ -6,6 +6,8 @@
 
 ---
 
+> **Naming note:** `site_build.sh` is the canonical name for all current templates and future cloud deployments. `site-build.sh` reflects a legacy cloud-server naming inconsistency and remains in `.gitignore` only to prevent accidental recommit of the old filename.
+
 ## 1. Background & Problem Statement
 
 In commit `15f6323` (*Implement publish export versioned generation and atomic pointer*), root automation scripts `pipeline.sh` and `site-build.sh` were committed to Git version control.
@@ -25,7 +27,7 @@ To maintain a clean separation of concerns between OS-agnostic source code (Git 
    - Replace all hardcoded server paths with clear placeholder variables (e.g. `WORKSPACE="${WORKSPACE:-/path/to/your/exopolitics}"`).
    - Preserve script structure, step sequence, `set -e -o pipefail`, and logging format.
 2. **Remove Real Scripts from Git Tracking**:
-   - Use `git rm --cached pipeline.sh site-build.sh` to untrack the real scripts while preserving local physical files on both local dev and cloud server.
+   - Use `git rm --cached pipeline.sh site-build.sh` to untrack the real scripts while preserving their physical copies on the cloud server. Development machines do not need local copies.
 3. **Re-add to `.gitignore`**:
    - Re-add `pipeline.sh`, `site-build.sh`, and `site_build.sh` to `.gitignore` to prevent future accidental commits regardless of local filename preference on cloud.
 4. **Post-Push Verification**:
@@ -38,7 +40,7 @@ To maintain a clean separation of concerns between OS-agnostic source code (Git 
 | Step | Action | Command / Target | Verification Criterion |
 |---|---|---|---|
 | 1 | Create `.example` templates | `pipeline.sh.example`, `site_build.sh.example` | Parameterized placeholders without hardcoded `/root` paths |
-| 2 | Untrack real scripts | `git rm --cached pipeline.sh site-build.sh` | Local physical files preserved |
+| 2 | Untrack real scripts | `git rm --cached pipeline.sh site-build.sh` | Cloud physical files preserved; local development copies are optional |
 | 3 | Update `.gitignore` | Add `pipeline.sh`, `site-build.sh`, `site_build.sh` | `git status` shows ignored |
 | 4 | Commit & Push | `git commit` & `git push origin main` | Clean push to main |
 | 5 | Verify Remote Tree | `git ls-tree origin/main` | No real `.sh` blobs, only `.example` blobs and updated `.gitignore` |
