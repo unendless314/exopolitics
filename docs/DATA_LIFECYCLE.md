@@ -217,10 +217,6 @@ Publish does not promote files in place. Instead:
 - whether a new generation is built is decided by comparing the run's export-state `content_fingerprint` (`sha256-exportstate-v1:<64 hex>`) against the pointer; a successful no-change run only atomically refreshes the pointer's `last_successful_run_at` (the in-generation `stats.json.last_export_run_timestamp` stays frozen at the generation's build time); `rebuild` always builds a new generation
 - generation lifecycle: retention keeps the newest 5 generations plus the live generation, which is always protected; generations that are symlinks/junctions are skipped with a warning
 
-### 9.2 One-Time Migration From the Flat Layout
-
-On the first run where `current.json` is absent and a pre-refactor flat tree exists (root `stats.json`), the runner moves the flat tree into `generations/` only if every artifact is byte-exact with the DB-derived plan (stats compared with `last_export_run_timestamp` excluded); otherwise it bootstraps the first generation from the DB. Non-publish-owned top-level directories (e.g. `assets/`) stay at the export root.
-
 The site must consume publish output, not canonical operational tables directly.
 
 ---

@@ -152,7 +152,7 @@ It must **not** scan `items/` wholesale and must **not** stitch `index.json` + `
 
 ## 6. Language Support Is Not Hardcoded — and Directories Are Not Evidence
 
-The authoritative source for the supported language set is the **`languages` list in `current.json`**. Directory existence is explicitly **not** authoritative: publish's pre-refactor orchestration states that directory names are not ownership evidence, and residual directories from before a canonical reset may persist. Serving from an unlisted directory risks exposing content that is no longer configured and no longer meets published conditions.
+The authoritative source for the supported language set is the **`languages` list in `current.json`**. Directory existence is explicitly **not** authoritative: publish's execution policy (`modules/publish/docs/EXECUTION_POLICY.md` §6.2) states that directory names are not ownership evidence, and residual directories from before a canonical reset may persist. Serving from an unlisted directory risks exposing content that is no longer configured and no longer meets published conditions.
 
 If `current.json` is missing or invalid, the API does not fall back to directory scanning — it returns `503` (§7).
 
@@ -162,7 +162,7 @@ Phase B1 of the publish refactor has landed (2026-08-18): each content-changing 
 
 Read protocol per request — the **entire read flow is wrapped in a single retry scope**, because retention can sweep the resolved generation at any point, not just during resolution:
 
-1. Read `current.json`. Missing/invalid → `503` with `Retry-After` (export has never completed or is mid-first-migration).
+1. Read `current.json`. Missing/invalid → `503` with `Retry-After` (the export has never completed — bootstrap has not yet established a pointer).
 2. Resolve `generations/<generation>/`, read `index.json`, perform the `items/` joins, and assemble the response.
 3. If **any** step of 2 fails because the generation directory (or a file within it) has vanished — including mid-join — re-read `current.json` and **re-run the whole flow once** with the new pointer. If it still fails → `503` with `Retry-After`.
 

@@ -138,7 +138,7 @@ def validate_pointer(pointer: Any, export_dir: pathlib.Path) -> None:
 def read_pointer(export_dir: pathlib.Path) -> Optional[Dict[str, Any]]:
     """
     Read and fully validate current.json. Returns None only when the file
-    does not exist (fresh export root or pending one-time migration); any
+    does not exist (fresh export root awaiting bootstrap); any
     corrupt content raises.
     """
     pointer_path = export_dir / POINTER_FILE_NAME
@@ -302,7 +302,7 @@ def load_current_generation_hashes(generation_root: pathlib.Path) -> Dict[str, s
     if not isinstance(hashes, dict) or not hashes or not all(
         isinstance(k, str) and isinstance(v, str) for k, v in hashes.items()
     ):
-        # Every legitimately built or migrated generation records at least
+        # Every legitimately built generation records at least
         # stats.json and the per-language aggregate files, so an empty table
         # is corruption, not a zero-data state.
         raise RuntimeError("Live generation meta.json has no valid aggregate_file_hashes table.")

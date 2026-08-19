@@ -7,8 +7,8 @@ pre-refactor tests: bootstrap pointer/meta.json shape, generation id allocation
 (including the same-second suffix), pointer write atomicity (sharing-
 violation retry and fail-stop), the single-writer process lock, the held
 generation-phase SQLite snapshot, retention
-(keep-5, live-generation protection, warn-only deletion failures), the
-one-time flat-layout migration matrix, fail-stop on a corrupt pointer or
+(keep-5, live-generation protection, warn-only deletion failures),
+flat-residue bootstrap, fail-stop on a corrupt pointer or
 live meta.json, rebuild semantics and meta.json-hash-driven archive
 stamping.
 
@@ -459,13 +459,13 @@ class TestRetention(PublishB1TestCase):
         self.assertFalse((generations_dir / f"{base}-r2").exists())
 
 
-class TestFlatLayoutMigration(PublishB1TestCase):
-    """One-time migration of a pre-B1 flat export tree (plan section on
-    migration): a byte-exact tree is moved into generations/; anything else
-    falls back to a bootstrap build from the DB plan."""
+class TestFlatResidueBootstrap(PublishB1TestCase):
+    """Flat-layout residue at the export root (a leftover pre-generation
+    tree) is inert: with no pointer the run bootstraps the first complete
+    generation from the DB and leaves the residue untouched."""
 
     def deflate_live_generation_to_flat_layout(self) -> None:
-        """Turn the post-B1 export root back into the pre-B1 flat layout:
+        """Turn the generation-based export root back into the flat layout:
         stats.json + <lang>/ at the root, no pointer, no meta.json, no
         generations/ directory."""
         live = support.live_root(self.export_dir)
@@ -480,99 +480,23 @@ class TestFlatLayoutMigration(PublishB1TestCase):
         support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
         support.seed_item(self.db_path, 2, "May Item", "2026-05-15T12:00:00Z")
 
-    def test_matching_flat_tree_is_migrated_into_first_generation(self) -> None:
-        with self.clock.patch():
-            self.seed_two_items()
-            support.run_publish(self.config, self.db_path, self.export_dir)
-            t0 = self.clock.now_iso
-            item_bytes_before = support.read_item(self.export_dir, "zh", "en-june-item")
-
-            self.deflate_live_generation_to_flat_layout()
-            self.assertTrue((self.export_dir / "stats.json").is_file())
-            self.assertTrue((self.export_dir / "zh").is_dir())
-
-            self.clock.advance(hours=1)
-            summary = support.run_publish(self.config, self.db_path, self.export_dir)
-            self.assertEqual(summary["status"], "success")
-            self.assertEqual(summary["published_count"], 0)
-            t1 = self.clock.now_iso
-
-            # The generation id and export_completed_at derive from the flat
-            # stats' run timestamp; the freshness signal is this run's.
-            pointer = support.read_pointer(self.export_dir)
-            self.assertEqual(pointer["generation"], "2026-07-01T00-00-00Z")
-            self.assertEqual(pointer["export_completed_at"], t0)
-            self.assertEqual(pointer["last_successful_run_at"], t1)
-            self.assertRegex(pointer["content_fingerprint"], FINGERPRINT_RE)
-
-            # Publish-owned entries moved out of the root; stats.json keeps
-            # its original (flat) run timestamp.
-            self.assertFalse((self.export_dir / "stats.json").exists())
-            self.assertFalse((self.export_dir / "zh").exists())
-            self.assertEqual(support.read_stats(self.export_dir)["last_export_run_timestamp"], t0)
-
-            generation_root = support.live_root(self.export_dir)
-            meta = self.assert_meta_hashes_match(generation_root)
-            self.assertEqual(meta["generation"], "2026-07-01T00-00-00Z")
-            self.assertEqual(meta["created_at"], t1)
-            self.assertEqual(meta["content_fingerprint"], pointer["content_fingerprint"])
-
-            # Bytes survive the move untouched and archive stamps keep the
-            # DB values (no restamping on migration).
-            item_after = support.read_item(self.export_dir, "zh", "en-june-item")
-            self.assertEqual(item_bytes_before, item_after)
-            for lang in ("zh", "en"):
-                with self.subTest(language=lang):
-                    for entry in support.read_manifest(self.export_dir, lang):
-                        self.assertEqual(entry["updated_at"], t0)
-
-            # A no-change run after migration must not build: the fingerprint
-            # converges via the migrated meta.json hashes.
-            self.clock.advance(hours=1)
-            support.run_publish(self.config, self.db_path, self.export_dir)
-            settled = support.read_pointer(self.export_dir)
-            self.assertEqual(settled["generation"], "2026-07-01T00-00-00Z")
-            self.assertEqual(settled["last_successful_run_at"], self.clock.now_iso)
-
-    def test_flat_tree_with_unowned_directories_keeps_them_in_place(self) -> None:
-        """Only the configured language directories and stats.json move;
-        anything else (residual language dirs, assets/) stays at the root."""
+    def test_flat_residue_without_pointer_is_ignored_and_bootstraps(self) -> None:
+        """No pointer plus flat residue (stats.json and language directories)
+        at the export root: the run bootstraps straight from the DB, the
+        residue stays in place, and no 'does not match the DB plan' warning
+        is emitted (there is no flat-tree verification anymore)."""
         with self.clock.patch():
             self.seed_two_items()
             support.run_publish(self.config, self.db_path, self.export_dir)
             self.deflate_live_generation_to_flat_layout()
 
-            (self.export_dir / "ja").mkdir()
-            (self.export_dir / "ja" / "index.json").write_text("[]", encoding="utf-8")
-            (self.export_dir / "assets").mkdir()
-            (self.export_dir / "assets" / "logo.txt").write_text("logo", encoding="utf-8")
-
-            self.clock.advance(hours=1)
-            summary = support.run_publish(self.config, self.db_path, self.export_dir)
-            self.assertEqual(summary["status"], "success")
-
-            self.assertEqual(support.read_pointer(self.export_dir)["generation"], "2026-07-01T00-00-00Z")
-            self.assertEqual((self.export_dir / "ja" / "index.json").read_text(encoding="utf-8"), "[]")
-            self.assertTrue((self.export_dir / "assets" / "logo.txt").exists())
-            self.assertFalse((support.live_root(self.export_dir) / "ja").exists())
-
-    def test_db_ahead_of_flat_tree_falls_back_to_bootstrap_build(self) -> None:
-        """The old runner could stop between its DB commits and file
-        promotion; a flat tree that no longer matches the DB plan is not
-        trusted — the first complete generation is built from the DB."""
-        with self.clock.patch():
-            self.seed_two_items()
-            support.run_publish(self.config, self.db_path, self.export_dir)
-            self.deflate_live_generation_to_flat_layout()
-
-            # DB runs ahead of the flat tree.
+            # DB runs ahead of the residue.
             support.seed_item(self.db_path, 3, "July Item", "2026-07-01T12:00:00Z")
 
             self.clock.advance(hours=1)
-            with self.assertLogs("publish.orchestrator", level="WARNING") as logged:
+            with self.assertNoLogs("publish.orchestrator", level="WARNING"):
                 summary = support.run_publish(self.config, self.db_path, self.export_dir)
             self.assertEqual(summary["status"], "success")
-            self.assertTrue(any("does not match the DB plan" in m for m in logged.output), logged.output)
 
             # Bootstrap build keyed by this run's timestamp, with all items.
             pointer = support.read_pointer(self.export_dir)
@@ -580,50 +504,15 @@ class TestFlatLayoutMigration(PublishB1TestCase):
             self.assertEqual(pointer["export_completed_at"], self.clock.now_iso)
             self.assertEqual(support.read_item(self.export_dir, "zh", "en-july-item")["slug"], "en-july-item")
 
-            # The untrusted flat tree is left in place, inert.
+            # The residue is left in place, inert.
             self.assertTrue((self.export_dir / "stats.json").exists())
             self.assertTrue((self.export_dir / "zh").exists())
-
-    def test_flat_tree_missing_artifact_falls_back_to_bootstrap_build(self) -> None:
-        with self.clock.patch():
-            self.seed_two_items()
-            support.run_publish(self.config, self.db_path, self.export_dir)
-            self.deflate_live_generation_to_flat_layout()
-
-            os.remove(self.export_dir / "zh" / "items" / "en-june-item.json")
-
-            self.clock.advance(hours=1)
-            with self.assertLogs("publish.orchestrator", level="WARNING") as logged:
-                summary = support.run_publish(self.config, self.db_path, self.export_dir)
-            self.assertEqual(summary["status"], "success")
-            self.assertTrue(any("does not match the DB plan" in m for m in logged.output), logged.output)
-            self.assertEqual(support.read_pointer(self.export_dir)["generation"], "2026-07-01T01-00-00Z")
-
-    def test_flat_stats_with_invalid_run_timestamp_falls_back_to_bootstrap_build(self) -> None:
-        """The migrated generation id derives from the flat stats timestamp;
-        an invalid one counts as verification failure, not a crash."""
-        with self.clock.patch():
-            self.seed_two_items()
-            support.run_publish(self.config, self.db_path, self.export_dir)
-            self.deflate_live_generation_to_flat_layout()
-
-            stats_path = self.export_dir / "stats.json"
-            stats = support.read_json(stats_path)
-            stats["last_export_run_timestamp"] = "not-a-timestamp"
-            stats_path.write_text(json.dumps(stats, indent=2, ensure_ascii=False), encoding="utf-8")
-
-            self.clock.advance(hours=1)
-            with self.assertLogs("publish.orchestrator", level="WARNING") as logged:
-                summary = support.run_publish(self.config, self.db_path, self.export_dir)
-            self.assertEqual(summary["status"], "success")
-            self.assertTrue(any("does not match the DB plan" in m for m in logged.output), logged.output)
-            self.assertEqual(support.read_pointer(self.export_dir)["generation"], "2026-07-01T01-00-00Z")
 
 
 class TestCorruptStateFailStop(PublishB1TestCase):
     """A corrupt current.json or live meta.json is a manual-intervention
     state: the run fails stop instead of silently rebuilding or ignoring it.
-    Only a *missing* pointer triggers migration/bootstrap."""
+    Only a *missing* pointer triggers bootstrap."""
 
     def test_corrupt_pointer_variants_fail_stop(self) -> None:
         with self.clock.patch():
@@ -690,7 +579,7 @@ class TestCorruptStateFailStop(PublishB1TestCase):
             self.assertIn("meta.json", str(ctx.exception))
 
             # An empty aggregate hash table is corruption, not a zero-data
-            # state: every legitimately built or migrated generation records
+            # state: every legitimately built generation records
             # at least stats.json and the per-language aggregate files.
             meta = json.loads(original_meta)
             meta["aggregate_file_hashes"] = {}

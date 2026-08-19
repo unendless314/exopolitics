@@ -33,7 +33,7 @@ import logging
 import pathlib
 from typing import Any, Dict
 
-from . import generation, generation_store, migration
+from . import generation, generation_store
 from .config import PublishConfig
 from .database import PublishRepository, get_connection, transaction, get_utc_now_iso8601
 from .process_lock import ProcessLock
@@ -202,9 +202,8 @@ async def orchestrate_run(
 
             # --- B. Generation Phase ---
             # One explicit SQLite transaction covers the whole generation
-            # phase — pointer read, plan build, fingerprint pass, migration
-            # verification and the write pass all see exactly one DB
-            # snapshot. It is opened with BEGIN IMMEDIATE so the writer slot
+            # phase — pointer read, plan build, fingerprint pass and the
+            # write pass all see exactly one DB snapshot. It is opened with BEGIN IMMEDIATE so the writer slot
             # (RESERVED lock) is reserved up front: a concurrent upstream
             # writer (curate/translate) fails at its own BEGIN IMMEDIATE
             # instead of starting writes that would doom both sides — a
@@ -224,10 +223,6 @@ async def orchestrate_run(
                     live_root = generation_store.generation_root_for(export_dir, pointer["generation"])
                     current_hashes = generation_store.load_current_generation_hashes(live_root)
                     fallback_root = live_root
-                elif migration.flat_layout_present(export_dir):
-                    # Pre-pointer flat tree: archive stamping falls back to
-                    # byte-comparing against it.
-                    fallback_root = export_dir
 
                 # Deterministic generation plan from the stable DB snapshot;
                 # the fingerprint covers the planned final state.
@@ -236,27 +231,11 @@ async def orchestrate_run(
                 )
 
                 build_needed = rebuild
-                migrated = False
                 if not build_needed:
                     if pointer is None:
-                        if migration.flat_layout_present(export_dir):
-                            if migration.verify_flat_tree(export_dir, plan, repo, config):
-                                new_pointer = migration.migrate_flat_tree(
-                                    export_dir, config, content_fingerprint, run_ts
-                                )
-                                generation_store.write_pointer_atomic(export_dir, new_pointer)
-                                migrated = True
-                            else:
-                                logger.warning(
-                                    "Flat export tree does not match the DB plan; "
-                                    "building the first complete generation from the "
-                                    "database instead."
-                                )
-                                build_needed = True
-                        else:
-                            # Bootstrap: the first successful run always builds a
-                            # complete (possibly empty) generation.
-                            build_needed = True
+                        # Bootstrap: the first successful run always builds a
+                        # complete (possibly empty) generation.
+                        build_needed = True
                     elif pointer["content_fingerprint"] != content_fingerprint:
                         build_needed = True
 
@@ -306,7 +285,7 @@ async def orchestrate_run(
                     generation_store.sweep_retired_generations(
                         export_dir, protected_generation=generation_id
                     )
-                elif not migrated:
+                else:
                     # No-change successful run: refresh only the freshness
                     # signal; the generation directory and stats stay untouched.
                     refreshed_pointer = dict(pointer)

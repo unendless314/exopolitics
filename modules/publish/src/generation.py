@@ -7,9 +7,9 @@ reconciliation leaves the DB in a stable snapshot, a single deterministic
 plan describes the planned final bytes of every artifact of the next export
 generation: per-language index, archives manifest (always written, empty as
 ``[]``), monthly archives, item payloads and stats. The same plan drives the
-``content_fingerprint`` state comparison, the generation build and the
-one-time flat-layout migration verification, so DB metadata, files and the
-pointer can never disagree about what "the current export state" is.
+``content_fingerprint`` state comparison and the generation build, so DB
+metadata, files and the pointer can never disagree about what "the current
+export state" is.
 
 Clock discipline: nothing here calls a clock. The single ``run_ts`` for the
 whole run is taken once by the orchestrator (after the process lock is
@@ -38,8 +38,8 @@ def serialize_json_bytes(obj: Any) -> bytes:
     """
     Canonical artifact serialization, byte-identical to the pre-B1 runner
     (``json.dump(obj, f, indent=2, ensure_ascii=False)`` with no trailing
-    newline). Migration byte-comparison and Phase A acceptance both depend
-    on this exact shape.
+    newline). Byte-stability tests and Phase A acceptance depend on this
+    exact shape.
     """
     return json.dumps(obj, indent=2, ensure_ascii=False).encode("utf-8")
 
@@ -152,9 +152,9 @@ def _decide_archive_stamp(
        lost; the runner stamps what this plan writes).
     3. live generation meta.json hash matches the planned bytes -> keep the
        recorded DB value (content unchanged, timestamp must not advance).
-    4. hash missing (e.g. pre-migration) -> byte-compare against the
-       fallback root (live generation root, or the flat export tree when no
-       pointer exists); equal bytes keep the DB value.
+    4. hash missing -> byte-compare against the fallback root (the live
+       generation root, set only when a pointer exists); equal bytes keep
+       the DB value.
     5. anything else -> run_ts.
     """
     if rebuild:
@@ -356,10 +356,9 @@ def iter_planned_artifact_bytes(
 ) -> Iterator[Tuple[str, bytes]]:
     """
     (relative path, planned bytes) for every artifact of the generation, in
-    the same fixed order as the fingerprint pass. Shared by the generation
-    build and the flat-layout migration verification. stats.json here keeps
-    its run timestamp; archives are re-streamed per month so memory stays
-    bounded by one month at a time.
+    the same fixed order as the fingerprint pass. Used by the generation
+    build. stats.json here keeps its run timestamp; archives are re-streamed
+    per month so memory stays bounded by one month at a time.
     """
     batch_size = config.execution_policy.batch_size
     for lang in config.target_languages:

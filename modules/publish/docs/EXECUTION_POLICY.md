@@ -1,6 +1,6 @@
 # Publish Execution Policy
 
-**Document version:** v2.4
+**Document version:** v2.5
 **Updated:** 2026-08-19
 **Status:** Active rewrite draft
 
@@ -35,7 +35,7 @@ For a normal `run`, the orchestrator should execute in this order:
 6. Upsert `publish_language_status` rows for exportable language artifacts in short transactions.
 7. Detect previously published rows that are no longer exportable and mark those language rows as `withdrawn` in short transactions.
 8. Delete `publish_archive_metadata` rows of languages no longer configured (unconditional, during reconciliation).
-9. Open one held database snapshot transaction (`BEGIN IMMEDIATE`, reserving the writer slot for the whole phase) and, inside it, build the deterministic generation plan from the post-sync database state and compare its `content_fingerprint` against `current.json` (see Section 6 for the build trigger rules). The snapshot covers the whole generation phase — plan build, fingerprint pass, migration verification and write pass — so every artifact in a generation comes from exactly one database state.
+9. Open one held database snapshot transaction (`BEGIN IMMEDIATE`, reserving the writer slot for the whole phase) and, inside it, build the deterministic generation plan from the post-sync database state and compare its `content_fingerprint` against `current.json` (see Section 6 for the build trigger rules). The snapshot covers the whole generation phase — plan build, fingerprint pass and write pass — so every artifact in a generation comes from exactly one database state.
 10. If a build is triggered: build the complete new generation in staging and move it into `generations/`, sync `publish_archive_metadata` to the plan (the writes join the snapshot transaction, which commits before the pointer switch), atomically switch `current.json` (the commit point), then sweep retired generations.
 11. If no build is triggered: atomically refresh the pointer's `last_successful_run_at` only.
 
@@ -48,7 +48,7 @@ This sequencing ensures aggregate files are built from the post-sync state rathe
 - Long file-system work must not hold open SQLite write transactions. The one deliberate exception is the generation-phase read snapshot below: it holds a read (shared) lock, never a write lock, while files are written.
 - Network calls are not expected in this module under the current design.
 - Short transactions wrap only the row mutations needed for slug creation and publish status updates; the `publish_archive_metadata` sync after a completed generation build joins the held snapshot transaction and commits before the pointer switch.
-- The generation phase (pointer read, plan build, fingerprint pass, migration verification, write pass) runs inside one explicit SQLite transaction, so every artifact in a generation reflects exactly one database snapshot. The transaction is opened with `BEGIN IMMEDIATE` to reserve the writer slot up front: a concurrent upstream writer (curate/translate) fails at its own `BEGIN IMMEDIATE` with `SQLITE_BUSY`, instead of starting writes that would interleave into the snapshot or doom the metadata commit's shared-to-writer lock upgrade. Readers are unaffected (shared locks remain compatible), and the pipeline runs modules sequentially, so this never contends in normal operation.
+- The generation phase (pointer read, plan build, fingerprint pass, write pass) runs inside one explicit SQLite transaction, so every artifact in a generation reflects exactly one database snapshot. The transaction is opened with `BEGIN IMMEDIATE` to reserve the writer slot up front: a concurrent upstream writer (curate/translate) fails at its own `BEGIN IMMEDIATE` with `SQLITE_BUSY`, instead of starting writes that would interleave into the snapshot or doom the metadata commit's shared-to-writer lock upgrade. Readers are unaffected (shared locks remain compatible), and the pipeline runs modules sequentially, so this never contends in normal operation.
 - The whole run is serialized through a single-writer process lock at `publish_runner.lock` in the database file's directory (curate/translate precedent): non-blocking acquire, `RuntimeError` on contention. Release unlocks and closes the handle but deliberately leaves the lock file in place — deleting the path after unlocking would allow an inode-reuse race where two processes hold locks on different inodes of the same path. A stale lock file is harmless: the lock state lives on the inode, not the path.
 
 Failure model (fail-stop):
@@ -91,7 +91,7 @@ Both `run` and `rebuild` treat `data/publish_export/` as disposable output that 
 
 ### 6.1 Build Trigger And Generation Granularity
 - **Incremental Run (`run` command)**:
-  - After reconciliation commits the database state, the runner builds a deterministic generation plan from the post-sync snapshot and compares its `content_fingerprint` against `current.json`. A new generation is built only when the fingerprint differs, when no pointer exists (bootstrap — the first successful run always builds a complete, possibly empty, generation), or when a flat-tree migration verification failed (see Section 6.4).
+  - After reconciliation commits the database state, the runner builds a deterministic generation plan from the post-sync snapshot and compares its `content_fingerprint` against `current.json`. A new generation is built only when the fingerprint differs or when no pointer exists (bootstrap — the first successful run always builds a complete, possibly empty, generation).
   - A no-change run builds nothing and only refreshes the pointer's `last_successful_run_at` atomically.
   - When a build does happen it is always a complete generation — every item JSON, the latest `index.json`, the archives manifest (`archives/index.json`, always written, empty as `[]`), all monthly archive files, `stats.json`, and `meta.json` — built from the full active published set. There is no affected-months-only file emission.
   - Manifest and statistics counts must still be derived from SQL aggregation queries directly over the SQLite canonical tables (`publish_record` and `publish_language_status`); the runner must not load, parse, or scan historical monthly archive files from disk to compute these metrics. Archive `updated_at` stamping consults the live generation's `meta.json` hashes, falling back to a byte-compare against the fallback root, without scanning the whole tree (see DATA_CONTRACT.md Section 2.3).
@@ -114,13 +114,10 @@ Changing `target_languages` is not a display-only setting: the next `run` or `re
 
 `generations/` keeps the newest 5 generation directories and always protects the generation the live pointer references, even in pathological orderings. "Newest" is chronological: the timestamp portion sorts lexicographically (ISO zero-padding is chronological) and the same-second `-rN` collision suffix sorts numerically — a plain string sort would order `-r10` before `-r2`. Symmetrically, same-second suffixes are allocated after the highest surviving suffix, never refilling gaps left by retention, so a fresh build's id always sorts newest and a later sweep cannot mistake it for an old one. Retention runs only after a successful pointer switch. A generation that is, or contains, a symlink or junction is skipped with a warning (deletion never follows links), and deletion failures (for example files held open by a reader) are warn-only and retried on a future run — retention never fails an otherwise successful run.
 
-### 6.4 Bootstrap And One-Time Flat-Layout Migration
+### 6.4 Bootstrap
 
 - **Bootstrap**: when no pointer exists, the first successful run always builds a complete, possibly empty, generation and establishes the pointer (see DATA_CONTRACT.md Section 6 for the empty-generation layout).
-- **One-time migration**: when the pointer is missing but a pre-pointer flat export tree exists (recognized by a root `stats.json`), the runner verifies the flat tree byte-exactly against the deterministic plan built from the post-reconciliation database state: every planned artifact must exist with identical bytes (`stats.json` is compared as parsed dicts without `last_export_run_timestamp`), and the flat `*.json` set under the configured language directories must equal the plan's artifact set. An invalid or absent flat `last_export_run_timestamp` counts as verification failure.
-  - On a full match, the configured language directories and `stats.json` move into `generations/<id>`, where the id derives from the flat stats' `last_export_run_timestamp`; `meta.json` hashes are computed from the actual moved bytes, and the pointer is written with `export_completed_at` set to the flat stats timestamp and `last_successful_run_at` set to the run's logical clock.
-  - On any mismatch, the runner warns and builds the first complete generation from the database plan instead, leaving the untrusted flat tree in place.
-  - Only publish-owned artifacts move; non-configured top-level directories (for example a residual language directory or `assets/`) always stay at the export root untouched.
+- A pre-pointer flat export tree (recognized by a root `stats.json`) is not recognized as publish state: the run simply bootstraps from the database. Any flat residue stays inert at the export root — the site reads only through `current.json` — and can be deleted manually.
 
 ---
 

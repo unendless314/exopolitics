@@ -1,6 +1,6 @@
 # Publish Test Coverage Map
 
-**Document version:** v1.6
+**Document version:** v1.7
 **Updated:** 2026-08-19
 **Status:** Active
 **Source:** `known_issues/resolved/PUBLISH_TEST_MAINTAINABILITY_PLAN.md` Phase 0 deliverable
@@ -173,8 +173,8 @@ schema contract lives in `test_handoff_contract.py` (section 13).
 
 Covers the generation/pointer surface not pinned by the rewritten suites in
 sections 1-13: bootstrap shape, id allocation, pointer atomicity, the
-single-writer lock, the generation-phase snapshot, retention, the one-time
-flat-layout migration, fail-stop on corrupt live state, rebuild semantics
+single-writer lock, the generation-phase snapshot, retention, flat-residue
+bootstrap, fail-stop on corrupt live state, rebuild semantics
 and meta.json-hash-driven archive stamping.
 Convergence after failed builds/pointer switches is covered by section 2;
 no-change rerun byte stability by section 4; junction safety by section 6.
@@ -193,12 +193,8 @@ no-change rerun byte stability by section 4; junction safety by section 6.
 | `TestRetention::test_retention_deletion_failure_is_warn_only_and_converges_next_run` | — | retention deletion failures (files held by a reader) are warn-only and never fail the run; the backlog is retired on a later run | **unique:** `OSError` injection keeps the run successful; the next run retries and converges to five |
 | `TestRetention::test_retention_orders_same_second_suffixes_numerically` | — | "newest" is chronological: the same-second `-rN` suffix sorts numerically, never lexicographically (`-r10` must outrank `-r2`) | **unique:** eleven same-second generations keep `-r7`…`-r11`; a plain string sort would delete `-r10` while keeping older `-r5`…`-r9` |
 | `TestRetention::test_same_second_id_allocation_never_refills_retired_gaps` | — | same-second suffixes are allocated after the highest surviving suffix, never refilling gaps left by retention | **unique:** the reviewer's four-step sequence — retire base, allocate `-r7` (not base), next sweep deletes `-r2` while the fresh `-r7` survives |
-| `TestFlatLayoutMigration::test_matching_flat_tree_is_migrated_into_first_generation` | — | a byte-exact pre-refactor flat tree is moved into `generations/<id>`, the id and `export_completed_at` derived from the flat stats timestamp | **unique:** bytes survive the move untouched, archive stamps keep the DB values (no restamping on migration), and the first no-change run after migration builds nothing |
-| `TestFlatLayoutMigration::test_flat_tree_with_unowned_directories_keeps_them_in_place` | — | only the configured language directories and `stats.json` move; non-configured top-level directories stay at the export root | **unique:** residual `ja/` and `assets/` remain in place and out of the generation |
-| `TestFlatLayoutMigration::test_db_ahead_of_flat_tree_falls_back_to_bootstrap_build` | — | a flat tree that no longer matches the DB plan is not trusted; the first complete generation is built from the DB with a warning | **unique:** the untrusted flat tree is left in place, inert; the bootstrap generation is keyed by the run timestamp and contains all items |
-| `TestFlatLayoutMigration::test_flat_tree_missing_artifact_falls_back_to_bootstrap_build` | — | a flat tree missing any planned artifact fails verification and falls back to a bootstrap build | missing-item variant with warning |
-| `TestFlatLayoutMigration::test_flat_stats_with_invalid_run_timestamp_falls_back_to_bootstrap_build` | — | an invalid flat `last_export_run_timestamp` counts as verification failure, not a crash | invalid-timestamp variant with warning |
-| `TestCorruptStateFailStop::test_corrupt_pointer_variants_fail_stop` | — | a corrupt `current.json` (unparseable, missing fields, malformed or path-traversal generation id, missing generation directory, bad field types, empty `languages`, calendar-impossible timestamp) is fail-stop; only a *missing* pointer triggers migration/bootstrap | **unique:** eleven-variant subtest matrix; nothing new is built, the live generation survives, and restoring the valid pointer reconverges |
+| `TestFlatResidueBootstrap::test_flat_residue_without_pointer_is_ignored_and_bootstraps` | — | flat-layout residue at the export root with no pointer is inert: the run bootstraps the first complete generation from the DB without any flat-tree verification warning | **unique:** the residue stays in place untouched; the bootstrap generation is keyed by the run timestamp and contains all items |
+| `TestCorruptStateFailStop::test_corrupt_pointer_variants_fail_stop` | — | a corrupt `current.json` (unparseable, missing fields, malformed or path-traversal generation id, missing generation directory, bad field types, empty `languages`, calendar-impossible timestamp) is fail-stop; only a *missing* pointer triggers bootstrap | **unique:** eleven-variant subtest matrix; nothing new is built, the live generation survives, and restoring the valid pointer reconverges |
 | `TestCorruptStateFailStop::test_missing_or_corrupt_live_meta_json_fails_stop` | — | a missing or corrupt `meta.json` on the live generation is fail-stop, never a silent rebuild trigger; an empty `aggregate_file_hashes` table is corruption, not a zero-data state | missing, unparseable and empty-hash-table variants |
 | `TestRebuildSemantics::test_rebuild_forces_new_generation_and_next_incremental_run_stays` | 5 | `rebuild` always builds a complete new generation and restamps every manifest, so the fingerprint legitimately changes; the next no-change `run` must not build again | **unique:** the rebuild summary counts the full active published set; aggregates are restamped while item payloads stay byte-identical across the rebuild |
 | `TestArchiveStamping::test_unchanged_archive_keeps_db_stamp_via_meta_hash_match` | 8, 10 | with a matching live `meta.json` hash the planned manifest stamp is the recorded DB value verbatim — never the run's wall clock | **unique:** a pre-existing DB stamp is carried into a new generation with a byte-identical archive payload; the state is settled afterwards |

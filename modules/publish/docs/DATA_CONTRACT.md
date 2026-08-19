@@ -1,7 +1,7 @@
 # Publish Data Contract
 
-**Document version:** v3.1
-**Updated:** 2026-08-18
+**Document version:** v3.2
+**Updated:** 2026-08-19
 **Status:** Active rewrite draft
 
 ---
@@ -70,7 +70,7 @@ Lifecycle rules:
   1. a `rebuild` run stamps every active month with the run's logical clock
   2. a missing metadata row (databases created before this table existed) is healed with the run's logical clock
   3. if the live generation's `meta.json` hash for the archive file matches the planned bytes, the recorded DB value is kept verbatim
-  4. if the hash is missing (e.g. before the one-time migration), the planned bytes are compared against the fallback root (the live generation, or the pre-pointer flat export tree when no pointer exists); equal bytes keep the recorded DB value
+  4. if the hash is missing, the planned bytes are compared against the fallback root (the live generation root, set only when a pointer exists); equal bytes keep the recorded DB value
   5. anything else is stamped with the run's logical clock
 - a run whose content did not change builds nothing and leaves every row (and therefore every manifest `updated_at`) unchanged
 - healing a missing row changes the planned manifest, so it builds exactly one new generation carrying the new stamp; the archive file bytes themselves are unchanged
