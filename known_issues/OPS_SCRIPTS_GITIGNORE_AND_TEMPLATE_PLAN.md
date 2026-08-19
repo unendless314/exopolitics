@@ -2,7 +2,7 @@
 
 - **Date**: 2026-08-19
 - **Status**: Approved & Executed
-- **Affected files**: `pipeline.sh`, `site-build.sh`, `.gitignore`, `pipeline.sh.example`, `site-build.sh.example`
+- **Affected files**: `pipeline.sh`, `site-build.sh`, `site_build.sh`, `.gitignore`, `pipeline.sh.example`, `site_build.sh.example`
 
 ---
 
@@ -21,15 +21,15 @@ Upon alignment between local development and cloud server environments, two issu
 To maintain a clean separation of concerns between OS-agnostic source code (Git repository) and cloud-specific ops deployment (Cloud Server), the following Option A+ design was agreed upon:
 
 1. **Parameterised Templates (`.example`) in Git**:
-   - Create `pipeline.sh.example` and `site-build.sh.example` in Git.
+   - Create `pipeline.sh.example` and `site_build.sh.example` (snake_case in Git templates) in Git.
    - Replace all hardcoded server paths with clear placeholder variables (e.g. `WORKSPACE="${WORKSPACE:-/path/to/your/exopolitics}"`).
    - Preserve script structure, step sequence, `set -e -o pipefail`, and logging format.
 2. **Remove Real Scripts from Git Tracking**:
    - Use `git rm --cached pipeline.sh site-build.sh` to untrack the real scripts while preserving local physical files on both local dev and cloud server.
 3. **Re-add to `.gitignore`**:
-   - Re-add `pipeline.sh` and `site-build.sh` to `.gitignore` to prevent future accidental commits.
+   - Re-add `pipeline.sh`, `site-build.sh`, and `site_build.sh` to `.gitignore` to prevent future accidental commits regardless of local filename preference on cloud.
 4. **Post-Push Verification**:
-   - Verify `git ls-tree origin/main` to ensure `pipeline.sh` / `site-build.sh` are untracked on remote while `.example` files and `.gitignore` rules are active.
+   - Verify `git ls-tree origin/main` to ensure real `.sh` scripts are untracked on remote while `.example` files and `.gitignore` rules are active.
 
 ---
 
@@ -37,8 +37,9 @@ To maintain a clean separation of concerns between OS-agnostic source code (Git 
 
 | Step | Action | Command / Target | Verification Criterion |
 |---|---|---|---|
-| 1 | Create `.example` templates | `pipeline.sh.example`, `site-build.sh.example` | Parameterized placeholders without hardcoded `/root` paths |
+| 1 | Create `.example` templates | `pipeline.sh.example`, `site_build.sh.example` | Parameterized placeholders without hardcoded `/root` paths |
 | 2 | Untrack real scripts | `git rm --cached pipeline.sh site-build.sh` | Local physical files preserved |
-| 3 | Update `.gitignore` | Add `pipeline.sh` and `site-build.sh` | `git status` shows ignored |
+| 3 | Update `.gitignore` | Add `pipeline.sh`, `site-build.sh`, `site_build.sh` | `git status` shows ignored |
 | 4 | Commit & Push | `git commit` & `git push origin main` | Clean push to main |
-| 5 | Verify Remote Tree | `git ls-tree origin/main` | No `.sh` blobs, only `.example` blobs and updated `.gitignore` |
+| 5 | Verify Remote Tree | `git ls-tree origin/main` | No real `.sh` blobs, only `.example` blobs and updated `.gitignore` |
+

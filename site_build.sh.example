@@ -1,8 +1,8 @@
 #!/bin/bash
 # Exopolitics Site Build — Astro rebuild + nginx deploy template
 #
-# NOTE: Copy this file to site-build.sh and customize the environment paths below.
-# site-build.sh is excluded from Git via .gitignore to prevent hardcoded path leakage.
+# NOTE: Copy this file to site_build.sh (or site-build.sh) and customize the environment paths below.
+# Real shell scripts are excluded from Git via .gitignore to prevent hardcoded path leakage.
 
 set -e -o pipefail  # fail-fast, including failures within pipelines
 
