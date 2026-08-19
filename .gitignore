@@ -27,3 +27,8 @@ data/
 data_archive/
 references/
 
+# Cloud-only ops scripts (contain hardcoded /root/ paths and systemd units)
+pipeline.sh
+site-build.sh
+
+

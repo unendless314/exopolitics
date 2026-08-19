@@ -1,33 +1,35 @@
 #!/bin/bash
-# Exopolitics Pipeline — Full hourly run
+# Exopolitics Pipeline — Full hourly run template
 # ingest → classify → curate → translate → publish → rebuild site
-# Logs to /root/.openclaw/workspace/exopolitics/logs/
+#
+# NOTE: Copy this file to pipeline.sh and customize the environment paths below.
+# pipeline.sh is excluded from Git via .gitignore to prevent hardcoded path leakage.
 
-set -e -o pipefail  # fail-fast: 任何一步或 pipeline 內的指令失敗就停止
+set -e -o pipefail  # fail-fast: stop on first failure
 
-WORKSPACE="/root/.openclaw/workspace/exopolitics"
-EXOPOLITICS="/root/.openclaw/workspace/exopolitics"
-LOG_DIR="$EXOPOLITICS/logs"
-SITE_DIST="/var/www/exopolitics"
-DB_PATH="$WORKSPACE/data/canonical.db"
-DB_SIZE_LOG="$LOG_DIR/db-size-history.log"
-DB_BACKUP_DIR="$EXOPOLITICS/backups"
+# === CONFIGURATION (Customize for your cloud deployment environment) ===
+WORKSPACE="${WORKSPACE:-/path/to/your/exopolitics}"
+EXOPOLITICS="${EXOPOLITICS:-$WORKSPACE}"
+LOG_DIR="${LOG_DIR:-$EXOPOLITICS/logs}"
+SITE_DIST="${SITE_DIST:-/var/www/your-site}"
+DB_PATH="${DB_PATH:-$WORKSPACE/data/canonical.db}"
+DB_SIZE_LOG="${DB_SIZE_LOG:-$LOG_DIR/db-size-history.log}"
+DB_BACKUP_DIR="${DB_BACKUP_DIR:-$EXOPOLITICS/backups}"
 
-# 日期時間戳記
+# Timestamp for logs
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG_FILE="$LOG_DIR/pipeline-${RUN_ID}.log"
 LATEST_LOG="$LOG_DIR/latest.log"
 
 mkdir -p "$LOG_DIR" "$DB_BACKUP_DIR"
 
-# tee 同時寫到 log file 和 latest.log（symbolic rotation）
 exec > >(tee -a "$LOG_FILE" "$LATEST_LOG") 2>&1
 
 log() {
     echo "[$(date -u +%H:%M:%S)] $*"
 }
 
-# ---------- 開始 ----------
+# ---------- Start ----------
 log "================================================================================"
 log "Exopolitics Pipeline Run: $RUN_ID"
 log "================================================================================"
@@ -62,12 +64,15 @@ log ""
 log "[5/6] PUBLISH — export JSON to publish_export/"
 python3 -m modules.publish.src.cli run --db-path data/canonical.db --export-dir data/publish_export 2>&1 | tail -10
 
-# ---------- Step 6: rebuild site (delegated to site-build.service) ----------
+# ---------- Step 6: rebuild site (delegated to site-build.service or direct build) ----------
 log ""
 log "[6/6] SITE — triggering site-build.service (separate cgroup, MemoryMax=2G)"
+# On systemd Linux server:
 systemctl --user start site-build --wait
+# Or fallback direct build:
+# bash "$WORKSPACE/site-build.sh"
 
-# ---------- DB 狀態追蹤 ----------
+# ---------- DB Status Tracking ----------
 DB_SIZE_AFTER=$(stat -c%s "$DB_PATH")
 DB_SIZE_MB_AFTER=$(echo "scale=2; $DB_SIZE_AFTER/1024/1024" | bc)
 GROWTH=$((DB_SIZE_AFTER - DB_SIZE_BEFORE))
@@ -80,20 +85,15 @@ log "DB size after:  ${DB_SIZE_MB_AFTER} MB ($DB_SIZE_AFTER bytes)"
 log "Growth:         +${GROWTH_MB} MB (+$GROWTH bytes)"
 log "================================================================================"
 
-# 寫入 DB size history（給每日監控用）
 echo "${RUN_ID},${DB_SIZE_BEFORE},${DB_SIZE_AFTER},${GROWTH}" >> "$DB_SIZE_LOG"
 
-# 每日備份 canonical.db（只在第一次跑時備份，避免重複）
 BACKUP_FILE="$DB_BACKUP_DIR/canonical-${RUN_ID:0:10}.db"
 if [ ! -f "$BACKUP_FILE" ]; then
     log "Creating daily backup: $BACKUP_FILE"
     cp "$DB_PATH" "$BACKUP_FILE"
 fi
 
-# 清理 7 天前的備份
 find "$DB_BACKUP_DIR" -name "canonical-*.db" -mtime +7 -delete 2>/dev/null || true
-
-# 清理 7 天前的 pipeline log（保留 latest.log）
 find "$LOG_DIR" -name "pipeline-*.log" -mtime +7 -delete 2>/dev/null || true
 
 log "Done."
