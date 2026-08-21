@@ -1,6 +1,6 @@
 # Publish Export Generation Pointer Refactor — Phase B2 Plan
 
-**Status:** Approved by owner and external reviewer on 2026-08-21 — implementation step breakdown is the next step; no code changes yet
+**Status:** Approved by owner and external reviewer on 2026-08-21 — implementation step breakdown in [PUBLISH_B2_IMPLEMENTATION_STEP_BREAKDOWN.md](PUBLISH_B2_IMPLEMENTATION_STEP_BREAKDOWN.md) approved the same day; implementation may begin, no code changes yet
 **Version:** B2 plan v1.6
 **Date:** 2026-08-21
 **B1 record:** Closed after final review on 2026-08-19. See [resolved B1 working note](resolved/PUBLISH_B1_IMPLEMENTATION_WORKING_NOTE.md).
