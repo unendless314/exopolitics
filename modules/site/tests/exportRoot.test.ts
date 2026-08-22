@@ -283,9 +283,10 @@ describe('committed development fixture layout', () => {
     expect(pointer.export_completed_at).toBe('2026-07-22T03:00:00Z');
   });
 
-  it('contains stats.json, meta.json and a complete per-locale directory structure', () => {
+  it('contains stats.json, meta.json, the hash stream and a complete per-locale directory structure', () => {
     expect(fs.existsSync(path.join(generationRoot, 'stats.json'))).toBe(true);
     expect(fs.existsSync(path.join(generationRoot, 'meta.json'))).toBe(true);
+    expect(fs.existsSync(path.join(generationRoot, 'file_hashes.jsonl'))).toBe(true);
     for (const locale of LOCALES) {
       expect(fs.existsSync(path.join(generationRoot, locale, 'index.json')), locale).toBe(true);
       expect(
@@ -296,19 +297,25 @@ describe('committed development fixture layout', () => {
     }
   });
 
-  it('records real sha256 aggregate hashes in meta.json', () => {
-    // Guards against fixture drift: any edit to an aggregate file must be
-    // accompanied by a meta.json refresh (same rule as the publish writer).
+  it('records real sha256 hashes for every artifact in file_hashes.jsonl', () => {
+    // Guards against fixture drift: any edit to an artifact (including item
+    // payloads) must be accompanied by a hash-stream refresh (same rule as
+    // the publish writer).
     const meta = JSON.parse(fs.readFileSync(path.join(generationRoot, 'meta.json'), 'utf8'));
-    const entries = Object.entries(meta.aggregate_file_hashes as Record<string, string>);
-    expect(entries.length).toBeGreaterThan(0);
-    for (const [relPath, recorded] of entries) {
-      expect(relPath, relPath).not.toContain('/items/');
+    expect(meta.file_hashes).toBe('file_hashes.jsonl');
+    const records = fs
+      .readFileSync(path.join(generationRoot, 'file_hashes.jsonl'), 'utf8')
+      .split('\n')
+      .filter((line) => line.trim().length > 0)
+      .map((line) => JSON.parse(line) as { path: string; digest: string });
+    expect(records.length).toBeGreaterThan(0);
+    expect(records[records.length - 1].path).toBe('stats.json');
+    for (const record of records) {
       const digest = crypto
         .createHash('sha256')
-        .update(fs.readFileSync(path.join(generationRoot, relPath)))
+        .update(fs.readFileSync(path.join(generationRoot, record.path)))
         .digest('hex');
-      expect(recorded, relPath).toBe(`sha256:${digest}`);
+      expect(record.digest, record.path).toBe(`sha256:${digest}`);
     }
   });
 });

@@ -2,40 +2,44 @@
 Publish run orchestrator: reconciliation, deterministic generation planning
 and atomic pointer switching.
 
-Rewritten in Phase B1 of
-known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md. The whole
-run holds a single-writer process lock and one logical run timestamp
-(``run_ts``). After reconciliation commits the DB state, the whole generation
-phase — plan build, fingerprint pass and write pass — runs inside one held
-``BEGIN IMMEDIATE`` SQLite transaction, so every artifact in a generation
-comes from exactly one database snapshot and the writer slot is reserved up
-front (concurrent upstream writers fail at their own ``BEGIN IMMEDIATE``
-rather than silently interleaving). The plan's
+The whole run holds a single-writer process lock and one logical run
+timestamp (``run_ts``). After reconciliation commits the DB state, the whole
+generation phase — plan build, fingerprint pass and write pass — runs inside
+one held ``BEGIN IMMEDIATE`` SQLite transaction, so every artifact in a
+generation comes from exactly one database snapshot and the writer slot is
+reserved up front (concurrent upstream writers fail at their own
+``BEGIN IMMEDIATE`` rather than silently interleaving). The plan's
 ``content_fingerprint`` is compared against ``current.json``: a changed
 fingerprint (or ``rebuild``, or a missing pointer) builds a complete new
 generation; a no-change run only atomically refreshes the pointer's
-``last_successful_run_at``. The pre-B1 per-file promotion, filesystem
-rollback and DB compensation machinery is gone: readers never see partial
-output, the DB may briefly run ahead after a failure, and the next
-successful run converges by state comparison.
+``last_successful_run_at``. There is no per-file promotion, filesystem
+rollback or DB compensation machinery: readers never see partial output, the
+DB may briefly run ahead after a failure, and the next successful run
+converges by state comparison.
 
-Facade re-exports (Phase A surviving-code split): validation.py owns payload
-validation, slug generation, UI label checks and payload assembly, and
-reconciliation.py owns the pure reconciliation diff. Existing callers and
-tests reference the validation symbols through this module's namespace, so
-the re-exports above must be kept (at least orchestrate_run, ValidationError,
-slugify, generate_slug, validate_item_payload and get_disclosure_note).
-``get_utc_now_iso8601`` is imported into this namespace on purpose: the
-test-suite FakeClock patches it here (and in the database namespace) to pin
-``run_ts``.
+Facade re-exports: validation.py owns payload validation, slug generation,
+UI label checks and payload assembly, and reconciliation.py owns the pure
+reconciliation diff. Existing callers and tests reference the validation
+symbols through this module's namespace, so the re-exports above must be
+kept (at least orchestrate_run, ValidationError, slugify, generate_slug,
+validate_item_payload and get_disclosure_note). ``get_utc_now_iso8601`` is
+imported into this namespace on purpose: the test-suite FakeClock patches it
+here (and in the database namespace) to pin ``run_ts``.
+
+Hardlink reuse rides the same flow: the live generation's
+``file_hashes.jsonl`` stream and the fingerprint pass's planned digests both
+live in a per-run disk-backed ``DigestIndex`` (EXECUTION_POLICY Section 9),
+and the write pass links unchanged artifacts from the trusted prior
+generation instead of re-serializing them (see generation_store.py).
 """
 import logging
 import pathlib
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from . import generation, generation_store
 from .config import PublishConfig
 from .database import PublishRepository, get_connection, transaction, get_utc_now_iso8601
+from .digest_index import DigestIndex
 from .process_lock import ProcessLock
 from .reconciliation import compute_reconciliation_diff
 from .validation import (
@@ -68,6 +72,11 @@ async def orchestrate_run(
     # through a single-writer process lock.
     lock = ProcessLock(pathlib.Path(db_path).parent / "publish_runner.lock")
     lock.acquire()
+    # Bound before the outer try so the teardown finally can call
+    # index.discard() on every path — including reconciliation-phase
+    # failures before the index exists — without masking the original
+    # error behind an unbound-local cleanup error.
+    index: Optional[DigestIndex] = None
     try:
         # One logical run timestamp for the whole run: reconciliation writes,
         # archive stamping, stats, generation id and pointer fields all use
@@ -114,7 +123,7 @@ async def orchestrate_run(
             # --- A. Reconciliation Phase (Database State Sync) ---
             # First, update the database status for publications/updates
             # (with in-memory validation first). No compensation records are
-            # kept: the Phase B1 failure model lets the DB run ahead of the
+            # kept: the failure model lets the DB run ahead of the
             # live generation and converges via the next successful run's
             # state comparison.
             for item_id, lang, fingerprint in items_to_publish_or_update:
@@ -214,20 +223,35 @@ async def orchestrate_run(
             # never contends in normal operation.
             conn.execute("BEGIN IMMEDIATE")
             try:
+                # The run's disk-backed temporary digest index:
+                # the live generation's hash stream is streamed into it for
+                # stamping and reuse lookups, and the fingerprint pass
+                # appends every planned digest for the write pass's digest
+                # carry-over. Created here (bootstrap may not have an export
+                # root yet); a crashed prior run's owned SQLite set is
+                # removed by the constructor first.
+                index = DigestIndex(export_dir)
                 # Read and validate the live pointer; a corrupt pointer or live
                 # generation is fail-stop, never a silent rebuild trigger.
                 pointer = generation_store.read_pointer(export_dir)
-                current_hashes: Dict[str, str] = {}
+                prior_root: Optional[pathlib.Path] = None
                 fallback_root = None
                 if pointer is not None:
                     live_root = generation_store.generation_root_for(export_dir, pointer["generation"])
-                    current_hashes = generation_store.load_current_generation_hashes(live_root)
+                    legacy = generation_store.load_live_generation_hashes(live_root, index)
+                    # The byte-compare stamping fallback applies to the live
+                    # generation either way; only a stream-format generation
+                    # is a trusted hardlink source. A legacy generation
+                    # carries no reuse information, so the next build
+                    # physically writes every artifact.
                     fallback_root = live_root
+                    if not legacy:
+                        prior_root = live_root
 
                 # Deterministic generation plan from the stable DB snapshot;
                 # the fingerprint covers the planned final state.
                 plan, content_fingerprint = generation.build_generation_plan(
-                    repo, config, current_hashes, fallback_root, run_ts, rebuild
+                    repo, config, index.prior_digest_for, index, fallback_root, run_ts, rebuild
                 )
 
                 build_needed = rebuild
@@ -244,7 +268,13 @@ async def orchestrate_run(
                     generation_id = generation_store.allocate_generation_id(generations_dir, run_ts)
                     generation_store.write_generation_to_staging(
                         export_dir,
-                        generation.iter_planned_artifact_bytes(plan, repo, config),
+                        planned_entries=index.iter_planned(),
+                        chunks_for=lambda rel_path: generation.planned_chunks_for(
+                            plan, repo, config, rel_path
+                        ),
+                        prior_root=prior_root,
+                        digest_index=index,
+                        force_full_write=rebuild,
                         generation=generation_id,
                         created_at=run_ts,
                         content_fingerprint=content_fingerprint,
@@ -314,6 +344,10 @@ async def orchestrate_run(
             # Best-effort staging cleanup (a failed build leaves it behind;
             # a successful one already moved it into generations/).
             generation_store.discard_staging(export_dir)
+            # Discard the run's temporary digest index (created in the
+            # generation phase; None on failures before that point).
+            if index is not None:
+                index.discard()
             # Close the connection this run opened. sqlite3's internal statement
             # cache forms a reference cycle with the connection, so without an
             # explicit close the file handle is released only at the whim of the

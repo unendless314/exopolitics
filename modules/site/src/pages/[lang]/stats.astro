@@ -14,7 +14,7 @@ const t = useTranslations(lang);
 // Read stats.json via the shared loader/validator: missing file, schema
 // violations, or a configured locale absent from the stats maps hard-fail.
 const stats = loadStats(publishExportDir, Object.keys(localeProfiles));
-// Phase B1: the freshness signal lives on the pointer; stats.json stays
+// The freshness signal lives on the pointer; stats.json stays
 // frozen at the generation's build time on no-change runs.
 const lastRun = publishExportPointer.last_successful_run_at;
 

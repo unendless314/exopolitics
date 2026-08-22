@@ -9,7 +9,7 @@ violation retry and fail-stop), the single-writer process lock, the held
 generation-phase SQLite snapshot, retention
 (keep-5, live-generation protection, warn-only deletion failures),
 flat-residue bootstrap, fail-stop on a corrupt pointer or
-live meta.json, rebuild semantics and meta.json-hash-driven archive
+live meta.json, rebuild semantics and hash-stream-driven archive
 stamping.
 
 Convergence after failed builds/pointer switches is covered by
@@ -28,15 +28,36 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from modules.publish.src import generation_store
-from modules.publish.src.database import run_migrations, get_connection
+from modules.publish.src import generation, generation_store
+from modules.publish.src.database import PublishRepository, run_migrations, get_connection
+from modules.publish.src.digest_index import DIGEST_INDEX_FILE_NAME
 from modules.publish.src.process_lock import ProcessLock
 from modules.publish.tests import support
 
 FINGERPRINT_RE = re.compile(r"^sha256-exportstate-v1:[0-9a-f]{64}$")
 
 
-class PublishB1TestCase(unittest.TestCase):
+def _file_key(path: pathlib.Path) -> tuple:
+    """(st_dev, st_ino) identity of a file: equal iff two paths share an inode."""
+    st = os.stat(path)
+    return (st.st_dev, st.st_ino)
+
+
+def _make_dir_link(link_path: pathlib.Path, target_path: pathlib.Path) -> None:
+    """Directory junction (Windows) or symlink, mirroring the pattern of
+    test_coverage_loss.TestRetentionLinkSafety."""
+    import subprocess
+
+    if os.name == "nt":
+        subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(link_path), str(target_path)],
+            check=True, capture_output=True,
+        )
+    else:
+        os.symlink(target_path, link_path, target_is_directory=True)
+
+
+class PublishTestCase(unittest.TestCase):
     """Shared fixture: temp DB + export dir, migrated schema, fake clock."""
 
     def setUp(self) -> None:
@@ -85,20 +106,31 @@ class PublishB1TestCase(unittest.TestCase):
             return []
         return sorted(p.name for p in generations_dir.iterdir())
 
-    def assert_meta_hashes_match(self, generation_root: pathlib.Path) -> dict:
-        """meta.json aggregate hashes must cover every aggregate file (never
-        item payloads) and match the actual on-disk bytes."""
+    def assert_generation_hash_stream_matches(self, generation_root: pathlib.Path) -> dict:
+        """meta.json must reference file_hashes.jsonl; the stream must cover
+        every artifact of the generation (including item payloads, excluding
+        builder-owned meta.json) with digests matching the actual on-disk
+        bytes, paths unique, and stats.json as the final record."""
         meta = support.read_json(generation_root / "meta.json")
-        hashes = meta["aggregate_file_hashes"]
-        self.assertTrue(hashes, "meta.json must record aggregate file hashes")
-        for rel_path, recorded in hashes.items():
-            self.assertNotIn("/items/", rel_path)
-            digest = hashlib.sha256((generation_root / rel_path).read_bytes()).hexdigest()
-            self.assertEqual(recorded, f"sha256:{digest}", rel_path)
+        self.assertEqual(meta.get("file_hashes"), "file_hashes.jsonl")
+        records = support.read_hash_stream(generation_root)
+        self.assertTrue(records, "the hash stream must record every artifact")
+        paths = [record["path"] for record in records]
+        self.assertEqual(len(paths), len(set(paths)), "stream paths must not repeat")
+        on_disk = {
+            str(p.relative_to(generation_root)).replace(os.sep, "/")
+            for p in generation_root.rglob("*.json")
+        }
+        on_disk.discard("meta.json")
+        self.assertEqual(set(paths), on_disk)
+        self.assertEqual(paths[-1], "stats.json")
+        for record in records:
+            digest = hashlib.sha256((generation_root / record["path"]).read_bytes()).hexdigest()
+            self.assertEqual(record["digest"], f"sha256:{digest}", record["path"])
         return meta
 
 
-class TestBootstrapGeneration(PublishB1TestCase):
+class TestBootstrapGeneration(PublishTestCase):
     """The first successful run always builds a complete generation and
     establishes the pointer (plan section 3, bootstrap path)."""
 
@@ -118,20 +150,22 @@ class TestBootstrapGeneration(PublishB1TestCase):
         self.assertRegex(pointer["content_fingerprint"], FINGERPRINT_RE)
 
         generation_root = self.export_dir / "generations" / expected_id
-        meta = self.assert_meta_hashes_match(generation_root)
+        meta = self.assert_generation_hash_stream_matches(generation_root)
         self.assertEqual(meta["generation"], expected_id)
         self.assertEqual(meta["created_at"], run_ts)
         self.assertEqual(meta["content_fingerprint"], pointer["content_fingerprint"])
         self.assertEqual(
-            set(meta["aggregate_file_hashes"].keys()),
+            {record["path"] for record in support.read_hash_stream(generation_root)},
             {
                 "stats.json",
                 "zh/index.json",
                 "zh/archives/index.json",
                 "zh/archives/archive_2026_06.json",
+                "zh/items/en-june-item.json",
                 "en/index.json",
                 "en/archives/index.json",
                 "en/archives/archive_2026_06.json",
+                "en/items/en-june-item.json",
             },
         )
 
@@ -152,15 +186,15 @@ class TestBootstrapGeneration(PublishB1TestCase):
         self.assertEqual(pointer["languages"], ["zh", "en"])
         self.assertRegex(pointer["content_fingerprint"], FINGERPRINT_RE)
 
-        meta = self.assert_meta_hashes_match(support.live_root(self.export_dir))
+        meta = self.assert_generation_hash_stream_matches(support.live_root(self.export_dir))
         # stats.json + per-language index and (empty) archives manifest.
         self.assertEqual(
-            set(meta["aggregate_file_hashes"].keys()),
+            {record["path"] for record in support.read_hash_stream(support.live_root(self.export_dir))},
             {"stats.json", "zh/index.json", "zh/archives/index.json", "en/index.json", "en/archives/index.json"},
         )
 
 
-class TestGenerationIdAllocation(PublishB1TestCase):
+class TestGenerationIdAllocation(PublishTestCase):
     """Generation ids derive from the single run timestamp; same-second
     builds get a ``-rN`` collision suffix."""
 
@@ -186,7 +220,7 @@ class TestGenerationIdAllocation(PublishB1TestCase):
         )
 
 
-class TestPointerAtomicity(PublishB1TestCase):
+class TestPointerAtomicity(PublishTestCase):
     """The pointer switch is a same-volume os.replace over a temp file;
     sharing violations retry a limited number of times, then fail stop with
     the old pointer still valid."""
@@ -247,7 +281,7 @@ class TestPointerAtomicity(PublishB1TestCase):
             )
 
 
-class TestSingleWriterLock(PublishB1TestCase):
+class TestSingleWriterLock(PublishTestCase):
     """The whole run is serialized through publish_runner.lock next to the
     database file (curate/translate precedent)."""
 
@@ -275,7 +309,7 @@ class TestSingleWriterLock(PublishB1TestCase):
         reacquired.release()
 
 
-class TestGenerationPhaseSnapshot(PublishB1TestCase):
+class TestGenerationPhaseSnapshot(PublishTestCase):
     """The generation phase (plan, fingerprint pass, write pass) reads one
     held SQLite snapshot, so a generation can never mix pre- and post-update
     DB states. The snapshot is opened with BEGIN IMMEDIATE, reserving the
@@ -331,7 +365,7 @@ class TestGenerationPhaseSnapshot(PublishB1TestCase):
             self.assertEqual(self.generation_names()[-1], "2026-07-01T01-00-00Z")
 
 
-class TestRetention(PublishB1TestCase):
+class TestRetention(PublishTestCase):
     """generations/ keeps the newest 5 generations plus, unconditionally,
     the one the live pointer references; deletion problems are warn-only.
     Junction/symlink safety is covered by test_coverage_loss.py."""
@@ -459,7 +493,7 @@ class TestRetention(PublishB1TestCase):
         self.assertFalse((generations_dir / f"{base}-r2").exists())
 
 
-class TestFlatResidueBootstrap(PublishB1TestCase):
+class TestFlatResidueBootstrap(PublishTestCase):
     """Flat-layout residue at the export root (a leftover pre-generation
     tree) is inert: with no pointer the run bootstraps the first complete
     generation from the DB and leaves the residue untouched."""
@@ -509,7 +543,7 @@ class TestFlatResidueBootstrap(PublishB1TestCase):
             self.assertTrue((self.export_dir / "zh").exists())
 
 
-class TestCorruptStateFailStop(PublishB1TestCase):
+class TestCorruptStateFailStop(PublishTestCase):
     """A corrupt current.json or live meta.json is a manual-intervention
     state: the run fails stop instead of silently rebuilding or ignoring it.
     Only a *missing* pointer triggers bootstrap."""
@@ -578,10 +612,12 @@ class TestCorruptStateFailStop(PublishB1TestCase):
                 support.run_publish(self.config, self.db_path, self.export_dir)
             self.assertIn("meta.json", str(ctx.exception))
 
-            # An empty aggregate hash table is corruption, not a zero-data
-            # state: every legitimately built generation records
-            # at least stats.json and the per-language aggregate files.
+            # A reference-less meta.json that fails the legacy witness checks
+            # (here: an empty aggregate_file_hashes table) is corruption —
+            # e.g. a meta.json whose file_hashes reference was lost —
+            # not a legacy generation.
             meta = json.loads(original_meta)
+            del meta["file_hashes"]
             meta["aggregate_file_hashes"] = {}
             meta_path.write_text(json.dumps(meta), encoding="utf-8")
             with self.assertRaises(RuntimeError) as ctx:
@@ -591,7 +627,7 @@ class TestCorruptStateFailStop(PublishB1TestCase):
             self.assertEqual(generations_before, self.generation_names())
 
 
-class TestRebuildSemantics(PublishB1TestCase):
+class TestRebuildSemantics(PublishTestCase):
     """rebuild always builds a complete new generation (forced stamp
     refresh); the following no-change incremental run must stay on it."""
 
@@ -645,7 +681,7 @@ class TestRebuildSemantics(PublishB1TestCase):
             self.assertEqual(support.read_stats(self.export_dir)["last_export_run_timestamp"], t1)
 
 
-class TestArchiveStamping(PublishB1TestCase):
+class TestArchiveStamping(PublishTestCase):
     """With a matching meta.json hash the planned manifest stamp is the
     recorded DB value verbatim — never the run's wall clock — so content
     that did not change keeps its original updated_at across generations."""
@@ -658,7 +694,7 @@ class TestArchiveStamping(PublishB1TestCase):
             t0 = self.clock.now_iso
             first_root = support.live_root(self.export_dir)
 
-            # Simulate pre-existing (e.g. pre-B1) metadata: move one month's
+            # Simulate pre-existing (legacy-era) metadata: move one month's
             # DB stamp without touching any content.
             conn = get_connection(self.db_path)
             conn.execute(
@@ -693,6 +729,733 @@ class TestArchiveStamping(PublishB1TestCase):
             self.clock.advance(hours=1)
             support.run_publish(self.config, self.db_path, self.export_dir)
             self.assertEqual(support.live_root(self.export_dir), rebuilt_root)
+
+
+class TestHashStreamFormat(PublishTestCase):
+    """The per-generation hash stream: one record per artifact in fixed
+    artifact order, digests of the actual written bytes."""
+
+    def test_stream_covers_every_artifact_in_fixed_order_with_disk_matching_digests(self) -> None:
+        with self.clock.patch():
+            support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+            support.seed_item(self.db_path, 2, "Alpha May Item", "2026-05-10T12:00:00Z")
+            support.seed_item(self.db_path, 3, "Beta May Item", "2026-05-15T12:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+
+        generation_root = support.live_root(self.export_dir)
+        self.assert_generation_hash_stream_matches(generation_root)
+        records = support.read_hash_stream(generation_root)
+        expected = []
+        for lang in ("zh", "en"):
+            expected += [
+                f"{lang}/index.json",
+                f"{lang}/archives/index.json",
+                f"{lang}/archives/archive_2026_05.json",
+                f"{lang}/archives/archive_2026_06.json",
+                f"{lang}/items/en-alpha-may-item.json",
+                f"{lang}/items/en-beta-may-item.json",
+                f"{lang}/items/en-june-item.json",
+            ]
+        expected.append("stats.json")
+        self.assertEqual([record["path"] for record in records], expected)
+
+    def test_stats_record_digest_matches_real_bytes_including_timestamp(self) -> None:
+        with self.clock.patch():
+            support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            first_root = support.live_root(self.export_dir)
+
+            stats_bytes = (first_root / "stats.json").read_bytes()
+            stats = json.loads(stats_bytes)
+            self.assertIn("last_export_run_timestamp", stats)
+            records = support.read_hash_stream(first_root)
+            self.assertEqual(records[-1]["path"], "stats.json")
+            self.assertEqual(
+                records[-1]["digest"],
+                f"sha256:{hashlib.sha256(stats_bytes).hexdigest()}",
+            )
+            # The dual-digest rule: the recorded digest covers the real
+            # on-disk bytes (timestamp included), so it differs from the
+            # excluded-timestamp variant used inside content_fingerprint.
+            excluded = {k: v for k, v in stats.items() if k != "last_export_run_timestamp"}
+            excluded_digest = hashlib.sha256(generation.serialize_json_bytes(excluded)).hexdigest()
+            self.assertNotEqual(records[-1]["digest"], f"sha256:{excluded_digest}")
+
+            # stats.json bytes advance with every build, so it is physically
+            # written (never linked) whenever its bytes differ.
+            self.clock.advance(hours=1)
+            self.bump_content(1, "fp_stats", new_title="June Item Retitled")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            second_root = support.live_root(self.export_dir)
+            self.assertNotEqual(
+                _file_key(first_root / "stats.json"),
+                _file_key(second_root / "stats.json"),
+            )
+            self.assertNotEqual(
+                (first_root / "stats.json").read_bytes(),
+                (second_root / "stats.json").read_bytes(),
+            )
+            second_stats_bytes = (second_root / "stats.json").read_bytes()
+            second_records = support.read_hash_stream(second_root)
+            self.assertEqual(
+                second_records[-1]["digest"],
+                f"sha256:{hashlib.sha256(second_stats_bytes).hexdigest()}",
+            )
+
+
+class TestDigestIndexLifecycle(PublishTestCase):
+    """The run's temporary digest index: created even before the export root
+    exists (bootstrap), discarded at teardown, and a crashed run's owned
+    SQLite set is recovered when the next run creates its index."""
+
+    def index_paths(self) -> list:
+        base = self.export_dir / DIGEST_INDEX_FILE_NAME
+        return [pathlib.Path(str(base) + suffix) for suffix in ("", "-journal", "-wal", "-shm")]
+
+    def test_digest_index_creates_missing_export_root_for_bootstrap(self) -> None:
+        self.assertFalse(self.export_dir.exists())
+        with self.clock.patch():
+            support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+            summary = support.run_publish(self.config, self.db_path, self.export_dir)
+        self.assertEqual(summary["status"], "success")
+        self.assertTrue(self.export_dir.is_dir())
+        for path in self.index_paths():
+            self.assertFalse(path.exists(), path)
+
+    def test_digest_index_cleanup_removes_owned_sqlite_sidecars(self) -> None:
+        with self.clock.patch():
+            support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+
+            # Simulate a crashed run: junk bytes in the main file (opening
+            # it without recovery would fail with "file is not a database")
+            # plus every sidecar SQLite may leave behind.
+            for path in self.index_paths():
+                path.write_bytes(b"stale junk from a crashed run")
+
+            self.clock.advance(hours=1)
+            self.bump_content(1, "fp_crash", new_title="June Item Retitled")
+            summary = support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertEqual(summary["status"], "success")
+            self.assertEqual(self.generation_names()[-1], "2026-07-01T01-00-00Z")
+        for path in self.index_paths():
+            self.assertFalse(path.exists(), path)
+
+
+class TestHashStreamCorruption(PublishTestCase):
+    """The hash stream is validated as it is read (plan acceptance bullet
+    4): a missing or empty stream, malformed records, illegal or duplicate
+    paths, an unexpected meta.json reference value and valid-prefix
+    truncation all fail stop. A mid-stream digest edit is the
+    safe-degradation half: it must not fail, only forfeit reuse of that
+    entry."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        with self.clock.patch():
+            support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+            support.seed_item(self.db_path, 2, "May Item", "2026-05-15T12:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+        self.live = support.live_root(self.export_dir)
+        self.stream_path = self.live / generation_store.HASH_STREAM_NAME
+        self.original_lines = self.stream_path.read_text(encoding="utf-8").splitlines()
+        self.records = support.read_hash_stream(self.live)
+        self.generations_before = self.generation_names()
+
+    def rewrite_stream(self, records: list) -> None:
+        self.stream_path.write_text(
+            "".join(json.dumps(record) + "\n" for record in records),
+            encoding="utf-8",
+        )
+
+    def assert_fail_stop(self) -> None:
+        with self.assertRaises(RuntimeError):
+            support.run_publish(self.config, self.db_path, self.export_dir)
+        # Nothing new was built and the live pointer survived.
+        self.assertEqual(self.generation_names(), self.generations_before)
+        self.assertEqual(support.read_pointer(self.export_dir)["generation"], self.live.name)
+
+    def test_referenced_stream_missing_fails_stop(self) -> None:
+        self.stream_path.unlink()
+        self.assert_fail_stop()
+
+    def test_referenced_stream_empty_fails_stop(self) -> None:
+        self.stream_path.write_bytes(b"")
+        self.assert_fail_stop()
+
+    def test_malformed_stream_record_fails_stop(self) -> None:
+        variants = {
+            "non-JSON line": ["{ not json"] + self.original_lines[1:],
+            "missing path": [json.dumps({"digest": self.records[0]["digest"]})] + self.original_lines[1:],
+            "missing digest": [json.dumps({"path": self.records[0]["path"]})] + self.original_lines[1:],
+            "bad digest format": [
+                json.dumps({"path": self.records[0]["path"], "digest": "deadbeef"})
+            ] + self.original_lines[1:],
+            "non-object record": ["[1, 2]"] + self.original_lines[1:],
+        }
+        for name, lines in variants.items():
+            with self.subTest(variant=name):
+                self.stream_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+                self.assert_fail_stop()
+
+    def test_illegal_or_duplicate_stream_path_fails_stop(self) -> None:
+        bad_paths = {
+            "parent segment": "zh/../stats.json",
+            "leading slash": "/zh/index.json",
+            "backslash": "zh\\index.json",
+            "empty segment": "zh//index.json",
+            "dot segment": "zh/./index.json",
+        }
+        for name, bad_path in bad_paths.items():
+            with self.subTest(variant=name):
+                self.rewrite_stream([dict(self.records[0], path=bad_path)] + self.records[1:])
+                self.assert_fail_stop()
+        with self.subTest(variant="duplicate path"):
+            self.rewrite_stream([self.records[0]] + self.records)
+            self.assert_fail_stop()
+
+    def test_valid_prefix_truncation_fails_stop(self) -> None:
+        # Drop the final line: every remaining record is well-formed, but
+        # the final record is no longer stats.json.
+        self.assertEqual(self.records[-1]["path"], "stats.json")
+        self.rewrite_stream(self.records[:-1])
+        self.assert_fail_stop()
+
+    def test_meta_reference_with_unexpected_value_fails_stop(self) -> None:
+        meta_path = self.live / "meta.json"
+        meta = support.read_json(meta_path)
+        variants = {
+            "different file name": "hashes.jsonl",
+            "relative path injection": "../other/file_hashes.jsonl",
+            "absolute path": "/tmp/file_hashes.jsonl",
+        }
+        for name, value in variants.items():
+            with self.subTest(variant=name):
+                meta_path.write_text(
+                    json.dumps({**meta, "file_hashes": value}), encoding="utf-8"
+                )
+                self.assert_fail_stop()
+
+    def test_mid_stream_digest_edit_degrades_to_physical_write(self) -> None:
+        with self.clock.patch():
+            # Forge a non-matching digest for one unchanged item artifact.
+            tampered = [dict(record) for record in self.records]
+            target = next(r for r in tampered if r["path"] == "zh/items/en-june-item.json")
+            target["digest"] = "sha256:" + hashlib.sha256(b"forged").hexdigest()
+            self.rewrite_stream(tampered)
+
+            self.clock.advance(hours=1)
+            self.bump_content(2, "fp_tamper", new_title="May Item Retitled")
+            summary = support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertEqual(summary["status"], "success")
+            second_root = support.live_root(self.export_dir)
+
+        self.assertNotEqual(second_root, self.live)
+        # The tampered entry forfeits reuse: physically rewritten, with the
+        # correct planned bytes (identical to the prior content).
+        first_file = self.live / "zh" / "items" / "en-june-item.json"
+        second_file = second_root / "zh" / "items" / "en-june-item.json"
+        self.assertNotEqual(_file_key(first_file), _file_key(second_file))
+        self.assertEqual(first_file.read_bytes(), second_file.read_bytes())
+        # An unchanged artifact with an intact digest is still reused.
+        self.assertEqual(
+            _file_key(self.live / "en" / "items" / "en-june-item.json"),
+            _file_key(second_root / "en" / "items" / "en-june-item.json"),
+        )
+        self.assert_generation_hash_stream_matches(second_root)
+
+
+class TestLegacyTransition(PublishTestCase):
+    """Legacy transition: a live generation whose meta.json positively
+    matches the legacy aggregate shape carries no reuse information —
+    tolerated, its hashes never consulted; anything else without a
+    file_hashes reference fails stop."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        with self.clock.patch():
+            support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+            support.seed_item(self.db_path, 2, "May Item", "2026-05-15T12:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+        self.live = support.live_root(self.export_dir)
+
+    def make_live_generation_legacy(self) -> dict:
+        """Rewrite the live generation's metadata to the legacy aggregate
+        shape: genuinely matching digests in an aggregate_file_hashes table
+        inside meta.json, no file_hashes reference, no stream file."""
+        meta = support.read_json(self.live / "meta.json")
+        aggregate_hashes = {}
+        for path in sorted(self.live.rglob("*.json")):
+            rel = str(path.relative_to(self.live)).replace(os.sep, "/")
+            if rel == "meta.json" or "/items/" in rel:
+                continue
+            aggregate_hashes[rel] = f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+        legacy_meta = {
+            "generation": meta["generation"],
+            "created_at": meta["created_at"],
+            "content_fingerprint": meta["content_fingerprint"],
+            "aggregate_file_hashes": aggregate_hashes,
+        }
+        (self.live / "meta.json").write_text(json.dumps(legacy_meta, indent=2), encoding="utf-8")
+        (self.live / generation_store.HASH_STREAM_NAME).unlink()
+        return legacy_meta
+
+    def test_legacy_live_generation_no_change_run_neither_fails_nor_builds(self) -> None:
+        self.make_live_generation_legacy()
+        generations_before = self.generation_names()
+        with self.clock.patch():
+            self.clock.advance(hours=1)
+            with self.assertLogs("publish.generation_store", level="INFO") as logged:
+                summary = support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertEqual(summary["status"], "success")
+            self.assertTrue(any("legacy pre-stream" in m for m in logged.output), logged.output)
+        # No failure and no spurious build: the byte-compare stamping
+        # fallback keeps the planned fingerprint equal to the pointer's, so
+        # only the freshness signal advances.
+        self.assertEqual(self.generation_names(), generations_before)
+        pointer = support.read_pointer(self.export_dir)
+        self.assertEqual(pointer["generation"], self.live.name)
+        self.assertEqual(pointer["last_successful_run_at"], "2026-07-01T01:00:00Z")
+
+    def test_legacy_live_generation_first_content_change_writes_everything_and_establishes_stream(self) -> None:
+        self.make_live_generation_legacy()
+        with self.clock.patch():
+            self.clock.advance(hours=1)
+            self.bump_content(1, "fp_legacy", new_title="June Item Retitled")
+            with self.assertLogs("publish.generation_store", level="INFO"):
+                summary = support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertEqual(summary["status"], "success")
+            second_root = support.live_root(self.export_dir)
+            self.assertNotEqual(second_root.name, self.live.name)
+
+            # Full physical write: no artifact is linked from the legacy
+            # generation, not even unchanged ones.
+            for path in second_root.rglob("*.json"):
+                if path.name == "meta.json":
+                    continue
+                prior_file = self.live / path.relative_to(second_root)
+                if prior_file.is_file():
+                    self.assertNotEqual(_file_key(path), _file_key(prior_file), path.name)
+            self.assert_generation_hash_stream_matches(second_root)
+
+            # From that generation on, normal hardlink reuse applies: a
+            # further change to item 2 links item 1's untouched artifacts.
+            self.clock.advance(hours=1)
+            self.bump_content(2, "fp_legacy_2", new_title="May Item Retitled")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            third_root = support.live_root(self.export_dir)
+            for lang in ("zh", "en"):
+                self.assertEqual(
+                    _file_key(second_root / lang / "items" / "en-june-item.json"),
+                    _file_key(third_root / lang / "items" / "en-june-item.json"),
+                )
+            self.assert_generation_hash_stream_matches(third_root)
+
+    def test_legacy_witness_hashes_are_never_used_for_reuse(self) -> None:
+        """A legacy-shaped meta.json carrying genuinely matching digests still
+        gets zero links: the witness table is a format witness, never a
+        hash source."""
+        legacy_meta = self.make_live_generation_legacy()
+        # Sanity: the witness digest for the untouched May archive genuinely
+        # matches its on-disk bytes.
+        may_rel = pathlib.Path("zh") / "archives" / "archive_2026_05.json"
+        self.assertEqual(
+            legacy_meta["aggregate_file_hashes"]["zh/archives/archive_2026_05.json"],
+            f"sha256:{hashlib.sha256((self.live / may_rel).read_bytes()).hexdigest()}",
+        )
+        with self.clock.patch():
+            self.clock.advance(hours=1)
+            self.bump_content(1, "fp_witness", new_title="June Item Retitled")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            second_root = support.live_root(self.export_dir)
+
+        # The May archive is unchanged content with a matching witness
+        # digest — and is still physically written, not linked.
+        self.assertEqual(
+            (self.live / may_rel).read_bytes(),
+            (second_root / may_rel).read_bytes(),
+        )
+        self.assertNotEqual(_file_key(self.live / may_rel), _file_key(second_root / may_rel))
+
+    def test_referenceless_meta_failing_witness_fails_stop(self) -> None:
+        legacy_meta = self.make_live_generation_legacy()
+        variants = {
+            "bad generation id": {**legacy_meta, "generation": "../../outside"},
+            "calendar-invalid created_at": {**legacy_meta, "created_at": "2026-02-30T00:00:00Z"},
+            "bad fingerprint": {**legacy_meta, "content_fingerprint": "deadbeef"},
+            "empty aggregate table": {**legacy_meta, "aggregate_file_hashes": {}},
+            "illegal path key": {
+                **legacy_meta,
+                "aggregate_file_hashes": {"../escape.json": "sha256:" + "0" * 64},
+            },
+            "bad digest value": {
+                **legacy_meta,
+                "aggregate_file_hashes": {"stats.json": "sha256:not-hex"},
+            },
+        }
+        generations_before = self.generation_names()
+        for name, payload in variants.items():
+            with self.subTest(variant=name):
+                (self.live / "meta.json").write_text(json.dumps(payload), encoding="utf-8")
+                with self.assertRaises(RuntimeError):
+                    support.run_publish(self.config, self.db_path, self.export_dir)
+                self.assertEqual(self.generation_names(), generations_before)
+
+    def test_null_file_hashes_reference_fails_stop(self) -> None:
+        """A present-but-null file_hashes field is corruption, not legacy:
+        a genuine legacy meta.json never carries the field, so even a valid
+        aggregate table beside it must not route to the witness path."""
+        legacy_meta = self.make_live_generation_legacy()
+        variants = {
+            # The review scenario: a damaged newer meta.json that still
+            # carries a valid-looking aggregate table.
+            "null beside valid aggregate table": {**legacy_meta, "file_hashes": None},
+            # A stripped meta.json holding only the null reference.
+            "null reference alone": {
+                k: legacy_meta[k] for k in ("generation", "created_at", "content_fingerprint")
+            } | {"file_hashes": None},
+        }
+        generations_before = self.generation_names()
+        for name, payload in variants.items():
+            with self.subTest(variant=name):
+                (self.live / "meta.json").write_text(json.dumps(payload), encoding="utf-8")
+                with self.assertRaises(RuntimeError) as ctx:
+                    support.run_publish(self.config, self.db_path, self.export_dir)
+                self.assertIn("file_hashes", str(ctx.exception))
+                self.assertEqual(self.generation_names(), generations_before)
+
+
+class TestHardlinkReuse(PublishTestCase):
+    """Unchanged artifacts are hardlinked from the trusted prior generation;
+    changed ones are physically written (plan acceptance bullets 1 and 5).
+    Inode comparison covers NTFS locally; Linux behavior is verified on the
+    target VPS before rollout."""
+
+    def test_unchanged_artifacts_are_hardlinked_and_changed_ones_rewritten(self) -> None:
+        with self.clock.patch():
+            support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+            support.seed_item(self.db_path, 2, "May Item", "2026-05-15T12:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            first_root = support.live_root(self.export_dir)
+
+            self.clock.advance(hours=1)
+            self.bump_content(1, "fp_link", new_title="June Item Retitled")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            second_root = support.live_root(self.export_dir)
+
+        self.assertNotEqual(first_root, second_root)
+        linked = [
+            "zh/items/en-may-item.json",
+            "en/items/en-may-item.json",
+            "zh/archives/archive_2026_05.json",
+            "en/archives/archive_2026_05.json",
+        ]
+        rewritten = [
+            "zh/items/en-june-item.json",
+            "en/items/en-june-item.json",
+            "zh/index.json",
+            "en/index.json",
+            "zh/archives/index.json",
+            "en/archives/index.json",
+            "zh/archives/archive_2026_06.json",
+            "en/archives/archive_2026_06.json",
+            "stats.json",
+        ]
+        for rel in linked:
+            with self.subTest(linked=rel):
+                self.assertEqual(_file_key(first_root / rel), _file_key(second_root / rel))
+        for rel in rewritten:
+            with self.subTest(rewritten=rel):
+                self.assertNotEqual(_file_key(first_root / rel), _file_key(second_root / rel))
+        self.assert_generation_hash_stream_matches(second_root)
+
+    def test_reused_items_skip_second_db_read_and_serialization(self) -> None:
+        """Digest carry-over: the full item stream runs exactly once per run
+        (the fingerprint pass); the write pass re-reads only changed items,
+        one fetch each."""
+        with self.clock.patch():
+            support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+            support.seed_item(self.db_path, 2, "May Item", "2026-05-15T12:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+
+            self.clock.advance(hours=1)
+            self.bump_content(1, "fp_spy", new_title="June Item Retitled")
+
+            stream_calls = []
+            real_iter = generation._iter_item_payloads
+
+            def counting_iter(repo, config, language_code):
+                stream_calls.append(language_code)
+                yield from real_iter(repo, config, language_code)
+
+            real_fetch = PublishRepository.fetch_published_payload_by_slug
+            fetch_calls = []
+
+            def counting_fetch(repository, language_code, slug):
+                fetch_calls.append((language_code, slug))
+                return real_fetch(repository, language_code, slug)
+
+            with patch.object(generation, "_iter_item_payloads", counting_iter), patch.object(
+                PublishRepository, "fetch_published_payload_by_slug", counting_fetch
+            ):
+                summary = support.run_publish(self.config, self.db_path, self.export_dir)
+
+            self.assertEqual(summary["status"], "success")
+            self.assertEqual(stream_calls, ["zh", "en"])
+            self.assertEqual(
+                sorted(fetch_calls),
+                [("en", "en-june-item"), ("zh", "en-june-item")],
+            )
+
+    def test_reuse_works_with_item_count_several_times_batch_size(self) -> None:
+        config = support.make_config(export_dir=self.export_dir, batch_size=5, latest_limit=50)
+        months = ["2026-03", "2026-04", "2026-05", "2026-06"]
+        with self.clock.patch():
+            for index in range(1, 24):
+                support.seed_item(
+                    self.db_path, index, f"Batch Item {index:02d}", f"{months[index % 4]}-15T12:00:00Z"
+                )
+            support.run_publish(config, self.db_path, self.export_dir)
+            first_root = support.live_root(self.export_dir)
+
+            self.clock.advance(hours=1)
+            self.bump_content(7, "fp_batch", new_title="Batch Item 07 Retitled")
+            support.run_publish(config, self.db_path, self.export_dir)
+            second_root = support.live_root(self.export_dir)
+
+        for index in range(1, 24):
+            slug = f"en-batch-item-{index:02d}"
+            for lang in ("zh", "en"):
+                rel = f"{lang}/items/{slug}.json"
+                with self.subTest(artifact=rel):
+                    if index == 7:
+                        self.assertNotEqual(_file_key(first_root / rel), _file_key(second_root / rel))
+                    else:
+                        self.assertEqual(_file_key(first_root / rel), _file_key(second_root / rel))
+        self.assert_generation_hash_stream_matches(second_root)
+
+
+class TestLinkSafety(PublishTestCase):
+    """Link-time safety rules (plan acceptance bullets 7, 8, 9): link
+    failures fall back to a physical write; a post-link verification
+    mismatch removes the destination and fails stop; symlink, junction or
+    reparse sources — directly or through a parent directory — are never
+    linked."""
+
+    def seed_items_and_first_generation(self) -> pathlib.Path:
+        support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+        support.seed_item(self.db_path, 2, "May Item", "2026-05-15T12:00:00Z")
+        support.run_publish(self.config, self.db_path, self.export_dir)
+        return support.live_root(self.export_dir)
+
+    def test_link_failure_falls_back_to_physical_write(self) -> None:
+        with self.clock.patch():
+            first_root = self.seed_items_and_first_generation()
+
+            self.clock.advance(hours=1)
+            self.bump_content(1, "fp_exdev", new_title="June Item Retitled")
+            # Simulated EXDEV/policy failure: no real cross-device setup
+            # exists on the development machine.
+            with patch(
+                "modules.publish.src.generation_store.os.link",
+                side_effect=OSError("simulated cross-device link failure"),
+            ):
+                summary = support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertEqual(summary["status"], "success")
+            second_root = support.live_root(self.export_dir)
+
+        # Every artifact was physically written; output stays byte-correct.
+        for path in second_root.rglob("*.json"):
+            if path.name == "meta.json":
+                continue
+            prior = first_root / path.relative_to(second_root)
+            if prior.is_file():
+                self.assertNotEqual(_file_key(path), _file_key(prior), path.name)
+        rel = "zh/items/en-may-item.json"
+        self.assertEqual((first_root / rel).read_bytes(), (second_root / rel).read_bytes())
+        self.assert_generation_hash_stream_matches(second_root)
+
+    def test_post_link_verification_mismatch_removes_destination_and_fails_stop(self) -> None:
+        with self.clock.patch():
+            first_root = self.seed_items_and_first_generation()
+            pointer_before = support.read_pointer(self.export_dir)
+
+            self.clock.advance(hours=1)
+            self.bump_content(1, "fp_mismatch", new_title="June Item Retitled")
+
+            def copy_instead_of_link(source, destination):
+                shutil.copyfile(source, destination)
+
+            with patch(
+                "modules.publish.src.generation_store.os.link",
+                side_effect=copy_instead_of_link,
+            ):
+                with self.assertRaises(RuntimeError) as ctx:
+                    support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertIn("Post-link verification failed", str(ctx.exception))
+
+        # The live pointer and generation are untouched; staging and the
+        # digest index are cleaned up by teardown.
+        self.assertEqual(support.read_pointer(self.export_dir), pointer_before)
+        self.assertEqual(self.generation_names(), [first_root.name])
+        self.assertFalse((self.export_dir / ".staging").exists())
+        base = self.export_dir / DIGEST_INDEX_FILE_NAME
+        for suffix in ("", "-journal", "-wal", "-shm"):
+            self.assertFalse(pathlib.Path(str(base) + suffix).exists(), suffix)
+
+    def test_non_regular_link_source_falls_back_to_physical_write(self) -> None:
+        with self.clock.patch():
+            first_root = self.seed_items_and_first_generation()
+
+            victim = first_root / "zh" / "items" / "en-june-item.json"
+            original_bytes = victim.read_bytes()
+            outside = pathlib.Path(self.temp_dir.name) / "outside_payload.json"
+            outside.write_bytes(b'{"smuggled": true}')
+            victim.unlink()
+            try:
+                os.symlink(outside, victim)
+            except OSError as exc:
+                self.skipTest(f"cannot create a file symlink on this platform: {exc}")
+
+            self.clock.advance(hours=1)
+            self.bump_content(2, "fp_symlink", new_title="May Item Retitled")
+            summary = support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertEqual(summary["status"], "success")
+            second_root = support.live_root(self.export_dir)
+
+        # The symlink source fails validation: the artifact is physically
+        # written from the plan (never linked, never read through the link).
+        second_file = second_root / "zh" / "items" / "en-june-item.json"
+        self.assertFalse(os.path.islink(second_file))
+        self.assertEqual(second_file.read_bytes(), original_bytes)
+        self.assert_generation_hash_stream_matches(second_root)
+
+    def test_nested_reparse_link_source_falls_back_to_physical_write(self) -> None:
+        """A regular artifact reached through a symlink/junction parent must
+        fail source-containment validation and never be linked."""
+        with self.clock.patch():
+            first_root = self.seed_items_and_first_generation()
+
+            items_dir = first_root / "zh" / "items"
+            june_bytes = (items_dir / "en-june-item.json").read_bytes()
+            real_dir = first_root / "zh" / "items_real"
+            os.rename(items_dir, real_dir)
+            outside = pathlib.Path(self.temp_dir.name) / "outside_items"
+            outside.mkdir()
+            (outside / "en-june-item.json").write_bytes(b'{"smuggled": true}')
+            (outside / "en-may-item.json").write_bytes((real_dir / "en-may-item.json").read_bytes())
+            try:
+                _make_dir_link(items_dir, outside)
+            except Exception as exc:
+                self.skipTest(f"cannot create a directory link on this platform: {exc}")
+
+            self.clock.advance(hours=1)
+            self.bump_content(2, "fp_nested", new_title="May Item Retitled")
+            summary = support.run_publish(self.config, self.db_path, self.export_dir)
+            self.assertEqual(summary["status"], "success")
+            second_root = support.live_root(self.export_dir)
+
+        # The June artifact (unchanged, digest matching) resolves through
+        # the junction to a path outside the trusted prior generation, so it
+        # is physically written from the plan — with the planned bytes, not
+        # the smuggled ones, and never sharing the outside file's inode.
+        second_file = second_root / "zh" / "items" / "en-june-item.json"
+        self.assertEqual(second_file.read_bytes(), june_bytes)
+        self.assertNotEqual(_file_key(second_file), _file_key(outside / "en-june-item.json"))
+        self.assert_generation_hash_stream_matches(second_root)
+
+
+class TestRebuildAndRetentionUnderReuse(PublishTestCase):
+    """rebuild and retention under hardlink reuse (plan acceptance bullets
+    10, 11, 12): rebuild is a full physical rewrite even when hashes match;
+    linked files are never modified in place; retention unlinks retired
+    generations without breaking artifacts shared with retained ones."""
+
+    def test_rebuild_physically_rewrites_even_when_hashes_match(self) -> None:
+        with self.clock.patch():
+            support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+            support.seed_item(self.db_path, 2, "May Item", "2026-05-15T12:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            first_root = support.live_root(self.export_dir)
+
+            self.clock.advance(hours=1)
+            summary = support.run_publish(self.config, self.db_path, self.export_dir, rebuild=True)
+            self.assertEqual(summary["status"], "success")
+            second_root = support.live_root(self.export_dir)
+
+        self.assertNotEqual(first_root, second_root)
+        for path in second_root.rglob("*.json"):
+            if path.name == "meta.json":
+                continue
+            self.assertNotEqual(
+                _file_key(path),
+                _file_key(first_root / path.relative_to(second_root)),
+                path.name,
+            )
+        # Item payloads are DB-driven and byte-identical across the rebuild.
+        rel = "zh/items/en-june-item.json"
+        self.assertEqual((first_root / rel).read_bytes(), (second_root / rel).read_bytes())
+        self.assert_generation_hash_stream_matches(second_root)
+
+    def test_linked_files_are_never_modified_in_place(self) -> None:
+        with self.clock.patch():
+            support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+            support.seed_item(self.db_path, 2, "May Item", "2026-05-15T12:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            first_root = support.live_root(self.export_dir)
+            snapshot = {
+                p.relative_to(first_root): (os.stat(p).st_ino, p.read_bytes())
+                for p in first_root.rglob("*.json")
+            }
+
+            self.clock.advance(hours=1)
+            self.bump_content(1, "fp_immutable_1", new_title="June Item Retitled")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            second_root = support.live_root(self.export_dir)
+
+            self.clock.advance(hours=1)
+            self.bump_content(2, "fp_immutable_2", new_title="May Item Retitled")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+
+        # The first generation is bit-identical after two subsequent builds,
+        # including files that were hardlinked into later generations.
+        for rel, (ino, data) in snapshot.items():
+            path = first_root / rel
+            self.assertEqual(os.stat(path).st_ino, ino, str(rel))
+            self.assertEqual(path.read_bytes(), data, str(rel))
+        may_rel = pathlib.Path("zh") / "items" / "en-may-item.json"
+        self.assertEqual(_file_key(first_root / may_rel), _file_key(second_root / may_rel))
+
+    def test_retention_unlinks_shared_inodes_without_breaking_retained_generations(self) -> None:
+        with self.clock.patch():
+            support.seed_item(self.db_path, 1, "June Item", "2026-06-15T12:00:00Z")
+            support.seed_item(self.db_path, 2, "May Item", "2026-05-15T12:00:00Z")
+            support.run_publish(self.config, self.db_path, self.export_dir)
+            for index in range(1, 7):
+                self.clock.advance(hours=1)
+                self.bump_content(1, f"fp_ret_{index}", new_title=f"June Item Retitled {index}")
+                support.run_publish(self.config, self.db_path, self.export_dir)
+
+        # Seven builds with keep=5: the two oldest generations are retired.
+        names = self.generation_names()
+        self.assertEqual(len(names), 5)
+        self.assertEqual(support.read_pointer(self.export_dir)["generation"], names[-1])
+
+        # Item 2 never changed: one inode shared by every surviving
+        # generation. Retiring the oldest two removed their links without
+        # touching the shared bytes.
+        live = support.live_root(self.export_dir)
+        may_rel = "zh/items/en-may-item.json"
+        expected_bytes = (live / may_rel).read_bytes()
+        for name in names:
+            path = self.export_dir / "generations" / name / may_rel
+            self.assertEqual(path.read_bytes(), expected_bytes, name)
+            self.assertEqual(_file_key(path), _file_key(live / may_rel), name)
+        nlink = os.stat(live / may_rel).st_nlink
+        if nlink > 1:
+            # Filesystems that report link counts (NTFS, ext4): one link per
+            # surviving generation, the retired links gone.
+            self.assertEqual(nlink, len(names))
 
 
 if __name__ == "__main__":

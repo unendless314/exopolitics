@@ -7,7 +7,7 @@ every immutable observation unchanged: publish timestamps, publish record
 ``updated_at``, language status timestamps, frozen slugs, and the bytes of
 every artifact of the live generation — including ``stats.json``, whose
 ``last_export_run_timestamp`` is frozen at the generation's build time
-(Phase B1: a no-change run builds nothing). The only signal that advances is
+(a no-change run builds nothing). The only signal that advances is
 the pointer's ``last_successful_run_at``.
 """
 
@@ -104,7 +104,7 @@ class TestUnchangedRerunIdempotency(unittest.TestCase):
             self.assertEqual(pointer_before["content_fingerprint"], pointer_after["content_fingerprint"])
 
             # stats.json stays frozen at the generation's build time; the run
-            # freshness signal lives on the pointer instead (Phase B1).
+            # freshness signal lives on the pointer instead.
             stats_after = support.read_stats(self.export_dir)
             self.assertEqual(stats_after["last_export_run_timestamp"], first_run_timestamp)
             self.assertEqual(pointer_after["last_successful_run_at"], second_run_timestamp)

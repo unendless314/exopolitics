@@ -35,7 +35,7 @@ import contextlib
 import datetime
 import json
 import pathlib
-from typing import Any, Dict, Iterator, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 from unittest.mock import patch
 
 from modules.publish.src.config import (
@@ -316,7 +316,7 @@ def read_json(path: pathlib.Path) -> Any:
 
 
 def read_pointer(export_dir: pathlib.Path) -> Dict[str, Any]:
-    """Read and parse the export root's ``current.json`` pointer (Phase B1)."""
+    """Read and parse the export root's ``current.json`` pointer."""
     return read_json(export_dir / "current.json")
 
 
@@ -344,6 +344,17 @@ def read_manifest(export_dir: pathlib.Path, lang: str) -> Any:
 
 def read_stats(export_dir: pathlib.Path) -> Dict[str, Any]:
     return read_json(live_root(export_dir) / "stats.json")
+
+
+def read_hash_stream(generation_root: pathlib.Path) -> List[Dict[str, Any]]:
+    """Parse a generation's ``file_hashes.jsonl`` stream into a record list."""
+    records: List[Dict[str, Any]] = []
+    with open(generation_root / "file_hashes.jsonl", "r", encoding="utf-8") as f:
+        for line in f:
+            stripped = line.strip()
+            if stripped:
+                records.append(json.loads(stripped))
+    return records
 
 
 class FakeClock:

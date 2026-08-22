@@ -78,7 +78,7 @@ class TestCoverageLossWithdrawal(unittest.TestCase):
 
         # The only archive month became empty: the archive file is gone and
         # the manifest is now an empty list (the manifest file itself is
-        # always written, Phase B1 contract).
+        # always written per contract).
         for lang in ("zh", "en", "ja"):
             with self.subTest(language=lang):
                 self.assertFalse((live / lang / "archives" / "archive_2026_06.json").exists())

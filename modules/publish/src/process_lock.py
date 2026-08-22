@@ -1,10 +1,8 @@
 """
 Single-writer process lock for the publish runner.
 
-Introduced as part of Phase B1 of
-known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md: the whole run
-(staging, DB state, pointer switch) holds this lock so two publish runs can
-never operate concurrently. The implementation mirrors the curate module's
+The whole run (staging, DB state, pointer switch) holds this lock so two
+publish runs can never operate concurrently. The implementation mirrors the curate module's
 ProcessLock precedent (modules/curate/src/orchestrator.py) with non-blocking
 acquire. Release only unlocks and closes the handle; the lock file itself is
 deliberately left in place: unlinking it would reopen the classic POSIX

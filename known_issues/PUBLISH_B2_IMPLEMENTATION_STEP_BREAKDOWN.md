@@ -1,6 +1,6 @@
 # Publish B2 Implementation Step Breakdown
 
-**Status:** Approved by owner and external reviewer on 2026-08-21 (reviewer's five-edge-case edits incorporated); ready for implementation — no code changes yet
+**Status:** Implemented and verified on 2026-08-22 — Steps 0–11 complete (code, tests, docs, sandbox rehearsal); two post-review P1 fixes (null `file_hashes` reference and bounded-memory monthly archive serialization) applied with regression tests; ready for final sign-off
 **Date:** 2026-08-21
 **Parent plan:** [PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md](PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md) (B2 plan v1.6, approved 2026-08-21)
 
@@ -192,3 +192,39 @@ Bullets 13 (existing behaviors unchanged) and 14 (suite green) are covered by th
 - `process_lock.py`, the pointer format and atomic switch, reader contracts, artifact schemas, and the canonical DB schema are untouched.
 - The `write_generation_to_staging` / `write_pointer_atomic` failure-injection patch points keep their module-level names.
 - No backup-side dedup claims: VPS backup/deploy verification precedes any such claim, per the plan.
+
+---
+
+## 8. Implementation status handoff (2026-08-22, pre-compaction snapshot)
+
+**Status: Steps 0–11 DONE and verified, sandbox rehearsal passed (20/20). Post-review follow-ups applied 2026-08-22: P1 fix #1 (null `file_hashes` reference now fails stop instead of routing to the legacy witness) with regression tests; P1 fix #2 (monthly archives are now serialized as a chunk stream — `_iter_archive_entries` + `_iter_json_array_bytes`, byte-identical to the canonical list serialization and locked by `TestStreamingJsonArraySerialization` — and the write pass consumes artifact bytes as chunk iterators via `planned_chunks_for`); phase-diary wording removed from code comments/docstrings. Final counts: publish 141 passed / 664 subtests / 1 skipped, site 154 passed.**
+
+### Verified state
+
+- Publish suite: **141 passed / 664 subtests / 1 skipped** (baseline was 113/583). The skip is `TestLinkSafety::test_non_regular_link_source_falls_back_to_physical_write` — WinError 1314 (no symlink privilege), the documented skip-on-failure fallback; the junction-based nested variant passes.
+- Site suite: **154 passed** after fixture regeneration and the `exportRoot.test.ts` stream-format update.
+
+### Files changed (all in one uncommitted working tree)
+
+1. NEW `modules/publish/src/digest_index.py` — `DigestIndex`: temp SQLite at `export_dir/.digest-index.tmp.sqlite`; `planned(seq AUTOINCREMENT, path UNIQUE, digest)` + `prior(path PRIMARY KEY, digest)`; `add_planned_batch` / `add_prior` / `prior_digest_for` / `iter_planned` / `close` / `discard`; constructor creates export_dir and removes the owned set (`""`, `-journal`, `-wal`, `-shm`). **Deviation fix:** `iter_planned` pages with LIMIT/OFFSET short-lived cursors (page 1000) — a cursor held across yields keeps the SQLite file locked on Windows even after `conn.close()` (verified empirically), which broke teardown unlink when a build fails mid-iteration (post-link-mismatch test caught this).
+2. `database.py` — added `fetch_published_payload_by_slug(language_code, slug)` (batch query + `AND pr.slug = ?`, LIMIT 1).
+3. `generation.py` — `build_generation_plan(repo, config, prior_digest_for, digest_index, fallback_root, run_ts, rebuild)`. **Deviation:** `digest_index` is passed explicitly (§2.5's listed call omitted it, but the fingerprint pass must append the carry-over). `compute_content_fingerprint(..., digest_index=None)` appends planned digests in batch_size batches. `iter_planned_artifact_bytes` was removed and superseded by `planned_chunks_for(plan, repo, config, rel_path)`: path-grammar dispatch returns byte chunks, monthly archives are serialized and hashed as a bounded stream, and missing item rows raise as runner bugs.
+4. `generation_store.py` — `load_current_generation_hashes` REPLACED by `load_live_generation_hashes(live_root, digest_index) -> bool` (True = legacy witness). New: `HASH_STREAM_NAME`, `_STREAM_DIGEST_RE`, `_is_legal_artifact_path`, `_matches_legacy_meta_shape` (4 witness checks), `_load_hash_stream` (line-by-line; **duplicate detection delegated to the prior table PRIMARY KEY** → IntegrityError → RuntimeError, avoiding a resident seen-set per Section 9; blank line = malformed record = fail-stop; final record must be stats.json), `_trusted_prior_root`, `_is_valid_link_source`, `_link_verified`, `_try_link_artifact` (OSError→fallback write; verify mismatch→unlink dest + raise). `write_generation_to_staging` takes `chunks_for` (chunk-streamed planned bytes); stream written with `newline="\n"` (pins LF on Windows); meta.json = scalars + `"file_hashes": "file_hashes.jsonl"`. Module docstring carries the trusted-recorded-hash risk, post-link verification, and safety-critical immutability wording.
+5. `orchestrator.py` — `index = None` before the outer try; `DigestIndex(export_dir)` created after `BEGIN IMMEDIATE`; legacy → `prior_root=None`, `fallback_root=live_root`; teardown finally calls `index.discard()` when not None. Failure-injection patch-point names unchanged.
+6. Tests — `support.py`: `read_hash_stream`. `test_generation_pointer.py`: `assert_meta_hashes_match` → `assert_generation_hash_stream_matches` (reference + parse + full artifact coverage incl. items + final stats.json + disk-matching digests); bootstrap/corrupt-meta tests updated (empty-table variant is now a witness failure: `del meta["file_hashes"]` + `aggregate_file_hashes={}`); new classes per §4: TestHashStreamFormat(2), TestDigestIndexLifecycle(2), TestHashStreamCorruption(7), TestLegacyTransition(4), TestHardlinkReuse(3), TestLinkSafety(4), TestRebuildAndRetentionUnderReuse(3); module helpers `_file_key`, `_make_dir_link`.
+7. Docs — DATA_CONTRACT v3.4 (§2.3 stamping via stream with digest-compare fallback; §6 layout + hardlink bullet; §6.7 rewritten incl. the null-reference fail-stop rule); EXECUTION_POLICY v2.7 (§6.1 physical write policy + rebuild full rewrite + stamping wording; §9.2 hash-bookkeeping bullet); TEST_COVERAGE_MAP v1.10 (§14 intro/rows updated + B2 rows + review-fix rows); docs/DATA_LIFECYCLE.md §9.1 first bullet (file_hashes.jsonl + shared-inode safety note).
+8. Site — fixture `meta.json` regenerated to B2 shape + `file_hashes.jsonl` (16 records, real sha256, order zh→en→ja, stats.json last, LF); `exportRoot.test.ts` hash test follows the stream (incl. item coverage, final stats.json), layout test includes the stream file. No site production-code change.
+
+### Step 11 outcome (2026-08-22)
+
+- The e2e sandbox rehearsal ran on a temp copy of the real data (`.b2_rehearsal.py`, deleted afterwards per the B1 precedent): **20/20 checks passed**, including the real legacy witness path, zero-link full write on the transition build, 16,017/16,027 hardlink reuse on the next content change, and a zero-link byte-identical rebuild. One script-side assumption was corrected during the rehearsal (rebuild legitimately restamps the archives manifests' `updated_at`, so the byte-identity check excludes the three `{lang}/archives/index.json` files alongside `stats.json`); no production-code change came out of it.
+- Final confirmation after the rehearsal and the post-review fixes: `py -3 -m pytest modules/publish/tests -q` and `cd modules/site && npm test` (see §8 status line for the counts).
+- Both plan docs' Status lines updated to "implemented and verified".
+
+### Points flagged for the reviewer
+
+1. `build_generation_plan` gained an explicit `digest_index` parameter (forced deviation from §2.5's listed call shape).
+2. Duplicate-path detection uses the SQLite PRIMARY KEY, not an in-memory set (Section 9 bound).
+3. `iter_planned` uses paged short-lived cursors (Windows file-lock fix above).
+4. Blank stream lines count as malformed records (fail-stop).
+5. ~~A JSON-null `file_hashes` value falls into the witness path and fails stop there~~ — **disproven by the post-implementation review**: a null beside a valid-looking `aggregate_file_hashes` table was accepted as legacy. Fixed 2026-08-22: a present `file_hashes` field now must equal exactly `file_hashes.jsonl` (`null` fails stop), covered by `TestLegacyTransition::test_null_file_hashes_reference_fails_stop`.

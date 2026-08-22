@@ -19,7 +19,7 @@ import {
 } from '../src/utils/exportData';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// The committed fixture is a generationized export root (Phase B1): the
+// The committed fixture is a generationized export root: the
 // loader matrix runs against the live generation resolved through its
 // current.json pointer, exactly like production pages do.
 const committedFixtureBase = path.join(__dirname, 'fixtures', 'publish_export');

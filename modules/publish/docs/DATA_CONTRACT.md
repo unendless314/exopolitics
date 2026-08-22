@@ -1,7 +1,7 @@
 # Publish Data Contract
 
-**Document version:** v3.2
-**Updated:** 2026-08-19
+**Document version:** v3.4
+**Updated:** 2026-08-22
 **Status:** Active rewrite draft
 
 ---
@@ -69,8 +69,8 @@ Lifecycle rules:
 - the recorded `updated_at` value advances only when the archive's content changes. The stamping decision for each active month is, by priority:
   1. a `rebuild` run stamps every active month with the run's logical clock
   2. a missing metadata row (databases created before this table existed) is healed with the run's logical clock
-  3. if the live generation's `meta.json` hash for the archive file matches the planned bytes, the recorded DB value is kept verbatim
-  4. if the hash is missing, the planned bytes are compared against the fallback root (the live generation root, set only when a pointer exists); equal bytes keep the recorded DB value
+  3. if the live generation's hash stream (`file_hashes.jsonl`, see Section 6.7) records a digest for the archive file that matches the planned digest, the recorded DB value is kept verbatim
+  4. if the stream has no record for the path (including a legacy pre-stream live generation, which carries no reuse information), the planned digest is compared against the fallback root file's digest (the live generation root, set only when a pointer exists); an equal digest — i.e. equal bytes — keeps the recorded DB value
   5. anything else is stamped with the run's logical clock
 - a run whose content did not change builds nothing and leaves every row (and therefore every manifest `updated_at`) unchanged
 - healing a missing row changes the planned manifest, so it builds exactly one new generation carrying the new stamp; the archive file bytes themselves are unchanged
@@ -261,6 +261,7 @@ data/publish_export/
   generations/<generation-id>/
     stats.json
     meta.json
+    file_hashes.jsonl
     <language_code>/
       index.json
       items/<slug>.json
@@ -270,6 +271,7 @@ data/publish_export/
 
 - A generation id is the building run's logical UTC timestamp with colons replaced by hyphens (`YYYY-MM-DDTHH-MM-SSZ`); same-second collisions get a `-r2`/`-r3` suffix. Ids always match `^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z(-r\d+)?$`.
 - Every generation is a complete snapshot of the active published set and is immutable once published. Readers enter exclusively through `current.json`, resolve the referenced generation directory, and read inside it; the pointer switch is the single commit point, so readers see either the complete old generation or the complete new one, never partial output.
+- Physically, unchanged artifacts of a new generation may be hardlinks sharing an inode with the trusted preceding generation (a storage optimization — see [EXECUTION_POLICY.md](./EXECUTION_POLICY.md) Section 6.1). Logically every generation remains a complete independent snapshot; this is why in-place mutation of any generation file is forbidden (see Section 6.7).
 - A generation is complete even when empty: every configured language always has an `index.json` (`[]`), an archives manifest `archives/index.json` (`[]`), and explicit `items/` and `archives/` directories.
 - Artifact bytes are serialized as `json.dumps(obj, indent=2, ensure_ascii=False)` UTF-8 with no trailing newline — unchanged from the pre-generation runner.
 
@@ -468,32 +470,32 @@ Contract example:
 
 A corrupt pointer (unparseable JSON, missing fields, malformed generation id, a calendar-impossible timestamp such as `2026-02-30T12:00:00Z`, an empty `languages` list, or a missing generation directory) is a fail-stop state: the runner raises instead of silently rebuilding, and readers must do the same.
 
-### 6.7 Generation Metadata (`meta.json`)
+### 6.7 Generation Metadata (`meta.json` + `file_hashes.jsonl`)
 
-Path:
+Paths:
 
 ```text
 data/publish_export/generations/<generation-id>/meta.json
+data/publish_export/generations/<generation-id>/file_hashes.jsonl
 ```
 
-Per-generation diagnostics and content hash table, written when the generation is built:
+Per-generation metadata and content hash bookkeeping, written when the generation is built:
 
 ```json
 {
   "generation": "2026-08-17T12-30-45Z",
   "created_at": "2026-08-17T12:30:45Z",
   "content_fingerprint": "sha256-exportstate-v1:9f2c1d4e...",
-  "aggregate_file_hashes": {
-    "stats.json": "sha256:...",
-    "zh/index.json": "sha256:...",
-    "zh/archives/index.json": "sha256:...",
-    "zh/archives/archive_2026_06.json": "sha256:..."
-  }
+  "file_hashes": "file_hashes.jsonl"
 }
 ```
 
-- `aggregate_file_hashes` maps a generation-relative path to the `sha256:<hex>` digest of its bytes and covers aggregate files only: `stats.json`, each language's `index.json`, `archives/index.json`, and every `archive_YYYY_MM.json` — never `items/*` payloads. The runner uses it to decide archive `updated_at` stamping (see Section 2.3) without re-reading archive files. The table is never empty: every generation records at least `stats.json` and the per-language aggregate files, so an empty table is corruption, not a zero-data state.
-- A missing or corrupt `meta.json` on the live generation (including an empty `aggregate_file_hashes` table) is a fail-stop state.
+- `meta.json` keeps the scalar fields (`generation`, `created_at`, `content_fingerprint`) plus the `"file_hashes": "file_hashes.jsonl"` reference. The reference value is always exactly `file_hashes.jsonl`; any other value — a JSON `null` included — is fail-stop. Both files are builder-owned metadata, not reusable export artifacts; they are written fresh for every new generation after the artifact digests are known.
+- `file_hashes.jsonl` is a newline-delimited JSON stream with exactly one record per emitted artifact in fixed artifact order (per configured language in config order: `index.json`, `archives/index.json`, monthly archives month ASC, item payloads slug ASC; `stats.json` last), each record `{"path": "<generation-relative path>", "digest": "sha256:<hex>"}`. Digests are of the **actual written bytes** of every artifact, item payloads included. The runner uses the live generation's stream to decide archive `updated_at` stamping (see Section 2.3) and hardlink reuse (see [EXECUTION_POLICY.md](./EXECUTION_POLICY.md) Section 6.1) without re-reading artifact files. Both sides stay memory-bounded: the writer appends one record per artifact as it is linked or written, and the reader streams records line by line — no table proportional to item count is ever held in memory (see [EXECUTION_POLICY.md](./EXECUTION_POLICY.md) Section 9).
+- **Dual-digest rule for `stats.json`:** `content_fingerprint` deliberately hashes stats.json's content excluding `last_export_run_timestamp` so run wall-clock never perturbs the build decision, while the stats.json stream record always records the digest of the real written bytes including that timestamp — so the recorded stream never disagrees with the disk. A corollary: because the stats timestamp advances with every build, stats.json bytes almost always differ between generations, so stats.json is physically written rather than linked in practice.
+- **Stream integrity** is validated as the stream is read; all of the following are fail-stop corruption, never silent rebuild triggers: a missing or unparseable `meta.json`; a referenced stream that is missing or empty (every legitimately built generation records at least `stats.json` and the per-language aggregate files, so an empty stream is corruption, not a zero-data state); a malformed record; an illegal generation-relative path (leading `/`, backslash, drive-letter colon, or empty/`.`/`..` segments) or a repeated path; and a final record that is not `stats.json` (suffix-truncation detection — `stats.json` is always the last artifact in the fixed order, so even a valid-prefix truncation landing on a line boundary is caught). Full expected-sequence validation is deliberately out of scope: the expected artifact set is unknown when the stream is read, and a missing or digest-mismatched entry degrades safely to a physical write.
+- **Legacy (pre-stream) transition:** a `meta.json` without the `file_hashes` reference is legacy **only** when it positively matches the legacy aggregate shape — strict generation id, calendar-valid `created_at`, well-formed `content_fingerprint`, and a non-empty `aggregate_file_hashes` object whose keys are legal generation-relative paths and whose values are all `sha256:<64 hex>` digests. Such a generation is tolerated as having **no reuse information**: the legacy table is read solely as a format witness and its hashes are never consulted for reuse; no-change runs against it neither fail nor spuriously build (archive stamping falls back to the digest-compare rule of Section 2.3), and the first content-changing build physically writes every artifact and establishes the full stream. Any other reference-less `meta.json` — for example a stream-era file whose reference field was lost — is corruption and fails stop.
+- **Immutability is safety-critical:** generation contents — including `meta.json` and the hash stream — must never be overwritten, truncated, chmod-ed or replaced in place. Because unchanged artifacts are shared across generations as hardlinks to the same inode, an in-place edit would silently rewrite every generation sharing the inode. The repair path for any suspected corruption is `rebuild`, which physically rewrites everything and re-establishes verified bytes.
 
 ---
 

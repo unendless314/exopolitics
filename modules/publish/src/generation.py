@@ -1,10 +1,8 @@
 """
-Deterministic generation plan and content fingerprinting (Phase B1).
+Deterministic generation plan and content fingerprinting.
 
-Part of the generation + atomic pointer refactor
-(known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md). After
-reconciliation leaves the DB in a stable snapshot, a single deterministic
-plan describes the planned final bytes of every artifact of the next export
+After reconciliation leaves the DB in a stable snapshot, a single
+deterministic plan describes the planned final bytes of every artifact of the next export
 generation: per-language index, archives manifest (always written, empty as
 ``[]``), monthly archives, item payloads and stats. The same plan drives the
 ``content_fingerprint`` state comparison and the generation build, so DB
@@ -19,10 +17,11 @@ test-suite FakeClock patch points.
 import hashlib
 import json
 import pathlib
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 from .config import PublishConfig
 from .database import PublishRepository
+from .digest_index import DigestIndex
 from .validation import assemble_item_payload, validate_item_payload
 
 # Versioned fingerprint algorithm identifier, recorded verbatim in
@@ -36,10 +35,9 @@ _STATS_TIMESTAMP_KEY = "last_export_run_timestamp"
 
 def serialize_json_bytes(obj: Any) -> bytes:
     """
-    Canonical artifact serialization, byte-identical to the pre-B1 runner
-    (``json.dump(obj, f, indent=2, ensure_ascii=False)`` with no trailing
-    newline). Byte-stability tests and Phase A acceptance depend on this
-    exact shape.
+    Canonical artifact serialization (``json.dump(obj, f, indent=2,
+    ensure_ascii=False)`` with no trailing newline). Byte-stability tests
+    and site loaders depend on this exact shape.
     """
     return json.dumps(obj, indent=2, ensure_ascii=False).encode("utf-8")
 
@@ -83,21 +81,22 @@ class GenerationPlan:
         self.stats = stats
 
 
-def _stream_archive_entries(
+def _iter_archive_entries(
     repo: PublishRepository,
     batch_size: int,
     language_code: str,
     month: str,
-) -> List[Dict[str, Any]]:
-    """One monthly archive's entry list, fetched in bounded batches."""
-    entries: List[Dict[str, Any]] = []
+) -> Iterator[Dict[str, Any]]:
+    """One monthly archive's entries, fetched in bounded batches and yielded
+    row by row: memory stays bounded by the batch size, never by the month's
+    item count."""
     offset = 0
     while True:
         rows = repo.fetch_archive_month_batch(language_code, month, batch_size, offset)
         if not rows:
             break
         for row in rows:
-            entries.append({
+            yield {
                 "slug": row["slug"],
                 "display_title": row["display_title"],
                 "summary_short": row["summary_short"],
@@ -105,9 +104,47 @@ def _stream_archive_entries(
                 "source_published_at": row["source_published_at"],
                 "approved_at": row["approved_at"],
                 "published_at": row["published_at"],
-            })
+            }
         offset += len(rows)
-    return entries
+
+
+def _iter_json_array_bytes(entries: Iterator[Dict[str, Any]]) -> Iterator[bytes]:
+    """
+    Byte chunks of the canonical JSON array serialization of ``entries``,
+    streamed element by element. The joined chunks equal
+    ``serialize_json_bytes(list(entries))`` exactly: ``[\\n  `` prefix,
+    ``,\\n  `` separators, each element serialized with ``indent=2`` and
+    re-indented one level, ``\\n]`` suffix, and ``[]`` when empty.
+    """
+    iterator = iter(entries)
+    try:
+        first = next(iterator)
+    except StopIteration:
+        yield b"[]"
+        return
+    yield b"[\n  "
+    yield json.dumps(first, indent=2, ensure_ascii=False).replace("\n", "\n  ").encode("utf-8")
+    for entry in iterator:
+        yield b",\n  "
+        yield json.dumps(entry, indent=2, ensure_ascii=False).replace("\n", "\n  ").encode("utf-8")
+    yield b"\n]"
+
+
+def _hash_json_array_stream(chunks: Iterator[bytes]) -> str:
+    """sha256 hex digest over a chunk stream, without joining it in memory."""
+    digest = hashlib.sha256()
+    for chunk in chunks:
+        digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _hash_file_bytes(path: pathlib.Path) -> str:
+    """sha256 hex digest of a file, read in fixed-size blocks."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(65536), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _iter_item_payloads(
@@ -137,9 +174,8 @@ def _decide_archive_stamp(
     repo: PublishRepository,
     language_code: str,
     month: str,
-    planned_bytes: bytes,
     planned_digest: str,
-    current_hashes: Dict[str, str],
+    prior_digest_for: Callable[[str], Optional[str]],
     fallback_root: Optional[pathlib.Path],
     run_ts: str,
     rebuild: bool,
@@ -150,11 +186,11 @@ def _decide_archive_stamp(
     1. rebuild -> run_ts (forced full refresh).
     2. metadata row missing -> run_ts (heal: the row predates v002 or was
        lost; the runner stamps what this plan writes).
-    3. live generation meta.json hash matches the planned bytes -> keep the
-       recorded DB value (content unchanged, timestamp must not advance).
-    4. hash missing -> byte-compare against the fallback root (the live
-       generation root, set only when a pointer exists); equal bytes keep
-       the DB value.
+    3. live generation hash stream digest matches the planned digest -> keep
+       the recorded DB value (content unchanged, timestamp must not advance).
+    4. hash missing -> hash-compare against the fallback root (the live
+       generation root, set only when a pointer exists); an equal digest
+       keeps the DB value.
     5. anything else -> run_ts.
     """
     if rebuild:
@@ -163,12 +199,12 @@ def _decide_archive_stamp(
     if meta_row is None:
         return run_ts
     rel_path = f"{language_code}/archives/{archive_file_name(month)}"
-    recorded = current_hashes.get(rel_path)
+    recorded = prior_digest_for(rel_path)
     if recorded is not None:
         return meta_row["updated_at"] if recorded == f"sha256:{planned_digest}" else run_ts
     if fallback_root is not None:
         fallback_file = fallback_root / rel_path
-        if fallback_file.is_file() and fallback_file.read_bytes() == planned_bytes:
+        if fallback_file.is_file() and _hash_file_bytes(fallback_file) == planned_digest:
             return meta_row["updated_at"]
     return run_ts
 
@@ -176,7 +212,8 @@ def _decide_archive_stamp(
 def build_generation_plan(
     repo: PublishRepository,
     config: PublishConfig,
-    current_hashes: Dict[str, str],
+    prior_digest_for: Callable[[str], Optional[str]],
+    digest_index: DigestIndex,
     fallback_root: Optional[pathlib.Path],
     run_ts: str,
     rebuild: bool,
@@ -190,7 +227,10 @@ def build_generation_plan(
     a build never triggers a spurious rebuild. Memory stays bounded: index
     entries are capped by ``latest_limit``, archives are streamed per month
     (only their digest is kept) and item payloads are streamed per item
-    during the fingerprint pass.
+    during the fingerprint pass. The fingerprint pass also appends every
+    planned (path, digest) to ``digest_index`` (digest carry-over), so the
+    write pass can link reused artifacts without re-serializing them or
+    re-reading their database rows.
     """
     batch_size = config.execution_policy.batch_size
     latest_limit = config.index_policy.latest_limit
@@ -203,7 +243,7 @@ def build_generation_plan(
     manifest_entries: Dict[str, List[Dict[str, Any]]] = {}
 
     for lang in languages:
-        # --- Latest index (same batching and entry shape as the pre-B1 runner)
+        # --- Latest index (batched; the entry shape is contractually fixed)
         entries: List[Dict[str, Any]] = []
         offset = 0
         while len(entries) < latest_limit:
@@ -228,12 +268,13 @@ def build_generation_plan(
         months = sorted(m for m in repo.get_active_archive_months(lang) if m)
         archive_months[lang] = months
         for month in months:
-            archive_bytes = serialize_json_bytes(_stream_archive_entries(repo, batch_size, lang, month))
-            digest = hashlib.sha256(archive_bytes).hexdigest()
+            digest = _hash_json_array_stream(_iter_json_array_bytes(
+                _iter_archive_entries(repo, batch_size, lang, month)
+            ))
             archive_hashes[(lang, month)] = digest
             archive_stamps[(lang, month)] = _decide_archive_stamp(
-                repo, lang, month, archive_bytes, digest,
-                current_hashes, fallback_root, run_ts, rebuild,
+                repo, lang, month, digest,
+                prior_digest_for, fallback_root, run_ts, rebuild,
             )
 
         # --- Archives manifest (months DESC, planned updated_at)
@@ -258,7 +299,7 @@ def build_generation_plan(
             })
         manifest_entries[lang] = manifest
 
-    # --- Global stats (same construction and key order as the pre-B1 runner)
+    # --- Global stats (construction and key order are contractually fixed)
     stats: Dict[str, Any] = {}
     stats["total_active_published_items_by_language"] = repo.count_publish_language_statuses("published")
     for lang in languages:
@@ -288,7 +329,7 @@ def build_generation_plan(
         manifest_entries=manifest_entries,
         stats=stats,
     )
-    return plan, compute_content_fingerprint(plan, repo, config)
+    return plan, compute_content_fingerprint(plan, repo, config, digest_index)
 
 
 def _iter_planned_artifact_digests(
@@ -322,6 +363,7 @@ def compute_content_fingerprint(
     plan: GenerationPlan,
     repo: PublishRepository,
     config: PublishConfig,
+    digest_index: Optional[DigestIndex] = None,
 ) -> str:
     """
     Versioned SHA-256 over the planned export state: a header pinning the
@@ -329,6 +371,14 @@ def compute_content_fingerprint(
     configured languages, then every artifact's ``rel_path\\0sha256\\0`` in
     fixed order. stats.json enters without ``last_export_run_timestamp`` so
     run wall-clock never perturbs the comparison.
+
+    When ``digest_index`` is given, every planned (rel_path, digest) pair is
+    also appended to it in bounded batches (digest carry-over): the write
+    pass consumes the same digests via ``DigestIndex.iter_planned`` instead
+    of re-serializing every artifact. Per the plan's dual-digest rule the
+    stats.json entry recorded here is the excluded-timestamp variant, so it
+    can never equal a prior real-bytes digest and stats.json is always
+    physically written.
     """
     languages = list(config.target_languages.keys())
     header = "|".join([
@@ -339,6 +389,7 @@ def compute_content_fingerprint(
         "languages=" + ",".join(languages),
     ])
     digest = hashlib.sha256(header.encode("utf-8") + b"\0")
+    pending: List[Tuple[str, str]] = []
     for rel_path, artifact_digest in _iter_planned_artifact_digests(
         plan, repo, config, exclude_stats_timestamp=True
     ):
@@ -346,27 +397,68 @@ def compute_content_fingerprint(
         digest.update(b"\0")
         digest.update(artifact_digest.encode("ascii"))
         digest.update(b"\0")
+        if digest_index is not None:
+            pending.append((rel_path, artifact_digest))
+            if len(pending) >= config.execution_policy.batch_size:
+                digest_index.add_planned_batch(pending)
+                pending.clear()
+    if digest_index is not None and pending:
+        digest_index.add_planned_batch(pending)
     return f"{FINGERPRINT_ALGORITHM}:{digest.hexdigest()}"
 
 
-def iter_planned_artifact_bytes(
+def planned_chunks_for(
     plan: GenerationPlan,
     repo: PublishRepository,
     config: PublishConfig,
-) -> Iterator[Tuple[str, bytes]]:
+    rel_path: str,
+) -> Iterator[bytes]:
     """
-    (relative path, planned bytes) for every artifact of the generation, in
-    the same fixed order as the fingerprint pass. Used by the generation
-    build. stats.json here keeps its run timestamp; archives are re-streamed
-    per month so memory stays bounded by one month at a time.
+    The planned bytes of one artifact as a chunk stream, produced on demand
+    for the write pass. Only artifacts that need a physical write are ever
+    materialized: reused artifacts are hardlinked from the trusted prior
+    generation and never reach this function. Item payloads are re-read
+    individually by slug (one row per changed item) and re-validated at the
+    payload boundary; monthly archives are re-streamed entry by entry, so no
+    artifact larger than one payload (or one archive batch) is ever resident
+    in memory. A path outside the fixed artifact grammar, a month absent
+    from the plan, or a missing item row inside the held snapshot
+    transaction is a runner bug and raises.
     """
-    batch_size = config.execution_policy.batch_size
-    for lang in config.target_languages:
-        yield f"{lang}/index.json", serialize_json_bytes(plan.index_entries[lang])
-        yield f"{lang}/archives/index.json", serialize_json_bytes(plan.manifest_entries[lang])
-        for month in plan.archive_months[lang]:
-            entries = _stream_archive_entries(repo, batch_size, lang, month)
-            yield f"{lang}/archives/{archive_file_name(month)}", serialize_json_bytes(entries)
-        for slug, payload in _iter_item_payloads(repo, config, lang):
-            yield f"{lang}/items/{slug}.json", serialize_json_bytes(payload)
-    yield "stats.json", serialize_json_bytes(plan.stats)
+    if rel_path == "stats.json":
+        # Real written bytes, including last_export_run_timestamp (the
+        # excluded-timestamp variant exists only inside content_fingerprint).
+        yield serialize_json_bytes(plan.stats)
+        return
+    for lang in plan.index_entries:
+        if rel_path == f"{lang}/index.json":
+            yield serialize_json_bytes(plan.index_entries[lang])
+            return
+        if rel_path == f"{lang}/archives/index.json":
+            yield serialize_json_bytes(plan.manifest_entries[lang])
+            return
+        archives_prefix = f"{lang}/archives/"
+        if rel_path.startswith(archives_prefix):
+            file_name = rel_path[len(archives_prefix):]
+            if file_name.startswith("archive_") and file_name.endswith(".json"):
+                month = file_name[len("archive_"):-len(".json")].replace("_", "-")
+                if (lang, month) in plan.archive_hashes:
+                    yield from _iter_json_array_bytes(_iter_archive_entries(
+                        repo, config.execution_policy.batch_size, lang, month
+                    ))
+                    return
+        items_prefix = f"{lang}/items/"
+        if rel_path.startswith(items_prefix) and rel_path.endswith(".json"):
+            slug = rel_path[len(items_prefix):-len(".json")]
+            row = repo.fetch_published_payload_by_slug(lang, slug)
+            if row is None:
+                raise RuntimeError(
+                    f"Planned item {rel_path} has no published payload row in the "
+                    "held snapshot; the plan and the database disagree, which is "
+                    "a runner bug, not a recoverable state."
+                )
+            payload = assemble_item_payload(dict(row), row["slug"], row["published_at"])
+            validate_item_payload(payload)
+            yield serialize_json_bytes(payload)
+            return
+    raise ValueError(f"Path outside the planned artifact grammar: {rel_path!r}")

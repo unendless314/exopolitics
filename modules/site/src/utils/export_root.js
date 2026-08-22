@@ -123,7 +123,7 @@ function validatePointer(pointer, base, pointerPath) {
 
 /**
  * Resolve the live export generation through the atomic pointer
- * (Phase B1: <base>/current.json -> <base>/generations/<generation>).
+ * (<base>/current.json -> <base>/generations/<generation>).
  *
  * Returns `{ generationRoot, pointer }` where `pointer` is the validated
  * current.json payload. A missing, unparseable or invalid pointer — or a

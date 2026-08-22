@@ -1,7 +1,7 @@
 # Publish Execution Policy
 
-**Document version:** v2.5
-**Updated:** 2026-08-19
+**Document version:** v2.7
+**Updated:** 2026-08-22
 **Status:** Active rewrite draft
 
 ---
@@ -94,9 +94,11 @@ Both `run` and `rebuild` treat `data/publish_export/` as disposable output that 
   - After reconciliation commits the database state, the runner builds a deterministic generation plan from the post-sync snapshot and compares its `content_fingerprint` against `current.json`. A new generation is built only when the fingerprint differs or when no pointer exists (bootstrap — the first successful run always builds a complete, possibly empty, generation).
   - A no-change run builds nothing and only refreshes the pointer's `last_successful_run_at` atomically.
   - When a build does happen it is always a complete generation — every item JSON, the latest `index.json`, the archives manifest (`archives/index.json`, always written, empty as `[]`), all monthly archive files, `stats.json`, and `meta.json` — built from the full active published set. There is no affected-months-only file emission.
-  - Manifest and statistics counts must still be derived from SQL aggregation queries directly over the SQLite canonical tables (`publish_record` and `publish_language_status`); the runner must not load, parse, or scan historical monthly archive files from disk to compute these metrics. Archive `updated_at` stamping consults the live generation's `meta.json` hashes, falling back to a byte-compare against the fallback root, without scanning the whole tree (see DATA_CONTRACT.md Section 2.3).
+  - The physical write policy for a `run` build: an unchanged artifact whose planned digest matches the trusted live generation's hash-stream record is reused from that generation via an `os.link()` hardlink — the source must be a regular, non-reparse file inside the trusted prior generation, every link is verified after the fact (destination and source must resolve to the same `(st_dev, st_ino)`; a mismatch removes the destination and fails stop), and any link failure (cross-volume placement, filesystem policy, NTFS limitation, network storage) falls back to a safe physical write of the planned bytes. The reuse decision trusts the hashes recorded in the prior generation's stream and never re-hashes source bytes; the accepted residual integrity risk (out-of-band corruption propagating through hardlinks) is repaired by `rebuild`. Generation contents are immutable after creation — safety-critical under hardlink reuse, since an in-place edit would silently rewrite every generation sharing the inode (see DATA_CONTRACT.md Section 6.7).
+  - Manifest and statistics counts must still be derived from SQL aggregation queries directly over the SQLite canonical tables (`publish_record` and `publish_language_status`); the runner must not load, parse, or scan historical monthly archive files from disk to compute these metrics. Archive `updated_at` stamping consults the live generation's hash stream (`file_hashes.jsonl`), falling back to a digest-compare against the fallback root, without scanning the whole tree (see DATA_CONTRACT.md Section 2.3).
 - **Full Rebuild (`rebuild` command)**:
   - `rebuild` always builds a complete new generation, regardless of the fingerprint comparison, and switches the pointer to it. Old generations are reclaimed by retention (see Section 6.3), not by clearing the export directory.
+  - `rebuild` always performs a full physical rewrite of every artifact: hardlink reuse is disabled even when hashes match. This is the escape hatch for serializer changes, hash-algorithm upgrades, and repair operations (including repair of corruption propagated through hardlinks), re-establishing verified bytes.
   - It must reload canonical publish eligibility from the database.
   - It must reuse existing frozen slugs from `publish_record`.
   - It must keep withdrawn items absent from all rebuilt outputs.
@@ -182,6 +184,7 @@ To support high volume data growth (e.g. 100k+ source items) while reducing the 
 - When writing item JSON files to disk (especially during a full `rebuild` command), the runner **must not** load the entire dataset of item payloads into memory at once.
 - The runner must process records in chunks (e.g., using paginated SQL queries or SQLite cursors with `fetchmany(1000)`). The memory footprint during file emission must be bounded by the chunk size and aggregate writer buffers, and must not scale linearly with the total number of published items.
 - The same chunked streaming applies to the export-state fingerprint pass that precedes every build decision: planned artifacts are read and hashed in bounded batches without being written to disk, so state comparison does not change these bounds.
+- Artifact-hash bookkeeping follows the same bound. The planned per-artifact digests are carried from the fingerprint pass to the write pass through a disk-backed temporary digest index (a temporary SQLite file at the export root, appended in bounded batches, consumed in fixed artifact order, and discarded at run teardown); the prior generation's `file_hashes.jsonl` hash stream is streamed line by line into that index; and the new generation's stream is appended record by record during the write pass. No structure proportional to item count — payloads or hashes — is ever resident in memory.
 
 ### 9.3 Lightweight Index Compilation
 - `summary_short` is a short upstream field read directly from `translation_output.summary_short`; no summary is extracted or derived from a larger body field, and no body-derived fallback exists. Aggregate compilation for `index.json` and monthly `archive_YYYY_MM.json` files therefore reads only lightweight fields, and must still process rows in bounded batches (e.g. chunked SQLite queries) rather than loading the full result set at once.

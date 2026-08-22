@@ -194,7 +194,7 @@ class PublishRepository:
 
     def insert_publish_record(self, source_item_id: int, slug: str, first_published_at: str, now: Optional[str] = None) -> int:
         # ``now`` lets the orchestrator pin one logical run timestamp for the
-        # whole run (Phase B1 single-run_ts rule); the default preserves the
+        # whole run (the single-run_ts rule); the default preserves the
         # publish-owned clock for any other caller.
         now = now if now is not None else get_utc_now_iso8601()
         cursor = self.conn.cursor()
@@ -231,7 +231,7 @@ class PublishRepository:
         now: Optional[str] = None
     ) -> None:
         # ``now`` lets the orchestrator pin one logical run timestamp for the
-        # whole run (Phase B1 single-run_ts rule); the default preserves the
+        # whole run (the single-run_ts rule); the default preserves the
         # publish-owned clock for any other caller.
         now = now if now is not None else get_utc_now_iso8601()
         cursor = self.conn.cursor()
@@ -280,7 +280,7 @@ class PublishRepository:
 
     def upsert_archive_metadata(self, language_code: str, archive_month: str, updated_at: str, now: Optional[str] = None) -> None:
         # ``now`` lets the orchestrator pin one logical run timestamp for the
-        # whole run (Phase B1 single-run_ts rule); the default preserves the
+        # whole run (the single-run_ts rule); the default preserves the
         # publish-owned clock for any other caller.
         now = now if now is not None else get_utc_now_iso8601()
         cursor = self.conn.cursor()
@@ -332,8 +332,7 @@ class PublishRepository:
         One page of full export payloads for active published items in one
         language, ordered by slug ASC. Carries the same canonical fields as
         fetch_canonical_item_payload plus the frozen slug and the publish-layer
-        published_at; backs the deterministic generation plan's item streaming
-        (Phase B1, known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md).
+        published_at; backs the deterministic generation plan's item streaming.
         """
         cursor = self.conn.cursor()
         cursor.execute("""
@@ -364,12 +363,46 @@ class PublishRepository:
         """, (language_code, limit, offset))
         return cursor.fetchall()
 
+    def fetch_published_payload_by_slug(self, language_code: str, slug: str) -> Optional[sqlite3.Row]:
+        """
+        The full export payload for one active published item, addressed by
+        language and frozen slug: the same SELECT/JOIN/WHERE shape as
+        fetch_published_payload_batch, narrowed to a single row. The write
+        pass re-reads only items that need a physical write; reused
+        (hardlinked) items are never re-read (digest carry-over).
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT
+                a.source_item_id,
+                t.language_code,
+                t.display_title,
+                t.summary_short,
+                t.bullet_1,
+                t.bullet_2,
+                t.bullet_3,
+                s.canonical_url,
+                s.published_at AS source_published_at,
+                a.approved_at,
+                c.downstream_action,
+                a.author_metadata,
+                pr.slug,
+                pls.published_at
+            FROM publish_record pr
+            JOIN publish_language_status pls ON pls.publish_record_id = pr.publish_record_id
+            JOIN approved_content_record a ON a.source_item_id = pr.source_item_id
+            JOIN translation_output t ON t.parent_content_id = a.parent_content_id AND t.source_fingerprint = a.content_fingerprint AND t.language_code = pls.language_code
+            JOIN curation_decision c ON c.source_item_id = a.source_item_id
+            JOIN source_item s ON s.source_item_id = pr.source_item_id
+            WHERE pls.language_code = ? AND pls.publish_status = 'published'
+              AND pr.slug = ?
+            LIMIT 1
+        """, (language_code, slug))
+        return cursor.fetchone()
+
     # --- Aggregate query helpers ---
     # Read-only queries behind the index/archive/manifest/stats aggregate
-    # artifacts. Extracted from orchestrator.py as part of the Phase A
-    # surviving-code split
-    # (known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md):
-    # pure move, zero behavior change.
+    # artifacts.
 
     def get_published_item_rows(self) -> List[sqlite3.Row]:
         """

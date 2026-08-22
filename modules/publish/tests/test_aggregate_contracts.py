@@ -19,6 +19,7 @@ from modules.publish.src.database import (
     run_migrations,
     get_connection,
 )
+from modules.publish.src import generation
 from modules.publish.tests import support
 
 ISO_8601_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -341,8 +342,8 @@ class TestAggregateArtifactContracts(unittest.TestCase):
     def test_zero_state_bootstrap_layout(self) -> None:
         """A zero-data first run still builds a complete (empty) generation:
         every configured language gets an empty index, an empty archives
-        manifest and explicit items/ and archives/ directories (Phase B1
-        bootstrap layout, consumed by the site loaders)."""
+        manifest and explicit items/ and archives/ directories (the
+        bootstrap layout consumed by the site loaders)."""
         with self.clock.patch():
             support.run_publish(self.config, self.db_path, self.export_dir)
             run_ts = self.clock.now_iso
@@ -359,6 +360,41 @@ class TestAggregateArtifactContracts(unittest.TestCase):
             self.assertEqual(run_ts, pointer["export_completed_at"])
             self.assertEqual(run_ts, pointer["last_successful_run_at"])
             self.assertEqual(["zh", "en"], pointer["languages"])
+
+
+class TestStreamingJsonArraySerialization(unittest.TestCase):
+    """The streaming archive writer must emit bytes identical to the
+    canonical ``serialize_json_bytes`` list serialization — monthly archives
+    are serialized element by element (EXECUTION_POLICY Section 9 bounds
+    memory by batch size, never by month size), so this equivalence is what
+    keeps the stream on-contract."""
+
+    def assert_streamed_equals_canonical(self, entries: list) -> None:
+        streamed = b"".join(generation._iter_json_array_bytes(iter(entries)))
+        self.assertEqual(generation.serialize_json_bytes(entries), streamed)
+
+    def test_empty_array(self) -> None:
+        self.assert_streamed_equals_canonical([])
+
+    def test_single_entry(self) -> None:
+        self.assert_streamed_equals_canonical([
+            {"slug": "a", "display_title": "Title", "published_at": "2026-05-15T12:00:00Z"},
+        ])
+
+    def test_many_entries_with_unicode_and_special_chars(self) -> None:
+        entries = [
+            {
+                "slug": f"item-{i}",
+                "display_title": f"標題 {i} \"quoted\" \\ backslash",
+                "summary_short": "多行\n摘要\twith tabs",
+                "canonical_url": f"https://example.com/{i}?q=測試",
+                "source_published_at": "2026-05-15T12:00:00Z",
+                "approved_at": "2026-05-16T12:00:00Z",
+                "published_at": "2026-07-01T00:00:00Z",
+            }
+            for i in range(25)
+        ]
+        self.assert_streamed_equals_canonical(entries)
 
 
 if __name__ == "__main__":

@@ -1,9 +1,7 @@
 """
 Payload validation, slug generation, UI label checks and payload assembly.
 
-Extracted from orchestrator.py as part of the Phase A surviving-code split
-(known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md): pure move,
-zero behavior change. Everything here is deterministic and free of clock,
+Everything here is deterministic and free of clock,
 database and filesystem access; the orchestrator namespace re-exports the
 public symbols for compatibility.
 """

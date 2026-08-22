@@ -1,6 +1,6 @@
 # Publish Export Generation Pointer Refactor — Phase B2 Plan
 
-**Status:** Approved by owner and external reviewer on 2026-08-21 — implementation step breakdown in [PUBLISH_B2_IMPLEMENTATION_STEP_BREAKDOWN.md](PUBLISH_B2_IMPLEMENTATION_STEP_BREAKDOWN.md) approved the same day; implementation may begin, no code changes yet
+**Status:** Implemented and verified on 2026-08-22 — publish suite 141 passed / 664 subtests / 1 skipped (documented no-symlink-privilege skip), site suite 154 passed, and a 20-check end-to-end sandbox rehearsal on a copy of the real data passed (legacy-transition witness path exercised for real, hardlink reuse confirmed by inode). Post-implementation review found two P1s — a null hash-stream reference accepted as legacy, and monthly-archive serialization accumulating a whole month in memory — both fixed with regression tests the same day
 **Version:** B2 plan v1.6
 **Date:** 2026-08-21
 **B1 record:** Closed after final review on 2026-08-19. See [resolved B1 working note](resolved/PUBLISH_B1_IMPLEMENTATION_WORKING_NOTE.md).

@@ -1,9 +1,7 @@
 """
 Pure reconciliation diff logic for the publish run.
 
-Extracted from orchestrator.py as part of the Phase A surviving-code split
-(known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md): pure move,
-zero behavior change. Given the reconciliation candidates and the active
+Given the reconciliation candidates and the active
 publish statuses, decide which (source_item_id, language_code) pairs must be
 published/updated and which must be withdrawn. No clock, database or
 filesystem access happens here; the queries that produce the inputs stay in
