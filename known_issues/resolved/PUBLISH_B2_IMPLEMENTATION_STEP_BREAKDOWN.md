@@ -1,6 +1,6 @@
 # Publish B2 Implementation Step Breakdown
 
-**Status:** Implemented and verified on 2026-08-22 — Steps 0–11 complete (code, tests, docs, sandbox rehearsal); two post-review P1 fixes (null `file_hashes` reference and bounded-memory monthly archive serialization) applied with regression tests; ready for final sign-off
+**Status:** **Closed 2026-08-22** — Steps 0–11 complete (code, tests, docs, sandbox rehearsal); two post-review P1 fixes (null `file_hashes` reference and bounded-memory monthly archive serialization) applied with regression tests; final review LGTM; archived to `resolved/`
 **Date:** 2026-08-21
 **Parent plan:** [PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md](PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md) (B2 plan v1.6, approved 2026-08-21)
 

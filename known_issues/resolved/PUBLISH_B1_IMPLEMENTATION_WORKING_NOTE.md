@@ -1,7 +1,7 @@
 # Phase B1 實作工作筆記（context 恢復用）
 
 **建立：** 2026-08-18（Kimi session，給 compact 後的自己索引用；Phase B1 完成後由站主決定刪除或歸檔）
-**主計畫：** [active Phase B2 plan](../PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md)（B1 已結案；B2 尚未開始且未獲核准）
+**主計畫：** [Phase B2 plan](PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md)（B1、B2 皆已結案，同目錄歸檔）
 **交接文件：** `C:\Users\user\Documents\kimi\workspace\exopolitics-api-handoff.md`、`C:\Users\user\Documents\kimi\workspace\exopolitics-deep-reader-strategy.md`
 
 
@@ -9,7 +9,7 @@
 > 
 > **Closed:** Final review LGTM on 2026-08-19. Final publish validation: **117 passed / 585 subtests**.
 > 
-> **Active follow-up:** [Phase B2 hardlink-reuse plan](../PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md). B2 is separate planning work; this resolved record does not authorize or define its implementation.
+> **Follow-up outcome:** the [Phase B2 hardlink-reuse plan](PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md) landed and closed on 2026-08-22 (post-implementation review LGTM); it is archived in this same directory.
 > 
 > **Durable operational facts:** generations are immutable complete snapshots selected by atomic `current.json`; unchanged `run` executions refresh pointer freshness without changing generation; `rebuild` always creates a generation; the publish lock file persists after release to avoid inode-reuse races; generation snapshots use `BEGIN IMMEDIATE`; retention protects the live generation, orders `-rN` suffixes numerically, and never refills retired same-second ID gaps; readers retry the full pointer-to-generation flow once on retention TOCTOU.
 

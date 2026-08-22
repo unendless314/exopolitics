@@ -1,6 +1,6 @@
 # `api` Module Proposal
 
-**Status:** Proposal v1.9 — six external review rounds incorporated. **Phase A (mechanical split of publish's orchestrator) is completed and passed independent code review (2026-08-17)**. **Phase B1 (generation + atomic pointer) landed 2026-08-18** — the publish export is now generation + `current.json` pointer based, and the site-side consumption (resolver, pointer-driven "last updated", generationized fixture) landed with it. Phase B2 (hardlink reuse optimization) remains a separate pending batch. This module stays at documentation stage and is not implemented. Refactor basis: `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7.
+**Status:** Proposal v1.9 — six external review rounds incorporated. **Phase A (mechanical split of publish's orchestrator) is completed and passed independent code review (2026-08-17)**. **Phase B1 (generation + atomic pointer) landed 2026-08-18** — the publish export is now generation + `current.json` pointer based, and the site-side consumption (resolver, pointer-driven "last updated", generationized fixture) landed with it. **Phase B2 (hardlink reuse optimization) landed 2026-08-22** without changing the reader-visible contract. This module stays at documentation stage and is not implemented. Refactor basis: `known_issues/resolved/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7.
 **Proposed:** 2026-08-17
 **Reversal plan:** delete `modules/api/` entirely. No top-level docs (including `docs/MODULE_BOUNDARIES.md`) have been modified; no other module is affected.
 
@@ -60,7 +60,7 @@ Review round 2 surfaced that export reads are unsafe without a generation marker
 - The writer-side fix deletes complexity in publish itself (per-file promote, per-file backups, promotion journal, withdrawal/language-shrink sweeps all simplify) and benefits every current and future consumer of the export, including `site`.
 - The pattern already has an accepted pending precedent in this repo: `known_issues/SITE_RELEASE_POINTER_PROMOTION_PROPOSAL.md`.
 
-Consequence: **api implementation was gated on the publish refactor, by design and by preference.** Phase B1 — the part that establishes the reader-visible contract this module depends on — has since landed (2026-08-18); Phase B2 (hardlink reuse optimization) remains pending as an independent batch that does not change generation immutability or the reader protocol. The module stays at documentation stage until the refactor completes and the owner green-lights implementation. The refactor basis lives in `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` (v7).
+Consequence: **api implementation was gated on the publish refactor, by design and by preference.** Phase B1 — the part that establishes the reader-visible contract this module depends on — has since landed (2026-08-18); Phase B2 (hardlink reuse optimization) landed 2026-08-22 as an independent batch that did not change generation immutability or the reader protocol. The refactor is complete; the module stays at documentation stage until the owner green-lights implementation. The refactor basis is archived in `known_issues/resolved/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` (v7).
 
 ## 4. Proposed Boundary Definition
 
@@ -98,13 +98,13 @@ The module exposes **its own** contract externally, but v1 response field names 
 
 ## 7. Upstream Precondition (met for Phase B1)
 
-**Phase B1 of the publish generation-pointer refactor** (`known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7) landed on 2026-08-18. The assumptions this contract was written against are now live behavior:
+**Phase B1 of the publish generation-pointer refactor** (`known_issues/resolved/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7) landed on 2026-08-18. The assumptions this contract was written against are now live behavior:
 
 1. **Generation consistency:** pre-B1 promotion was per-file and non-atomic, with withdrawal cleanup interleaved. Generation directories are now immutable and `current.json` switches atomically — content drift during a read is impossible by construction. One narrow retry remains: if retention sweeps the resolved generation at any point during the read flow, the reader re-resolves the pointer and re-runs the flow once before returning `503` (see `API_CONTRACT.md` §7).
 2. **Language authority:** the pointer's `languages` list is the single source of truth; directory existence is not evidence (publish's own orchestration said so even before the refactor).
 3. **Freshness signaling:** the pointer carries `export_completed_at` and `last_successful_run_at`, letting the agent distinguish "no news today" from "export not updated yet".
 
-Phase B2 (hardlink reuse optimization) is still pending as an independent batch; it does not change the reader-visible contract above. The api module itself remains at documentation stage.
+Phase B2 (hardlink reuse optimization) landed 2026-08-22 as an independent batch; it did not change the reader-visible contract above. The api module itself remains at documentation stage.
 
 Deferred upstream item (not a blocker): `category` in export items — only if a future consumer needs classification in the reading list.
 
@@ -122,7 +122,7 @@ Included now:
 - this proposal document
 - `API_CONTRACT.md` — v1.8 contract draft rebased onto the generation-pointer layout
 
-Deliberately excluded until the publish refactor completes (Phase B1 landed 2026-08-18; Phase B2 pending) and this proposal is approved:
+Deliberately excluded until this proposal is approved (the publish refactor is complete: Phase B1 landed 2026-08-18, Phase B2 landed 2026-08-22):
 
 - changes to any top-level doc
 - `src/`, `config/`, `tests/` scaffolds
@@ -130,7 +130,7 @@ Deliberately excluded until the publish refactor completes (Phase B1 landed 2026
 
 ## 10. On Approval, the Implementation Change Must Also Update
 
-(After the publish refactor completes — Phase B1 landed 2026-08-18, Phase B2 pending; the refactor plan lists its own doc set.)
+(The publish refactor is complete — Phase B1 landed 2026-08-18, Phase B2 landed 2026-08-22; the refactor plan lists its own doc set.)
 
 - `docs/MODULE_BOUNDARIES.md` — add section 3.10 from §4 above
 - `docs/SYSTEM_OVERVIEW.md` — add `api` to the module sequence/diagram

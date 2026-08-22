@@ -1,7 +1,7 @@
 # `api` Module — v1 Contract Draft
 
-**Status:** Draft v1.8 — Phase B1 of the publish refactor has landed (2026-08-18): the publish export is now generation + `current.json` pointer based, and the site consumes it through the pointer. Refactor basis: `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7. The api module itself remains at documentation stage and is **not implemented**.
-**Updated:** 2026-08-18
+**Status:** Draft v1.8 — the publish refactor is complete: Phase B1 landed 2026-08-18 (generation + `current.json` pointer based export, consumed by the site through the pointer) and Phase B2 (hardlink reuse) landed 2026-08-22 without changing the reader-visible contract. Refactor basis: `known_issues/resolved/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7. The api module itself remains at documentation stage and is **not implemented**.
+**Updated:** 2026-08-22
 
 **Scope:** v1 serves the deep-reader agent only. It is deliberately not designed as a general-purpose content API; generalization decisions are deferred until a second consumer exists.
 
@@ -123,7 +123,7 @@ Deliberately excluded in v1: `category` (not present in the export; adding it re
 
 ## 5. Data Source and Adapter Boundary
 
-Responses derive exclusively from the **current generation** under `data/publish_export/` (layout per `known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7, landed as Phase B1 on 2026-08-18):
+Responses derive exclusively from the **current generation** under `data/publish_export/` (layout per `known_issues/resolved/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md` v7, landed as Phase B1 on 2026-08-18):
 
 ```text
 data/publish_export/

@@ -1,6 +1,6 @@
 """
 Generation + pointer contract tests
-(known_issues/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md).
+(known_issues/resolved/PUBLISH_EXPORT_GENERATION_POINTER_REFACTOR_PLAN.md).
 
 Covers the generation/pointer surface not pinned down by the rewritten
 pre-refactor tests: bootstrap pointer/meta.json shape, generation id allocation
